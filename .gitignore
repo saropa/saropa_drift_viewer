@@ -6,7 +6,9 @@ pubspec.lock
 
 # IDE
 .idea/
-.vscode/
+.vscode/*
+!.vscode/tasks.json
+!.vscode/settings.json
 *.iml
 
 # OS
@@ -20,5 +22,10 @@ reports/
 __pycache__/
 *.py[cod]
 *.pyo
+
+# VS Code / Cursor extension (extension/)
+extension/node_modules/
+extension/out/
+extension/*.vsix
 
 # Root is the Dart package.

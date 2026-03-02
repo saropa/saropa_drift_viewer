@@ -720,7 +720,7 @@ abstract final class DriftDebugServer {
     }
   }
 
-  /// Stable string representation of a row for diffing (sorted keys).
+  /// Stable string representation of a row for diffing (sorted keys). Used by snapshot compare.
   static String _rowSignature(Map<String, dynamic> row) {
     final keys = row.keys.toList()..sort();
     final sorted = <String, dynamic>{};
@@ -730,6 +730,7 @@ abstract final class DriftDebugServer {
     return jsonEncode(sorted);
   }
 
+  /// Handles POST /api/snapshot: captures full table data for all tables into in-memory [_snapshot].
   static Future<void> _handleSnapshotCreate(
     HttpResponse response,
     DriftDebugQuery query,
@@ -757,6 +758,7 @@ abstract final class DriftDebugServer {
     }
   }
 
+  /// Handles GET /api/snapshot: returns snapshot metadata (id, createdAt, table counts) or null.
   static Future<void> _handleSnapshotGet(HttpResponse response) async {
     final snap = _snapshot;
     if (snap == null) {
@@ -782,6 +784,7 @@ abstract final class DriftDebugServer {
     await response.close();
   }
 
+  /// Handles GET /api/snapshot/compare: diffs current DB vs [_snapshot] (per-table added/removed/unchanged). Optional ?format=download.
   static Future<void> _handleSnapshotCompare(
     HttpResponse response,
     HttpRequest request,
@@ -848,6 +851,7 @@ abstract final class DriftDebugServer {
     }
   }
 
+  /// Handles DELETE /api/snapshot: clears the in-memory snapshot.
   static Future<void> _handleSnapshotDelete(HttpResponse response) async {
     _snapshot = null;
     _setJsonHeaders(response);
@@ -855,6 +859,7 @@ abstract final class DriftDebugServer {
     await response.close();
   }
 
+  /// Handles GET /api/compare/report: schema and per-table row count diff between main [query] and [_queryCompare]. Optional ?format=download.
   static Future<void> _handleCompareReport(
     HttpResponse response,
     HttpRequest request,
@@ -871,7 +876,7 @@ abstract final class DriftDebugServer {
       return;
     }
     final path = request.uri.path;
-    if (!path.endsWith('/report') && !path.endsWith('report')) {
+    if (path != '/api/compare/report' && path != 'api/compare/report') {
       response.statusCode = HttpStatus.notFound;
       await response.close();
       return;
@@ -885,24 +890,21 @@ abstract final class DriftDebugServer {
       final schemaSame = schemaA == schemaB;
       final List<Map<String, dynamic>> countDiffs = [];
       for (final table in allTables) {
-        int countA = 0;
-        int countB = 0;
+        final futures = <Future<List<Map<String, dynamic>>>>[];
         if (tablesA.contains(table)) {
-          final rows = await query('SELECT COUNT(*) AS c FROM "$table"');
-          countA = (rows.isNotEmpty && rows.first['c'] != null)
-              ? (rows.first['c'] is int
-                  ? rows.first['c'] as int
-                  : (rows.first['c'] as num).toInt())
-              : 0;
+          futures.add(query('SELECT COUNT(*) AS c FROM "$table"'));
         }
         if (tablesB.contains(table)) {
-          final rows = await queryB('SELECT COUNT(*) AS c FROM "$table"');
-          countB = (rows.isNotEmpty && rows.first['c'] != null)
-              ? (rows.first['c'] is int
-                  ? rows.first['c'] as int
-                  : (rows.first['c'] as num).toInt())
-              : 0;
+          futures.add(queryB('SELECT COUNT(*) AS c FROM "$table"'));
         }
+        final results = futures.isEmpty
+            ? <List<Map<String, dynamic>>>[]
+            : await Future.wait(futures);
+        int countA = 0;
+        int countB = 0;
+        int idx = 0;
+        if (tablesA.contains(table)) countA = _extractCountFromRows(results[idx++]);
+        if (tablesB.contains(table)) countB = _extractCountFromRows(results[idx++]);
         countDiffs.add(<String, dynamic>{
           'table': table,
           'countA': countA,
@@ -1025,6 +1027,7 @@ abstract final class DriftDebugServer {
     .sql-runner .sql-result th { font-weight: 600; }
     .sql-runner .sql-error { color: #e57373; margin-top: 0.35rem; font-size: 0.875rem; }
     .sql-runner .sql-result, .sql-runner .sql-error { transition: opacity 0.15s ease; }
+    .diff-result { transition: opacity 0.2s ease; }
     #live-indicator { font-size: 0.75rem; margin-left: 0.5rem; }
     body.theme-dark #live-indicator { color: #7cb342; }
     body.theme-light #live-indicator { color: #558b2f; }
@@ -1089,7 +1092,7 @@ abstract final class DriftDebugServer {
       <button type="button" id="snapshot-clear" style="display: none;">Clear snapshot</button>
     </div>
     <p id="snapshot-status" class="meta"></p>
-    <pre id="snapshot-compare-result" class="meta" style="display: none; max-height: 40vh;"></pre>
+    <pre id="snapshot-compare-result" class="meta diff-result" style="display: none; max-height: 40vh;"></pre>
   </div>
   <div class="collapsible-header" id="compare-toggle">▼ Database diff</div>
   <div id="compare-collapsible" class="collapsible-body collapsed">
@@ -1099,7 +1102,7 @@ abstract final class DriftDebugServer {
       <a href="/api/compare/report?format=download" id="compare-export">Export diff report</a>
     </div>
     <p id="compare-status" class="meta"></p>
-    <pre id="compare-result" class="meta" style="display: none; max-height: 40vh;"></pre>
+    <pre id="compare-result" class="meta diff-result" style="display: none; max-height: 40vh;"></pre>
   </div>
   <div class="collapsible-header" id="schema-toggle">▼ Schema</div>
   <div id="schema-collapsible" class="collapsible-body collapsed"><pre id="schema-inline-pre" class="meta">Loading…</pre></div>
@@ -1247,8 +1250,12 @@ abstract final class DriftDebugServer {
           .finally(function() { compareBtn.disabled = false; });
       });
       if (clearBtn) clearBtn.addEventListener('click', function() {
+        clearBtn.disabled = true;
+        statusEl.textContent = 'Clearing…';
         fetch('/api/snapshot', authOpts({ method: 'DELETE' }))
-          .then(function() { updateSnapshotUI(false); resultPre.style.display = 'none'; refreshSnapshotStatus(); });
+          .then(function() { updateSnapshotUI(false); resultPre.style.display = 'none'; refreshSnapshotStatus(); })
+          .catch(function(e) { statusEl.textContent = 'Error: ' + e.message; })
+          .finally(function() { clearBtn.disabled = false; });
       });
       refreshSnapshotStatus();
     })();
@@ -1754,7 +1761,11 @@ abstract final class DriftDebugServer {
         loadingEl.style.display = 'none';
         applyTableListAndCounts(tables);
         pollGeneration();
-        const hash = location.hash ? decodeURIComponent(location.hash.slice(1)) : '';
+        // Deep link: URL hash #TableName (e.g. from IDE extension) auto-loads that table.
+        var hash = '';
+        if (location.hash && location.hash.length > 1) {
+          try { hash = decodeURIComponent(location.hash.slice(1)); } catch (e) { }
+        }
         if (hash && tables.indexOf(hash) >= 0) loadTable(hash);
       })
       .catch(e => { document.getElementById('tables-loading').textContent = 'Failed to load tables: ' + e; });
