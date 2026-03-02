@@ -41,7 +41,7 @@ await myDb.startDriftViewer(enabled: kDebugMode);
 
 ### 3. Open in a browser
 
-Open **http://127.0.0.1:8642**. You'll see a list of tables (with row counts); click one to view its rows as JSON. The UI supports **live refresh** (table view updates when data changes, no manual refresh), **pagination** (limit/offset), **client-side row filter**, a **collapsible schema** panel, **export table as CSV**, and a **light/dark theme** (saved in the browser). A **read-only SQL runner** lets you run ad-hoc `SELECT` queries with table/column autofill and templates; results can be shown as a table or JSON. You can also **export schema (no data)** as `schema.sql` or **export a full dump (schema + data)** as `dump.sql`; the full dump may take a moment for large databases.
+Open **http://127.0.0.1:8642**. From VS Code/Cursor: **Run Task → Open Drift Viewer** (uses `.vscode/tasks.json` in this repo). Or install the **Drift Viewer** extension (`extension/`) for a command-palette shortcut. You'll see a list of tables (with row counts); click one to view its rows as JSON. The UI supports **live refresh** (table view updates when data changes, no manual refresh), **pagination** (limit/offset), **client-side row filter**, a **collapsible schema** panel, **export table as CSV**, and a **light/dark theme** (saved in the browser). A **read-only SQL runner** lets you run ad-hoc `SELECT` queries with table/column autofill and templates; results can be shown as a table or JSON. You can **export schema (no data)** as `schema.sql`, **export a full dump (schema + data)** as `dump.sql`, or **download the raw SQLite file** (binary `.sqlite`) to open in DB Browser or similar—the download option requires passing `getDatabaseBytes` when starting the server (see below). **Snapshot / time travel**: take an in-memory snapshot of all tables, then "Compare to now" to see added/removed/unchanged rows per table and export the diff as JSON. **Database diff**: when you pass `queryCompare` at startup (e.g. a second DB such as staging), the UI can show a diff report (schema + per-table row counts) and export it.
 
 ---
 
@@ -63,6 +63,7 @@ Optional parameters:
 - **`corsOrigin`** — `'*'` (default), a specific origin, or `null` to omit CORS.
 - **`authToken`** — optional. When set, every request must include `Authorization: Bearer <token>` or `?token=<token>`. Use for secure dev tunnels (e.g. ngrok).
 - **`basicAuthUser`** and **`basicAuthPassword`** — optional. When both set, HTTP Basic auth is accepted (alternative to token).
+- **`getDatabaseBytes`** — optional. When set, the UI offers "Download database (raw .sqlite)" and `GET /api/database` serves the file (e.g. `() => File(yourDbPath).readAsBytes()`). Open the downloaded file in DB Browser or similar.
 - **`onLog`** — e.g. `(msg) => debugPrint(msg)`.
 - **`onError`** — e.g. `(err, stack) => debugPrint('$err\n$stack')`.
 
@@ -114,6 +115,8 @@ Common parameters:
 - **`corsOrigin`** — CORS header: `'*'`, specific origin, or `null` to disable.
 - **`authToken`** — optional; when set, requests require Bearer token or `?token=`. Use for tunnels (ngrok, port forwarding).
 - **`basicAuthUser`** / **`basicAuthPassword`** — optional; when both set, HTTP Basic auth is accepted.
+- **`getDatabaseBytes`** — optional; when set, `GET /api/database` serves the raw SQLite file for download (e.g. open in DB Browser). Use e.g. `() => File(dbPath).readAsBytes()`.
+- **`queryCompare`** — optional; when set, enables database diff: compare the main DB with another (e.g. staging) via the UI or `GET /api/compare/report` (schema + per-table row count diff; export as JSON).
 - **`onLog`**, **`onError`** — optional; for your logger or `debugPrint` / `print`.
 
 Only one server can run per process; calling start again when already running is a no-op. Use **`DriftDebugServer.stop()`** to shut down the server so you can call **`start`** again (e.g. in tests or graceful shutdown).

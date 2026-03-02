@@ -468,4 +468,316 @@ void main() {
       }
     });
   });
+
+  group('GET /api/database (raw SQLite file)', () {
+    late Future<List<Map<String, dynamic>>> Function(String sql) mockQuery;
+
+    setUp(() {
+      mockQuery = (String sql) async {
+        if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+          return [{'name': 'items'}];
+        }
+        return <Map<String, dynamic>>[];
+      };
+    });
+
+    tearDown(() async {
+      await DriftDebugServer.stop();
+    });
+
+    test('returns 501 when getDatabaseBytes not provided', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/database');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.notImplemented);
+        expect(resp.headers.value('content-type'), contains('application/json'));
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded['error'], contains('getDatabaseBytes'));
+      } finally {
+        client.close();
+      }
+    });
+
+    test('returns 200 and database bytes when getDatabaseBytes provided', () async {
+      const sqliteHeader = [0x53, 0x51, 0x4c, 0x69, 0x74, 0x65]; // "SQLite" magic
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+        getDatabaseBytes: () async => List<int>.from(sqliteHeader)..addAll(List.filled(100, 0)),
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/database');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        expect(resp.headers.value('content-disposition'), contains('database.sqlite'));
+        expect(resp.headers.value('content-type'), contains('octet-stream'));
+        final body = await resp.toList();
+        final bytes = body.expand((b) => b).toList();
+        expect(bytes.length, 106);
+        expect(bytes.take(6).toList(), sqliteHeader);
+      } finally {
+        client.close();
+      }
+    });
+  });
+
+  group('Snapshot / time travel', () {
+    late Future<List<Map<String, dynamic>>> Function(String sql) mockQuery;
+
+    setUp(() {
+      mockQuery = (String sql) async {
+        if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+          return [{'name': 'items'}];
+        }
+        if (sql.contains('COUNT(*)') && sql.contains('items')) {
+          return [{'c': 2}];
+        }
+        if (sql.contains('SELECT * FROM "items"')) {
+          return [
+            {'id': 1, 'name': 'a'},
+            {'id': 2, 'name': 'b'},
+          ];
+        }
+        return <Map<String, dynamic>>[];
+      };
+    });
+
+    tearDown(() async {
+      await DriftDebugServer.stop();
+    });
+
+    test('POST /api/snapshot captures state and GET returns metadata', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final postReq = await client.post('localhost', port!, '/api/snapshot');
+        final postResp = await postReq.close();
+        expect(postResp.statusCode, HttpStatus.ok);
+        final postBody = await postResp.transform(utf8.decoder).join();
+        final postData = jsonDecode(postBody) as Map<String, dynamic>;
+        expect(postData['id'], isNotNull);
+        expect(postData['tables'], ['items']);
+        expect(postData['tableCount'], 1);
+
+        final getReq = await client.get('localhost', port!, '/api/snapshot');
+        final getResp = await getReq.close();
+        expect(getResp.statusCode, HttpStatus.ok);
+        final getBody = await getResp.transform(utf8.decoder).join();
+        final getData = jsonDecode(getBody) as Map<String, dynamic>;
+        expect(getData['snapshot'], isNotNull);
+        expect((getData['snapshot'] as Map)['counts'], containsPair('items', 2));
+      } finally {
+        client.close();
+      }
+    });
+
+    test('GET /api/snapshot/compare returns diff when snapshot exists', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        await (await client.post('localhost', port!, '/api/snapshot')).close();
+        final req = await client.get('localhost', port!, '/api/snapshot/compare');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        final body = await resp.transform(utf8.decoder).join();
+        final data = jsonDecode(body) as Map<String, dynamic>;
+        expect(data['tables'], isNotEmpty);
+        expect(data['snapshotId'], isNotNull);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('GET /api/snapshot/compare returns 400 when no snapshot', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/snapshot/compare');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.badRequest);
+        final body = await resp.transform(utf8.decoder).join();
+        final data = jsonDecode(body) as Map<String, dynamic>;
+        expect(data['error'], contains('No snapshot'));
+      } finally {
+        client.close();
+      }
+    });
+
+    test('DELETE /api/snapshot clears snapshot', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        await (await client.post('localhost', port!, '/api/snapshot')).close();
+        final delReq = await client.delete('localhost', port!, '/api/snapshot');
+        final delResp = await delReq.close();
+        expect(delResp.statusCode, HttpStatus.ok);
+        final getReq = await client.get('localhost', port!, '/api/snapshot');
+        final getResp = await getReq.close();
+        final getBody = await getResp.transform(utf8.decoder).join();
+        final getData = jsonDecode(getBody) as Map<String, dynamic>;
+        expect(getData['snapshot'], isNull);
+      } finally {
+        client.close();
+      }
+    });
+  });
+
+  group('Database diff (queryCompare)', () {
+    late Future<List<Map<String, dynamic>>> Function(String sql) mockQueryA;
+    late Future<List<Map<String, dynamic>>> Function(String sql) mockQueryB;
+
+    setUp(() {
+      mockQueryA = (String sql) async {
+        if (sql.contains('ORDER BY type, name')) {
+          return [
+            {'type': 'table', 'name': 'items', 'sql': 'CREATE TABLE items(id INT);'},
+          ];
+        }
+        if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+          return [{'name': 'items'}];
+        }
+        if (sql.contains('COUNT(*)') && sql.contains('items')) {
+          return [{'c': 3}];
+        }
+        return <Map<String, dynamic>>[];
+      };
+      mockQueryB = (String sql) async {
+        if (sql.contains('ORDER BY type, name')) {
+          return [
+            {'type': 'table', 'name': 'items', 'sql': 'CREATE TABLE items(id INT);'},
+          ];
+        }
+        if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+          return [{'name': 'items'}];
+        }
+        if (sql.contains('COUNT(*)') && sql.contains('items')) {
+          return [{'c': 5}];
+        }
+        return <Map<String, dynamic>>[];
+      };
+    });
+
+    tearDown(() async {
+      await DriftDebugServer.stop();
+    });
+
+    test('GET /api/compare/report returns 501 when queryCompare not set', () async {
+      await DriftDebugServer.start(
+        query: mockQueryA,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/compare/report');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.notImplemented);
+        final body = await resp.transform(utf8.decoder).join();
+        final data = jsonDecode(body) as Map<String, dynamic>;
+        expect(data['error'], contains('queryCompare'));
+      } finally {
+        client.close();
+      }
+    });
+
+    test('GET /api/compare/report returns diff when queryCompare set', () async {
+      await DriftDebugServer.start(
+        query: mockQueryA,
+        enabled: true,
+        port: 0,
+        queryCompare: mockQueryB,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/compare/report');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        final body = await resp.transform(utf8.decoder).join();
+        final data = jsonDecode(body) as Map<String, dynamic>;
+        expect(data['schemaSame'], isTrue);
+        expect(data['tableCounts'], isNotEmpty);
+        final itemsRow = (data['tableCounts'] as List).firstWhere(
+          (e) => (e as Map)['table'] == 'items',
+          orElse: () => <String, dynamic>{},
+        ) as Map<String, dynamic>;
+        expect(itemsRow['countA'], 3);
+        expect(itemsRow['countB'], 5);
+        expect(itemsRow['diff'], -2);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('GET /api/compare/report?format=download returns attachment', () async {
+      await DriftDebugServer.start(
+        query: mockQueryA,
+        enabled: true,
+        port: 0,
+        queryCompare: mockQueryB,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.getUrl(
+          Uri.parse('http://localhost:$port/api/compare/report?format=download'),
+        );
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        expect(resp.headers.value('content-disposition'), contains('diff-report.json'));
+      } finally {
+        client.close();
+      }
+    });
+  });
 }

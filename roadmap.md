@@ -8,7 +8,7 @@ This document captures improvement ideas from a full project review: gaps to fix
 
 **What it is:** A debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minimal web UI. Apps pass a query callback (e.g. from Drift’s `customSelect` or any SQLite executor); the server lists tables and serves table rows and schema.
 
-**Current state:** Single package, ~260 lines of Dart in `lib/`, zero runtime dependencies, strict analysis, CI (analyze + format + test), publish workflow and a detailed Python publish script. The web UI is one inline HTML page (dark theme, table list + JSON `pre`).
+**Current state:** Single package, zero runtime dependencies, strict analysis, CI (analyze + format + test) on `master`, publish workflow and a detailed Python publish script. The web UI includes: table list with row counts, pagination (limit/offset), client-side filter, collapsible schema panel, export table as CSV, light/dark theme (localStorage), read-only SQL runner with templates/autofill, export schema (no data) and full dump (schema + data), live refresh (long-poll), and optional auth (token or HTTP Basic) for secure dev tunnels. Dependabot is configured for pub and github-actions.
 
 ---
 
@@ -17,8 +17,6 @@ This document captures improvement ideas from a full project review: gaps to fix
 | Priority | Item | Notes |
 |----------|------|--------|
 | **P0** | **Implement or correct `startDriftViewer`** | README documents `myDb.startDriftViewer(enabled: kDebugMode)` and an extension on `GeneratedDatabase`, but this API does not exist in the package (no Drift dependency, no such function). Either: (1) add an optional Drift dependency and an extension that wires `customSelect` into `DriftDebugServer.start`, or (2) remove/adjust README so it only documents `DriftDebugServer.start(query: ...)`. |
-| **P0** | **CI branch** | `.github/workflows/main.yaml` uses `branches: main`; default branch in repo is `master`. Either rename branch to `main` or change the workflow to `master` so CI runs on push/PR. |
-| **P1** | **Tests for the server** | Current tests cover `enabled: false` and `DriftDebugErrorLogger` only. Add tests (or integration tests) for: server start, `GET /`, `GET /api/tables`, `GET /api/table/<name>`, `GET /api/schema`, error handling, and invalid table name. |
 | **P1** | **Example app** | No `example/` in the repo. A small Flutter or Dart example (e.g. Drift app that starts the viewer) would help pub.dev and onboarding. |
 
 ---
@@ -27,30 +25,20 @@ This document captures improvement ideas from a full project review: gaps to fix
 
 ### API and server
 
-- ~~**Bind address option**~~ — *Implemented:* `loopbackOnly` in `start()`.
-- ~~**Optional CORS**~~ — *Implemented:* `corsOrigin` in `start()`.
-- ~~**Health/readiness endpoint**~~ — *Implemented:* `GET /api/health`.
-- ~~**Shutdown hook**~~ — *Implemented:* `DriftDebugServer.stop()`.
+*(Bind address, CORS, health endpoint, and shutdown hook are implemented.)*
 
 ### Web UI
 
-- **Pagination control** — Let the user change limit and offset (e.g. “Next 200”) instead of fixed 200 rows.
-- **Search / filter** — Client-side filter on the current table’s JSON or a simple “filter by column value” to reduce noise.
-- **Schema in the UI** — Show schema (e.g. from `/api/schema`) in a collapsible section or tab so you don’t have to open the export link.
-- **Export table as CSV** — Button or link that fetches table data and triggers a CSV download.
-- **Theme toggle** — Light/dark switch; persist preference in `localStorage`.
-- **Row count** — Display “Table X (N rows)” using a lightweight count query or `COUNT(*)` when feasible.
+*(Pagination, search/filter, schema in UI, export CSV, theme toggle, and row count are implemented.)*
 
 ### Developer experience
 
 - **Dart doc** — Expand doc comments and ensure public API is well documented; consider `@example` for `DriftDebugServer.start` and the Drift extension (once it exists).
 - **Changelog discipline** — Keep CHANGELOG.md in sync with every release (already encouraged by publish script).
-- **README badges** — Add pub version, build status, and maybe “license” badges.
 
 ### Infrastructure
 
-- ~~**Dependabot**~~ — *Implemented:* Grouping for `pub` and `github-actions`; `open-pull-requests-limit: 5`. Auto-merge remains optional (repo rules or workflow).
-- ~~**Branch consistency**~~ — *Implemented:* Workflow triggers use `master` to match default branch (see P0).
+*(Dependabot and branch consistency are implemented.)*
 
 ---
 
@@ -60,24 +48,22 @@ High-impact or differentiator features that could make the package memorable and
 
 | Idea | Description |
 |------|-------------|
-| ~~**Live refresh**~~ | *Implemented:* Long-polling `GET /api/generation?since=N`; server bumps a generation when table row-count fingerprint changes (every 2s). Table view and list auto-update; "● Live" indicator and "Updating…" during refresh. |
-| **Read-only SQL runner** | A small input in the UI to run **read-only** SQL (e.g. only `SELECT`; reject `INSERT/UPDATE/DELETE` and DDL). Results shown in the same JSON/pre or a simple table. Huge for ad-hoc debugging. |
 | **Schema diagram** | Visualize tables and relationships (e.g. from `sqlite_master` + PRAGMA foreign_key_list). Click a table to see its data. |
-| **DevTools / IDE integration** | Flutter DevTools plugin or VS Code / Cursor extension: “Open Drift viewer” or a sidebar that lists tables and opens the browser at the right URL. Feels native to the toolchain. |
-| **Database diff** | Compare two databases (e.g. local vs staging): same schema, diff of row counts or row content per table. Export diff report. |
-| **Snapshot / time travel** | Optional “snapshot” of table state at a point in time (e.g. in-memory or file); later, “compare to now” to see what changed. |
-| **Export full DB** | “Download database” that streams the SQLite file (or a copy) so devs can inspect it in DB Browser or another tool. |
-| ~~**Secure dev tunnel**~~ | *Implemented:* Optional `authToken` (Bearer or `?token=`) and/or HTTP Basic (`basicAuthUser`/`basicAuthPassword`) so the viewer can be used over a tunnel (e.g. ngrok) or port forwarding without exposing an open server. |
+| **DevTools / IDE integration** | Flutter DevTools plugin or VS Code / Cursor extension: “Open Drift viewer” or a sidebar that lists tables and opens the browser at the right URL. Feels native to the toolchain. *(Implemented: Run Task → "Open Drift Viewer" in repo; optional minimal extension in `extension/` with one command.)* |
+| **Database diff** | Compare two databases (e.g. local vs staging): same schema, diff of row counts or row content per table. Export diff report. *(Implemented: optional `queryCompare` at startup; GET /api/compare/report with schema + count diff; export diff-report.json; UI "Database diff" section.)* |
+| **Snapshot / time travel** | Optional “snapshot” of table state at a point in time (e.g. in-memory or file); later, “compare to now” to see what changed. *(Implemented: POST/GET/DELETE /api/snapshot, GET /api/snapshot/compare; export snapshot-diff.json; UI section.)* |
 | **Flutter widget overlay** | In debug builds, a small floating button that opens the viewer in the browser (or an in-app WebView). One tap from the app. |
-| **Query history** | If read-only SQL is added, keep a short history of queries and results in the UI or in `localStorage` for repeat checks. |
+| **Query history** | If read-only SQL is added, keep a short history of queries and results in the UI or in `localStorage` for repeat checks. *(SQL runner exists; history not yet.)* |
+
+*(Live refresh, read-only SQL runner, secure dev tunnel (auth), and export raw SQLite file (getDatabaseBytes / GET /api/database) are implemented.)*
 
 ---
 
 ## Suggested order
 
-1. **Short term:** Fix P0 (API/README or implement `startDriftViewer`; fix CI branch). Add P1 tests and an example app.
-2. **Next:** Incremental UI and API improvements (pagination, schema in UI, bind address, shutdown).
-3. **Later:** Pick 1–2 “wow” items (e.g. read-only SQL runner + live refresh, or DevTools/IDE integration) and ship them as major/minor features.
+1. **Short term:** Fix P0 (implement `startDriftViewer` or adjust README to callback-only API). Add P1 example app.
+2. **Next:** Developer experience (Dart doc, changelog discipline).
+3. **Later:** Pick 1–2 “wow” items (e.g. schema diagram, DevTools/IDE integration, or export full DB) and ship them as major/minor features.
 
 ---
 

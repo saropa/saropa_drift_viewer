@@ -17,6 +17,19 @@ typedef DriftDebugOnLog = void Function(String message);
 /// Pass as the `onError` parameter to [DriftDebugServer.start].
 typedef DriftDebugOnError = void Function(Object error, StackTrace stack);
 
+/// Optional callback that returns the raw SQLite database file bytes.
+/// Pass as [getDatabaseBytes] to [DriftDebugServer.start] to enable "Download database"
+/// in the UI (GET /api/database). Use e.g. `() => File(yourDbPath).readAsBytes()`.
+typedef DriftDebugGetDatabaseBytes = Future<List<int>> Function();
+
+/// In-memory snapshot of table state (for time-travel compare).
+class _Snapshot {
+  _Snapshot({required this.id, required this.createdAt, required this.tables});
+  final String id;
+  final DateTime createdAt;
+  final Map<String, List<Map<String, dynamic>>> tables;
+}
+
 /// Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minimal web viewer.
 ///
 /// Works with any database: pass a [query] callback that runs SQL and returns rows as maps.
@@ -34,10 +47,15 @@ abstract final class DriftDebugServer {
   static String? _authToken;
   static String? _basicAuthUser;
   static String? _basicAuthPassword;
+  static DriftDebugGetDatabaseBytes? _getDatabaseBytes;
+  static DriftDebugQuery? _queryCompare;
   static Timer? _changeCheckTimer;
   static int _generation = 0;
   static String? _lastDataSignature;
   static bool _changeCheckInProgress = false;
+
+  /// In-memory snapshot: id, createdAt, and full table data per table.
+  static _Snapshot? _snapshot;
 
   static const int _defaultPort = 8642;
   static const int _maxLimit = 1000;
@@ -61,6 +79,8 @@ abstract final class DriftDebugServer {
   /// * [corsOrigin] — Value for Access-Control-Allow-Origin: `'*'`, a specific origin, or null to omit.
   /// * [authToken] — Optional. When set, requests must include `Authorization: Bearer <token>` or `?token=<token>`.
   /// * [basicAuthUser] and [basicAuthPassword] — Optional. When both set, HTTP Basic auth is accepted as an alternative.
+  /// * [getDatabaseBytes] — Optional. When set, GET /api/database serves the raw SQLite file for download (e.g. open in DB Browser). Use e.g. `() => File(dbPath).readAsBytes()`.
+  /// * [queryCompare] — Optional. When set, enables database diff: compare this DB (main [query]) with another (e.g. staging) via GET /api/compare/report. Same schema check and per-table row count diff; export diff report.
   /// * [onLog] — Optional callback for startup banner and log messages.
   /// * [onError] — Optional callback for errors (e.g. [DriftDebugErrorLogger.errorCallback]).
   ///
@@ -98,6 +118,8 @@ abstract final class DriftDebugServer {
     String? authToken,
     String? basicAuthUser,
     String? basicAuthPassword,
+    DriftDebugGetDatabaseBytes? getDatabaseBytes,
+    DriftDebugQuery? queryCompare,
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
   }) async {
@@ -105,6 +127,7 @@ abstract final class DriftDebugServer {
     if (_server != null) return;
 
     _query = query;
+    _queryCompare = queryCompare;
     _onLog = onLog;
     _onError = onError;
     _corsOrigin = corsOrigin;
@@ -112,6 +135,7 @@ abstract final class DriftDebugServer {
     _authToken = (authToken != null && authToken.isNotEmpty) ? authToken : null;
     _basicAuthUser = basicAuthUser;
     _basicAuthPassword = basicAuthPassword;
+    _getDatabaseBytes = getDatabaseBytes;
 
     try {
       final address = loopbackOnly ? InternetAddress.loopbackIPv4 : InternetAddress.anyIPv4;
@@ -140,12 +164,15 @@ abstract final class DriftDebugServer {
     if (server == null) return;
     _server = null;
     _query = null;
+    _queryCompare = null;
+    _snapshot = null;
     _onLog = null;
     _onError = null;
     _corsOrigin = null;
     _authToken = null;
     _basicAuthUser = null;
     _basicAuthPassword = null;
+    _getDatabaseBytes = null;
     _changeCheckTimer?.cancel();
     _changeCheckTimer = null;
     _lastDataSignature = null;
@@ -300,6 +327,32 @@ abstract final class DriftDebugServer {
         await _sendFullDump(request.response, query);
         return;
       }
+      if (request.method == 'GET' && (path == '/api/database' || path == 'api/database')) {
+        await _sendDatabaseFile(request.response);
+        return;
+      }
+      if (request.method == 'POST' && (path == '/api/snapshot' || path == 'api/snapshot')) {
+        await _handleSnapshotCreate(request.response, query);
+        return;
+      }
+      if (request.method == 'GET' && (path == '/api/snapshot' || path == 'api/snapshot')) {
+        await _handleSnapshotGet(request.response);
+        return;
+      }
+      if (request.method == 'GET' &&
+          (path == '/api/snapshot/compare' || path == 'api/snapshot/compare')) {
+        await _handleSnapshotCompare(request.response, request, query);
+        return;
+      }
+      if (request.method == 'DELETE' && (path == '/api/snapshot' || path == 'api/snapshot')) {
+        await _handleSnapshotDelete(request.response);
+        return;
+      }
+      if (request.method == 'GET' &&
+          (path.startsWith('/api/compare/') || path.startsWith('api/compare/'))) {
+        await _handleCompareReport(request.response, request, query);
+        return;
+      }
 
       request.response.statusCode = HttpStatus.notFound;
       await request.response.close();
@@ -430,6 +483,13 @@ abstract final class DriftDebugServer {
     return n;
   }
 
+  /// Extracts COUNT(*) result from a single-row query (column 'c'). Returns 0 if empty or null.
+  static int _extractCountFromRows(List<Map<String, dynamic>> rows) {
+    if (rows.isEmpty || rows.first['c'] == null) return 0;
+    final v = rows.first['c'];
+    return v is int ? v : (v as num).toInt();
+  }
+
   static Future<List<String>> _getTableNames(DriftDebugQuery query) async {
     const String sql =
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
@@ -489,11 +549,7 @@ abstract final class DriftDebugServer {
     if (!await _requireKnownTable(response, query, tableName)) return;
     final List<Map<String, dynamic>> rows =
         await query('SELECT COUNT(*) AS c FROM "$tableName"');
-    final int count = (rows.isNotEmpty && rows.first['c'] != null)
-        ? (rows.first['c'] is int
-            ? rows.first['c'] as int
-            : (rows.first['c'] as num).toInt())
-        : 0;
+    final int count = _extractCountFromRows(rows);
     _setJsonHeaders(response);
     response.write(jsonEncode(<String, int>{'count': count}));
     await response.close();
@@ -570,12 +626,7 @@ abstract final class DriftDebugServer {
       final parts = <String>[];
       for (final t in tables) {
         final rows = await query('SELECT COUNT(*) AS c FROM "$t"');
-        final c = (rows.isNotEmpty && rows.first['c'] != null)
-            ? (rows.first['c'] is int
-                ? rows.first['c'] as int
-                : (rows.first['c'] as num).toInt())
-            : 0;
-        parts.add('$t:$c');
+        parts.add('$t:${_extractCountFromRows(rows)}');
       }
       final signature = parts.join(',');
       if (_lastDataSignature != null && _lastDataSignature != signature) {
@@ -640,6 +691,255 @@ abstract final class DriftDebugServer {
     _setAttachmentHeaders(response, 'dump.sql');
     response.write(dump);
     await response.close();
+  }
+
+  /// Sends the raw SQLite database file when [getDatabaseBytes] was provided at startup.
+  /// Returns 501 Not Implemented if not configured. Used by the UI "Download database (raw .sqlite)" link.
+  static Future<void> _sendDatabaseFile(HttpResponse response) async {
+    final getBytes = _getDatabaseBytes;
+    if (getBytes == null) {
+      response.statusCode = HttpStatus.notImplemented;
+      _setJsonHeaders(response);
+      response.write(jsonEncode(<String, String>{
+        'error': 'Database download not configured. Pass getDatabaseBytes to DriftDebugServer.start (e.g. () => File(dbPath).readAsBytes()).',
+      }));
+      await response.close();
+      return;
+    }
+    try {
+      final bytes = await getBytes();
+      response.statusCode = HttpStatus.ok;
+      response.headers.contentType = ContentType('application', 'octet-stream');
+      response.headers.set('Content-Disposition', 'attachment; filename="database.sqlite"');
+      _setCors(response);
+      response.add(bytes);
+      await response.close();
+    } on Object catch (error, stack) {
+      _logError(error, stack);
+      await _sendErrorResponse(response, error);
+    }
+  }
+
+  /// Stable string representation of a row for diffing (sorted keys).
+  static String _rowSignature(Map<String, dynamic> row) {
+    final keys = row.keys.toList()..sort();
+    final sorted = <String, dynamic>{};
+    for (final k in keys) {
+      sorted[k] = row[k];
+    }
+    return jsonEncode(sorted);
+  }
+
+  static Future<void> _handleSnapshotCreate(
+    HttpResponse response,
+    DriftDebugQuery query,
+  ) async {
+    try {
+      final tables = await _getTableNames(query);
+      final Map<String, List<Map<String, dynamic>>> data = {};
+      for (final table in tables) {
+        final rows = await query('SELECT * FROM "$table"');
+        data[table] = rows.map((r) => Map<String, dynamic>.from(r)).toList();
+      }
+      final id = DateTime.now().toUtc().toIso8601String();
+      _snapshot = _Snapshot(id: id, createdAt: DateTime.now().toUtc(), tables: data);
+      _setJsonHeaders(response);
+      response.write(jsonEncode(<String, dynamic>{
+        'id': _snapshot!.id,
+        'createdAt': _snapshot!.createdAt.toIso8601String(),
+        'tableCount': _snapshot!.tables.length,
+        'tables': _snapshot!.tables.keys.toList(),
+      }));
+      await response.close();
+    } on Object catch (error, stack) {
+      _logError(error, stack);
+      await _sendErrorResponse(response, error);
+    }
+  }
+
+  static Future<void> _handleSnapshotGet(HttpResponse response) async {
+    final snap = _snapshot;
+    if (snap == null) {
+      response.statusCode = HttpStatus.ok;
+      _setJsonHeaders(response);
+      response.write(jsonEncode(<String, dynamic>{'snapshot': null}));
+      await response.close();
+      return;
+    }
+    final tableCounts = <String, int>{};
+    for (final e in snap.tables.entries) {
+      tableCounts[e.key] = e.value.length;
+    }
+    _setJsonHeaders(response);
+    response.write(jsonEncode(<String, dynamic>{
+      'snapshot': <String, dynamic>{
+        'id': snap.id,
+        'createdAt': snap.createdAt.toIso8601String(),
+        'tables': snap.tables.keys.toList(),
+        'counts': tableCounts,
+      },
+    }));
+    await response.close();
+  }
+
+  static Future<void> _handleSnapshotCompare(
+    HttpResponse response,
+    HttpRequest request,
+    DriftDebugQuery query,
+  ) async {
+    final snap = _snapshot;
+    if (snap == null) {
+      response.statusCode = HttpStatus.badRequest;
+      _setJsonHeaders(response);
+      response.write(jsonEncode(<String, String>{
+        'error': 'No snapshot. POST /api/snapshot first to capture state.',
+      }));
+      await response.close();
+      return;
+    }
+    try {
+      final tablesNow = await _getTableNames(query);
+      final allTables = <String>{...snap.tables.keys, ...tablesNow};
+      final List<Map<String, dynamic>> tableDiffs = [];
+      for (final table in allTables.toList()..sort()) {
+        final rowsThen = snap.tables[table] ?? [];
+        List<Map<String, dynamic>> rowsNowList = [];
+        if (tablesNow.contains(table)) {
+          rowsNowList = await query('SELECT * FROM "$table"');
+        }
+        final setThen = rowsThen.map(_rowSignature).toSet();
+        final setNow = rowsNowList.map(_rowSignature).toSet();
+        final added = setNow.difference(setThen).length;
+        final removed = setThen.difference(setNow).length;
+        final inBoth = setThen.intersection(setNow).length;
+        tableDiffs.add(<String, dynamic>{
+          'table': table,
+          'countThen': rowsThen.length,
+          'countNow': rowsNowList.length,
+          'added': added,
+          'removed': removed,
+          'unchanged': inBoth,
+        });
+      }
+      final body = <String, dynamic>{
+        'snapshotId': snap.id,
+        'snapshotCreatedAt': snap.createdAt.toIso8601String(),
+        'comparedAt': DateTime.now().toUtc().toIso8601String(),
+        'tables': tableDiffs,
+      };
+      if (request.uri.queryParameters['format'] == 'download') {
+        response.statusCode = HttpStatus.ok;
+        response.headers.contentType = ContentType.json;
+        response.headers.set(
+          'Content-Disposition',
+          'attachment; filename="snapshot-diff.json"',
+        );
+        _setCors(response);
+        response.write(const JsonEncoder.withIndent('  ').convert(body));
+        await response.close();
+        return;
+      }
+      _setJsonHeaders(response);
+      response.write(const JsonEncoder.withIndent('  ').convert(body));
+      await response.close();
+    } on Object catch (error, stack) {
+      _logError(error, stack);
+      await _sendErrorResponse(response, error);
+    }
+  }
+
+  static Future<void> _handleSnapshotDelete(HttpResponse response) async {
+    _snapshot = null;
+    _setJsonHeaders(response);
+    response.write(jsonEncode(<String, String>{'ok': 'Snapshot cleared.'}));
+    await response.close();
+  }
+
+  static Future<void> _handleCompareReport(
+    HttpResponse response,
+    HttpRequest request,
+    DriftDebugQuery query,
+  ) async {
+    final queryB = _queryCompare;
+    if (queryB == null) {
+      response.statusCode = HttpStatus.notImplemented;
+      _setJsonHeaders(response);
+      response.write(jsonEncode(<String, String>{
+        'error': 'Database compare not configured. Pass queryCompare to DriftDebugServer.start.',
+      }));
+      await response.close();
+      return;
+    }
+    final path = request.uri.path;
+    if (!path.endsWith('/report') && !path.endsWith('report')) {
+      response.statusCode = HttpStatus.notFound;
+      await response.close();
+      return;
+    }
+    try {
+      final schemaA = await _getSchemaSql(query);
+      final schemaB = await _getSchemaSql(queryB);
+      final tablesA = await _getTableNames(query);
+      final tablesB = await _getTableNames(queryB);
+      final allTables = <String>{...tablesA, ...tablesB}.toList()..sort();
+      final schemaSame = schemaA == schemaB;
+      final List<Map<String, dynamic>> countDiffs = [];
+      for (final table in allTables) {
+        int countA = 0;
+        int countB = 0;
+        if (tablesA.contains(table)) {
+          final rows = await query('SELECT COUNT(*) AS c FROM "$table"');
+          countA = (rows.isNotEmpty && rows.first['c'] != null)
+              ? (rows.first['c'] is int
+                  ? rows.first['c'] as int
+                  : (rows.first['c'] as num).toInt())
+              : 0;
+        }
+        if (tablesB.contains(table)) {
+          final rows = await queryB('SELECT COUNT(*) AS c FROM "$table"');
+          countB = (rows.isNotEmpty && rows.first['c'] != null)
+              ? (rows.first['c'] is int
+                  ? rows.first['c'] as int
+                  : (rows.first['c'] as num).toInt())
+              : 0;
+        }
+        countDiffs.add(<String, dynamic>{
+          'table': table,
+          'countA': countA,
+          'countB': countB,
+          'diff': countA - countB,
+          'onlyInA': !tablesB.contains(table),
+          'onlyInB': !tablesA.contains(table),
+        });
+      }
+      final report = <String, dynamic>{
+        'schemaSame': schemaSame,
+        'schemaDiff': schemaSame ? null : <String, String>{'a': schemaA, 'b': schemaB},
+        'tablesOnlyInA': tablesA.where((t) => !tablesB.contains(t)).toList(),
+        'tablesOnlyInB': tablesB.where((t) => !tablesA.contains(t)).toList(),
+        'tableCounts': countDiffs,
+        'generatedAt': DateTime.now().toUtc().toIso8601String(),
+      };
+      final format = request.uri.queryParameters['format'];
+      if (format == 'download') {
+        response.statusCode = HttpStatus.ok;
+        response.headers.contentType = ContentType.json;
+        response.headers.set(
+          'Content-Disposition',
+          'attachment; filename="diff-report.json"',
+        );
+        _setCors(response);
+        response.write(const JsonEncoder.withIndent('  ').convert(report));
+        await response.close();
+        return;
+      }
+      _setJsonHeaders(response);
+      response.write(const JsonEncoder.withIndent('  ').convert(report));
+      await response.close();
+    } on Object catch (error, stack) {
+      _logError(error, stack);
+      await _sendErrorResponse(response, error);
+    }
   }
 
   static void _setAttachmentHeaders(HttpResponse response, String filename) {
@@ -778,7 +1078,29 @@ abstract final class DriftDebugServer {
     <button type="button" id="pagination-apply">Apply</button>
   </div>
   <p id="tables-loading" class="meta">Loading tables…</p>
-  <p class="meta"><a href="/api/schema" id="export-schema" download="schema.sql">Export schema (no data)</a> · <a href="#" id="export-dump">Export full dump (schema + data)</a><span id="export-dump-status" class="meta"></span> · <a href="#" id="export-csv">Export table as CSV</a><span id="export-csv-status" class="meta"></span></p>
+  <p class="meta"><a href="/api/schema" id="export-schema" download="schema.sql">Export schema (no data)</a> · <a href="#" id="export-dump">Export full dump (schema + data)</a><span id="export-dump-status" class="meta"></span> · <a href="#" id="export-database">Download database (raw .sqlite)</a><span id="export-database-status" class="meta"></span> · <a href="#" id="export-csv">Export table as CSV</a><span id="export-csv-status" class="meta"></span></p>
+  <div class="collapsible-header" id="snapshot-toggle">▼ Snapshot / time travel</div>
+  <div id="snapshot-collapsible" class="collapsible-body collapsed">
+    <p class="meta">Capture current DB state, then compare to now to see what changed.</p>
+    <div class="toolbar">
+      <button type="button" id="snapshot-take">Take snapshot</button>
+      <button type="button" id="snapshot-compare" disabled title="Take a snapshot first">Compare to now</button>
+      <a href="#" id="snapshot-export-diff" style="display: none;">Export diff (JSON)</a>
+      <button type="button" id="snapshot-clear" style="display: none;">Clear snapshot</button>
+    </div>
+    <p id="snapshot-status" class="meta"></p>
+    <pre id="snapshot-compare-result" class="meta" style="display: none; max-height: 40vh;"></pre>
+  </div>
+  <div class="collapsible-header" id="compare-toggle">▼ Database diff</div>
+  <div id="compare-collapsible" class="collapsible-body collapsed">
+    <p class="meta">Compare this DB with another (e.g. staging). Requires queryCompare at startup.</p>
+    <div class="toolbar">
+      <button type="button" id="compare-view">View diff report</button>
+      <a href="/api/compare/report?format=download" id="compare-export">Export diff report</a>
+    </div>
+    <p id="compare-status" class="meta"></p>
+    <pre id="compare-result" class="meta" style="display: none; max-height: 40vh;"></pre>
+  </div>
   <div class="collapsible-header" id="schema-toggle">▼ Schema</div>
   <div id="schema-collapsible" class="collapsible-body collapsed"><pre id="schema-inline-pre" class="meta">Loading…</pre></div>
   <ul id="tables"></ul>
@@ -859,6 +1181,116 @@ abstract final class DriftDebugServer {
         }).catch(() => { document.getElementById('schema-inline-pre').textContent = 'Failed to load.'; });
       }
     });
+
+    (function initSnapshot() {
+      const toggle = document.getElementById('snapshot-toggle');
+      const collapsible = document.getElementById('snapshot-collapsible');
+      const takeBtn = document.getElementById('snapshot-take');
+      const compareBtn = document.getElementById('snapshot-compare');
+      const exportLink = document.getElementById('snapshot-export-diff');
+      const clearBtn = document.getElementById('snapshot-clear');
+      const statusEl = document.getElementById('snapshot-status');
+      const resultPre = document.getElementById('snapshot-compare-result');
+      function updateSnapshotUI(hasSnapshot, createdAt) {
+        compareBtn.disabled = !hasSnapshot;
+        exportLink.style.display = hasSnapshot ? '' : 'none';
+        clearBtn.style.display = hasSnapshot ? '' : 'none';
+        if (exportLink.style.display !== 'none' && DRIFT_VIEWER_AUTH_TOKEN) {
+          exportLink.href = '/api/snapshot/compare?format=download&token=' + encodeURIComponent(DRIFT_VIEWER_AUTH_TOKEN);
+        } else if (hasSnapshot) exportLink.href = '/api/snapshot/compare?format=download';
+        statusEl.textContent = hasSnapshot ? ('Snapshot: ' + (createdAt || '')) : 'No snapshot.';
+      }
+      function refreshSnapshotStatus() {
+        fetch('/api/snapshot', authOpts()).then(r => r.json()).then(function(data) {
+          const snap = data.snapshot;
+          updateSnapshotUI(!!snap, snap ? snap.createdAt : null);
+        }).catch(function() { updateSnapshotUI(false); });
+      }
+      if (toggle && collapsible) {
+        toggle.addEventListener('click', function() {
+          const isCollapsed = collapsible.classList.contains('collapsed');
+          collapsible.classList.toggle('collapsed', !isCollapsed);
+          this.textContent = isCollapsed ? '▲ Snapshot / time travel' : '▼ Snapshot / time travel';
+          if (isCollapsed) refreshSnapshotStatus();
+        });
+      }
+      if (takeBtn) takeBtn.addEventListener('click', function() {
+        takeBtn.disabled = true;
+        statusEl.textContent = 'Capturing…';
+        fetch('/api/snapshot', authOpts({ method: 'POST' }))
+          .then(r => r.json().then(function(d) { return { ok: r.ok, data: d }; }))
+          .then(function(o) {
+            if (o.ok) {
+              updateSnapshotUI(true, o.data.createdAt);
+              statusEl.textContent = 'Snapshot saved at ' + o.data.createdAt;
+            } else statusEl.textContent = o.data.error || 'Failed';
+          })
+          .catch(function(e) { statusEl.textContent = 'Error: ' + e.message; })
+          .finally(function() { takeBtn.disabled = false; });
+      });
+      if (compareBtn) compareBtn.addEventListener('click', function() {
+        compareBtn.disabled = true;
+        resultPre.style.display = 'none';
+        statusEl.textContent = 'Comparing…';
+        fetch('/api/snapshot/compare', authOpts())
+          .then(r => r.json().then(function(d) { return { ok: r.ok, data: d }; }))
+          .then(function(o) {
+            if (o.ok) {
+              resultPre.textContent = JSON.stringify(o.data, null, 2);
+              resultPre.style.display = 'block';
+              statusEl.textContent = '';
+            } else {
+              statusEl.textContent = o.data.error || 'Compare failed';
+            }
+          })
+          .catch(function(e) { statusEl.textContent = 'Error: ' + e.message; })
+          .finally(function() { compareBtn.disabled = false; });
+      });
+      if (clearBtn) clearBtn.addEventListener('click', function() {
+        fetch('/api/snapshot', authOpts({ method: 'DELETE' }))
+          .then(function() { updateSnapshotUI(false); resultPre.style.display = 'none'; refreshSnapshotStatus(); });
+      });
+      refreshSnapshotStatus();
+    })();
+
+    (function initCompare() {
+      const toggle = document.getElementById('compare-toggle');
+      const collapsible = document.getElementById('compare-collapsible');
+      const viewBtn = document.getElementById('compare-view');
+      const exportLink = document.getElementById('compare-export');
+      const statusEl = document.getElementById('compare-status');
+      const resultPre = document.getElementById('compare-result');
+      if (DRIFT_VIEWER_AUTH_TOKEN && exportLink) {
+        exportLink.href = '/api/compare/report?format=download&token=' + encodeURIComponent(DRIFT_VIEWER_AUTH_TOKEN);
+      }
+      if (toggle && collapsible) {
+        toggle.addEventListener('click', function() {
+          const isCollapsed = collapsible.classList.contains('collapsed');
+          collapsible.classList.toggle('collapsed', !isCollapsed);
+          this.textContent = isCollapsed ? '▲ Database diff' : '▼ Database diff';
+        });
+      }
+      if (viewBtn) viewBtn.addEventListener('click', function() {
+        viewBtn.disabled = true;
+        resultPre.style.display = 'none';
+        statusEl.textContent = 'Loading…';
+        fetch('/api/compare/report', authOpts())
+          .then(r => r.json().then(function(d) { return { status: r.status, data: d }; }))
+          .then(function(o) {
+            if (o.status === 501) {
+              statusEl.textContent = 'Database compare not configured. Pass queryCompare to DriftDebugServer.start to compare with another DB (e.g. staging).';
+            } else if (o.status >= 400) {
+              statusEl.textContent = o.data.error || 'Request failed';
+            } else {
+              resultPre.textContent = JSON.stringify(o.data, null, 2);
+              resultPre.style.display = 'block';
+              statusEl.textContent = '';
+            }
+          })
+          .catch(function(e) { statusEl.textContent = 'Error: ' + e.message; })
+          .finally(function() { viewBtn.disabled = false; });
+      });
+    })();
 
     document.getElementById('export-csv').addEventListener('click', function(e) {
       e.preventDefault();
@@ -964,6 +1396,28 @@ abstract final class DriftDebugServer {
         })
         .catch(err => { statusEl.textContent = ' Failed: ' + err.message; })
         .finally(() => { link.textContent = origText; });
+    });
+
+    document.getElementById('export-database').addEventListener('click', function(e) {
+      e.preventDefault();
+      const statusEl = document.getElementById('export-database-status');
+      statusEl.textContent = ' Preparing…';
+      fetch('/api/database', authOpts())
+        .then(r => {
+          if (r.status === 501) return r.json().then(j => { throw new Error(j.error || 'Not configured'); });
+          if (!r.ok) throw new Error(r.statusText);
+          return r.blob();
+        })
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'database.sqlite';
+          a.click();
+          URL.revokeObjectURL(url);
+          statusEl.textContent = '';
+        })
+        .catch(err => { statusEl.textContent = ' ' + err.message; });
     });
 
     function setupPagination() {
@@ -1300,6 +1754,8 @@ abstract final class DriftDebugServer {
         loadingEl.style.display = 'none';
         applyTableListAndCounts(tables);
         pollGeneration();
+        const hash = location.hash ? decodeURIComponent(location.hash.slice(1)) : '';
+        if (hash && tables.indexOf(hash) >= 0) loadTable(hash);
       })
       .catch(e => { document.getElementById('tables-loading').textContent = 'Failed to load tables: ' + e; });
   </script>
