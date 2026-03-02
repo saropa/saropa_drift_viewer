@@ -13,5 +13,9 @@ environment:
 dependencies: {}
 
 dev_dependencies:
-  saropa_lints: ^4.10.2
+  # Saropa's custom lints
+  # https://pub.dev/packages/saropa_lints
+  # saropa_lints is in dev_dependencies; use custom_lint CLI for its rules.
+  saropa_lints: ^6.0.9
+
   test: ^1.25.0
