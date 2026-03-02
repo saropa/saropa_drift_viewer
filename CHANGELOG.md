@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Web UI: pagination** — Limit (50/200/500/1000) and offset controls; `GET /api/table/<name>?limit=&offset=`.
+- **Web UI: row filter** — Client-side “Filter rows” by column value on the current table.
+- **Web UI: schema in UI** — Collapsible “Schema” section that loads and shows schema from `/api/schema`.
+- **Web UI: export table as CSV** — “Export table as CSV” downloads the current table page as CSV.
+- **Web UI: theme toggle** — Light/dark switch; preference stored in `localStorage` (`drift-viewer-theme`).
+- **Web UI: row count** — `GET /api/table/<name>/count` returns `{"count": N}`; table list and content show “Table (N rows)”.
 - **`loopbackOnly`** — Option to bind to `127.0.0.1` only instead of `0.0.0.0`.
 - **`corsOrigin`** — Option to set, restrict, or disable the `Access-Control-Allow-Origin` header (`'*'`, specific origin, or `null`).
 - **`GET /api/health`** — Returns `{"ok": true}` for scripts or readiness probes.
