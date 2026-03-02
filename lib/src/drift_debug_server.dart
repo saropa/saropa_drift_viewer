@@ -1405,10 +1405,14 @@ abstract final class DriftDebugServer {
         .finally(() => { link.textContent = origText; });
     });
 
+    // Download raw SQLite file (GET /api/database). Requires getDatabaseBytes at server start; 501 → show "Not configured".
     document.getElementById('export-database').addEventListener('click', function(e) {
       e.preventDefault();
+      const link = this;
       const statusEl = document.getElementById('export-database-status');
-      statusEl.textContent = ' Preparing…';
+      const origText = link.textContent;
+      link.textContent = 'Preparing…';
+      statusEl.textContent = '';
       fetch('/api/database', authOpts())
         .then(r => {
           if (r.status === 501) return r.json().then(j => { throw new Error(j.error || 'Not configured'); });
@@ -1422,9 +1426,9 @@ abstract final class DriftDebugServer {
           a.download = 'database.sqlite';
           a.click();
           URL.revokeObjectURL(url);
-          statusEl.textContent = '';
         })
-        .catch(err => { statusEl.textContent = ' ' + err.message; });
+        .catch(err => { statusEl.textContent = ' ' + err.message; })
+        .finally(() => { link.textContent = origText; });
     });
 
     function setupPagination() {
