@@ -52,5 +52,47 @@ void main() {
     expect(find.text('Viewer failed to start'), findsOneWidget);
     expect(find.textContaining('port 8642'), findsOneWidget);
   });
-}
 
+  testWidgets('ReadyView with errorMessage shows error text and error style',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ReadyView(
+            init: ViewerInitResult(
+              enabled: true,
+              running: false,
+              url: null,
+              errorMessage: 'Database init failed: permission denied',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Database init failed: permission denied'), findsOneWidget);
+  });
+
+  testWidgets('ReadyView with running true and url null disables copy and does not crash',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ReadyView(
+            init: ViewerInitResult(
+              enabled: true,
+              running: true,
+              url: null,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Drift debug viewer is running'), findsOneWidget);
+    final copyButton = find.byType(FilledButton);
+    expect(copyButton, findsOneWidget);
+    final widget = tester.widget<FilledButton>(copyButton);
+    expect(widget.onPressed, isNull);
+  });
+}

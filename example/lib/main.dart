@@ -37,8 +37,19 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+/// Timeout for viewer initialization so the UI does not hang if DB or server never completes.
+const Duration _kInitTimeout = Duration(seconds: 30);
+
 class _HomePageState extends State<HomePage> {
-  late final Future<ViewerInitResult> _initFuture = _initialize();
+  late final Future<ViewerInitResult> _initFuture =
+      _initialize().timeout(_kInitTimeout, onTimeout: () {
+    return ViewerInitResult(
+      enabled: kDebugMode,
+      running: false,
+      url: null,
+      errorMessage: 'Initialization timed out after ${_kInitTimeout.inSeconds} seconds.',
+    );
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -109,8 +120,8 @@ class _HomePageState extends State<HomePage> {
     if (existing == 0) {
       final now = DateTime.now();
       await db.batch((batch) {
-        batch.insert(
-            db.items, ItemsCompanion.insert(title: 'First item', createdAt: now));
+        batch.insert(db.items,
+            ItemsCompanion.insert(title: 'First item', createdAt: now));
         batch.insert(db.items,
             ItemsCompanion.insert(title: 'Second item', createdAt: now));
         batch.insert(db.items,
@@ -122,9 +133,7 @@ class _HomePageState extends State<HomePage> {
     await DriftDebugServer.start(
       query: (String sql) async {
         final rows = await db.customSelect(sql).get();
-        return rows
-            .map((r) => Map<String, dynamic>.from(r.data))
-            .toList();
+        return rows.map((r) => Map<String, dynamic>.from(r.data)).toList();
       },
       enabled: kDebugMode,
       getDatabaseBytes: () => File(db.dbPath).readAsBytes(),

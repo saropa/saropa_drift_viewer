@@ -23,12 +23,30 @@ class AppDatabase extends _$AppDatabase {
   final String dbPath;
 
   /// Creates an [AppDatabase] that stores the SQLite file in app documents.
+  ///
+  /// Throws if the application documents directory or file cannot be created;
+  /// the error is rethrown with context "Failed to create app database".
   static Future<AppDatabase> create() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final path = p.join(dir.path, _dbFileName);
-    final file = File(path);
-    final executor = NativeDatabase(file);
-    return AppDatabase._(executor, dbPath: path);
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final dirPath = dir.path;
+      if (dirPath.isEmpty) {
+        throw StateError(
+          'Application documents directory path is empty; cannot create database file.',
+        );
+      }
+      final path = p.join(dirPath, _dbFileName);
+      final file = File(path);
+      final executor = NativeDatabase(file);
+      return AppDatabase._(executor, dbPath: path);
+    } on Object catch (e, st) {
+      Error.throwWithStackTrace(
+        StateError(
+          'Failed to create app database: $e',
+        ),
+        st,
+      );
+    }
   }
 
   @override

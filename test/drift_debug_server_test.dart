@@ -35,8 +35,245 @@ void main() {
     );
   });
 
+  test('DriftDebugErrorLogger.logCallback with empty prefix and empty message does not throw', () {
+    final log = DriftDebugErrorLogger.logCallback(prefix: '');
+    expect(() => log(''), returnsNormally);
+  });
+
+  test('DriftDebugErrorLogger.errorCallback with empty prefix does not throw', () {
+    final error = DriftDebugErrorLogger.errorCallback(prefix: '');
+    expect(
+      () => error(Exception('e'), StackTrace.current),
+      returnsNormally,
+    );
+  });
+
   test('stop when server not started is no-op and does not throw', () async {
     await DriftDebugServer.stop();
+  });
+
+  group('param validation', () {
+    test('start with port -1 throws ArgumentError and server is not running',
+        () async {
+      expect(
+        DriftDebugServer.start(
+          query: (_) async => <Map<String, dynamic>>[],
+          enabled: true,
+          port: -1,
+        ),
+        throwsA(isA<ArgumentError>().having(
+          (e) => e.message,
+          'message',
+          contains('Port must be'),
+        )),
+      );
+      expect(DriftDebugServer.port, isNull);
+    });
+
+    test('start with port 70000 throws ArgumentError and server is not running',
+        () async {
+      expect(
+        DriftDebugServer.start(
+          query: (_) async => <Map<String, dynamic>>[],
+          enabled: true,
+          port: 70000,
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(DriftDebugServer.port, isNull);
+    });
+
+    test('start with only basicAuthUser (no password) throws ArgumentError',
+        () async {
+      expect(
+        DriftDebugServer.start(
+          query: (_) async => <Map<String, dynamic>>[],
+          enabled: true,
+          port: 0,
+          basicAuthUser: 'user',
+          basicAuthPassword: null,
+        ),
+        throwsA(isA<ArgumentError>().having(
+          (e) => e.message,
+          'message',
+          contains('Basic auth requires both'),
+        )),
+      );
+    });
+
+    test('start with only basicAuthPassword (no user) throws ArgumentError',
+        () async {
+      expect(
+        DriftDebugServer.start(
+          query: (_) async => <Map<String, dynamic>>[],
+          enabled: true,
+          port: 0,
+          basicAuthUser: null,
+          basicAuthPassword: 'pass',
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+  });
+
+  group('defensive behavior: query and edge cases', () {
+    tearDown(() async {
+      await DriftDebugServer.stop();
+    });
+
+    test('when query throws, GET /api/tables returns 500 and JSON error',
+        () async {
+      await DriftDebugServer.stop();
+      await DriftDebugServer.start(
+        query: (_) async => throw Exception('query failed'),
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/tables');
+        final resp = await req.close();
+        final body = await resp.transform(utf8.decoder).join();
+        expect(
+          resp.statusCode,
+          HttpStatus.internalServerError,
+          reason: 'Query throws should yield 500; got ${resp.statusCode} body: $body',
+        );
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded['error'], isNotNull);
+        expect(decoded['error'].toString(), contains('query failed'));
+      } finally {
+        client.close();
+      }
+    });
+
+    // Server normalizes null/non-List via _normalizeRows; empty list yields 200 + [].
+    test('when query returns empty list, GET /api/tables returns 200 with empty list',
+        () async {
+      await DriftDebugServer.start(
+        query: (_) async => <Map<String, dynamic>>[],
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/tables');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as List<dynamic>;
+        expect(decoded, isEmpty);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('GET /api/table/unknown_table returns 400 and JSON error', () async {
+      await DriftDebugServer.start(
+        query: (String sql) async {
+          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+            return [{'name': 'items'}];
+          }
+          return <Map<String, dynamic>>[];
+        },
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req =
+            await client.get('localhost', port!, '/api/table/unknown_table');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.badRequest);
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded['error'], contains('Unknown table'));
+        expect(decoded['error'], contains('unknown_table'));
+      } finally {
+        client.close();
+      }
+    });
+
+    test('limit=0 or negative uses default limit, offset negative uses 0',
+        () async {
+      await DriftDebugServer.start(
+        query: (String sql) async {
+          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+            return [{'name': 'items'}];
+          }
+          if (sql.contains('SELECT * FROM "items"')) {
+            return [
+              {'id': 1, 'name': 'a'},
+              {'id': 2, 'name': 'b'},
+            ];
+          }
+          return <Map<String, dynamic>>[];
+        },
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final reqLimit0 = await client.getUrl(Uri.parse(
+            'http://localhost:$port/api/table/items?limit=0&offset=0'));
+        final resp0 = await reqLimit0.close();
+        expect(resp0.statusCode, HttpStatus.ok);
+        final body0 = await resp0.transform(utf8.decoder).join();
+        final list0 = jsonDecode(body0) as List<dynamic>;
+        expect(list0.length, 2);
+
+        final reqOffsetNeg = await client.getUrl(Uri.parse(
+            'http://localhost:$port/api/table/items?limit=10&offset=-5'));
+        final respNeg = await reqOffsetNeg.close();
+        expect(respNeg.statusCode, HttpStatus.ok);
+        final bodyNeg = await respNeg.transform(utf8.decoder).join();
+        final listNeg = jsonDecode(bodyNeg) as List<dynamic>;
+        expect(listNeg.length, 2);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('getDatabaseBytes returning empty list returns 200 with zero-length body',
+        () async {
+      await DriftDebugServer.start(
+        query: (String sql) async {
+          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+            return [{'name': 'items'}];
+          }
+          return <Map<String, dynamic>>[];
+        },
+        enabled: true,
+        port: 0,
+        getDatabaseBytes: () async => <int>[],
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get('localhost', port!, '/api/database');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        final body = await resp.toList();
+        final bytes = body.expand((b) => b).toList();
+        expect(bytes, isEmpty);
+      } finally {
+        client.close();
+      }
+    });
   });
 
   group('export endpoints', () {
@@ -54,10 +291,14 @@ void main() {
           ];
         }
         if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
-          return [{'name': 'items'}];
+          return [
+            {'name': 'items'}
+          ];
         }
         if (sql.contains('COUNT(*)') && sql.contains('items')) {
-          return [{'c': 2}];
+          return [
+            {'c': 2}
+          ];
         }
         if (sql.contains('SELECT * FROM "items"')) {
           return [
@@ -67,12 +308,30 @@ void main() {
         }
         if (sql.contains('PRAGMA table_info("items")')) {
           return [
-            {'cid': 0, 'name': 'id', 'type': 'INTEGER', 'notnull': 1, 'dflt_value': null, 'pk': 1},
-            {'cid': 1, 'name': 'name', 'type': 'TEXT', 'notnull': 0, 'dflt_value': null, 'pk': 0},
+            {
+              'cid': 0,
+              'name': 'id',
+              'type': 'INTEGER',
+              'notnull': 1,
+              'dflt_value': null,
+              'pk': 1
+            },
+            {
+              'cid': 1,
+              'name': 'name',
+              'type': 'TEXT',
+              'notnull': 0,
+              'dflt_value': null,
+              'pk': 0
+            },
           ];
         }
-        if (sql.contains('SELECT') && !sql.contains('INSERT') && !sql.contains('sqlite_master')) {
-          return [{'id': 1, 'name': 'first'}];
+        if (sql.contains('SELECT') &&
+            !sql.contains('INSERT') &&
+            !sql.contains('sqlite_master')) {
+          return [
+            {'id': 1, 'name': 'first'}
+          ];
         }
         return <Map<String, dynamic>>[];
       };
@@ -99,13 +358,15 @@ void main() {
         final body = await resp.transform(utf8.decoder).join();
         expect(body, contains('CREATE TABLE items'));
         expect(body, isNot(contains('INSERT INTO')));
-        expect(resp.headers.value('content-disposition'), contains('schema.sql'));
+        expect(
+            resp.headers.value('content-disposition'), contains('schema.sql'));
       } finally {
         client.close();
       }
     });
 
-    test('GET /api/schema/diagram returns tables, columns, and foreign keys', () async {
+    test('GET /api/schema/diagram returns tables, columns, and foreign keys',
+        () async {
       await DriftDebugServer.start(
         query: mockQuery,
         enabled: true,
@@ -119,7 +380,8 @@ void main() {
         final req = await client.get('localhost', port!, '/api/schema/diagram');
         final resp = await req.close();
         expect(resp.statusCode, HttpStatus.ok);
-        expect(resp.headers.value('content-type'), contains('application/json'));
+        expect(
+            resp.headers.value('content-type'), contains('application/json'));
         final body = await resp.transform(utf8.decoder).join();
         final decoded = jsonDecode(body) as Map<String, dynamic>;
         expect(decoded, contains('tables'));
@@ -164,7 +426,8 @@ void main() {
       }
     });
 
-    test('GET /api/table/<name> with limit and offset returns JSON array', () async {
+    test('GET /api/table/<name> with limit and offset returns JSON array',
+        () async {
       await DriftDebugServer.start(
         query: mockQuery,
         enabled: true,
@@ -175,14 +438,15 @@ void main() {
 
       final client = HttpClient();
       try {
-        final req = await client
-            .getUrl(Uri.parse('http://localhost:$port/api/table/items?limit=10&offset=0'));
+        final req = await client.getUrl(Uri.parse(
+            'http://localhost:$port/api/table/items?limit=10&offset=0'));
         final resp = await req.close();
         expect(resp.statusCode, HttpStatus.ok);
-        expect(resp.headers.value('content-type'), contains('application/json'));
+        expect(
+            resp.headers.value('content-type'), contains('application/json'));
         final body = await resp.transform(utf8.decoder).join();
         final decoded = jsonDecode(body) as List<dynamic>;
-        expect(decoded.length, 2);
+        expect(decoded, hasLength(2));
         expect(decoded[0], containsPair('name', 'first'));
       } finally {
         client.close();
@@ -200,10 +464,12 @@ void main() {
 
       final client = HttpClient();
       try {
-        final req = await client.get('localhost', port!, '/api/table/items/count');
+        final req =
+            await client.get('localhost', port!, '/api/table/items/count');
         final resp = await req.close();
         expect(resp.statusCode, HttpStatus.ok);
-        expect(resp.headers.value('content-type'), contains('application/json'));
+        expect(
+            resp.headers.value('content-type'), contains('application/json'));
         final body = await resp.transform(utf8.decoder).join();
         final decoded = jsonDecode(body) as Map<String, dynamic>;
         expect(decoded, containsPair('count', 2));
@@ -223,7 +489,8 @@ void main() {
 
       final client = HttpClient();
       try {
-        final req = await client.get('localhost', port!, '/api/table/items/columns');
+        final req =
+            await client.get('localhost', port!, '/api/table/items/columns');
         final resp = await req.close();
         expect(resp.statusCode, HttpStatus.ok);
         final body = await resp.transform(utf8.decoder).join();
@@ -259,7 +526,8 @@ void main() {
       }
     });
 
-    test('POST /api/sql accepts SELECT with keyword inside string literal', () async {
+    test('POST /api/sql accepts SELECT with keyword inside string literal',
+        () async {
       await DriftDebugServer.start(
         query: mockQuery,
         enabled: true,
@@ -296,7 +564,61 @@ void main() {
       try {
         final req = await client.post('localhost', port!, '/api/sql');
         req.headers.contentType = ContentType.json;
-        req.write(jsonEncode(<String, String>{'sql': 'INSERT INTO items (name) VALUES (\'x\')'}));
+        req.write(jsonEncode(<String, String>{
+          'sql': 'INSERT INTO items (name) VALUES (\'x\')'
+        }));
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.badRequest);
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded['error'], contains('read-only'));
+      } finally {
+        client.close();
+      }
+    });
+
+    test('POST /api/sql rejects multi-statement SQL', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.post('localhost', port!, '/api/sql');
+        req.headers.contentType = ContentType.json;
+        req.write(jsonEncode(<String, String>{
+          'sql': 'SELECT 1; SELECT 2'
+        }));
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.badRequest);
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded['error'], contains('read-only'));
+      } finally {
+        client.close();
+      }
+    });
+
+    test('POST /api/sql rejects WITH ... INSERT', () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.post('localhost', port!, '/api/sql');
+        req.headers.contentType = ContentType.json;
+        req.write(jsonEncode(<String, String>{
+          'sql': 'WITH x AS (SELECT 1) INSERT INTO items (name) SELECT \'a\' FROM x'
+        }));
         final resp = await req.close();
         expect(resp.statusCode, HttpStatus.badRequest);
         final body = await resp.transform(utf8.decoder).join();
@@ -330,7 +652,9 @@ void main() {
       }
     });
 
-    test('GET /api/generation returns JSON with generation number for live refresh', () async {
+    test(
+        'GET /api/generation returns JSON with generation number for live refresh',
+        () async {
       await DriftDebugServer.start(
         query: mockQuery,
         enabled: true,
@@ -354,7 +678,9 @@ void main() {
       }
     });
 
-    test('GET /api/generation?since=N accepts query param and returns same format', () async {
+    test(
+        'GET /api/generation?since=N accepts query param and returns same format',
+        () async {
       await DriftDebugServer.start(
         query: mockQuery,
         enabled: true,
@@ -366,7 +692,8 @@ void main() {
       final client = HttpClient();
       try {
         // since=-1 ensures server skips long-poll (generation >= 0 > -1) and returns immediately.
-        final req = await client.getUrl(Uri.parse('http://localhost:$port/api/generation?since=-1'));
+        final req = await client.getUrl(
+            Uri.parse('http://localhost:$port/api/generation?since=-1'));
         final resp = await req.close();
         expect(resp.statusCode, HttpStatus.ok);
         final body = await resp.transform(utf8.decoder).join();
@@ -385,7 +712,9 @@ void main() {
     setUp(() {
       mockQuery = (String sql) async {
         if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
-          return [{'name': 'items'}];
+          return [
+            {'name': 'items'}
+          ];
         }
         return <Map<String, dynamic>>[];
       };
@@ -439,7 +768,8 @@ void main() {
       }
     });
 
-    test('request with query param token succeeds when authToken is set', () async {
+    test('request with query param token gets 401 (token in URL not supported)',
+        () async {
       await DriftDebugServer.start(
         query: mockQuery,
         enabled: true,
@@ -455,13 +785,14 @@ void main() {
           Uri.parse('http://localhost:$port/api/tables?token=secret-token'),
         );
         final resp = await req.close();
-        expect(resp.statusCode, HttpStatus.ok);
+        expect(resp.statusCode, HttpStatus.unauthorized);
       } finally {
         client.close();
       }
     });
 
-    test('request with Basic auth succeeds when basicAuthUser/Password set', () async {
+    test('request with Basic auth succeeds when basicAuthUser/Password set',
+        () async {
       await DriftDebugServer.start(
         query: mockQuery,
         enabled: true,
@@ -505,7 +836,8 @@ void main() {
       }
     });
 
-    test('empty authToken does not require auth (treated as disabled)', () async {
+    test('empty authToken does not require auth (treated as disabled)',
+        () async {
       await DriftDebugServer.start(
         query: mockQuery,
         enabled: true,
@@ -532,7 +864,9 @@ void main() {
     setUp(() {
       mockQuery = (String sql) async {
         if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
-          return [{'name': 'items'}];
+          return [
+            {'name': 'items'}
+          ];
         }
         return <Map<String, dynamic>>[];
       };
@@ -556,7 +890,8 @@ void main() {
         final req = await client.get('localhost', port!, '/api/database');
         final resp = await req.close();
         expect(resp.statusCode, HttpStatus.notImplemented);
-        expect(resp.headers.value('content-type'), contains('application/json'));
+        expect(
+            resp.headers.value('content-type'), contains('application/json'));
         final body = await resp.transform(utf8.decoder).join();
         final decoded = jsonDecode(body) as Map<String, dynamic>;
         expect(decoded['error'], contains('getDatabaseBytes'));
@@ -565,13 +900,22 @@ void main() {
       }
     });
 
-    test('returns 200 and database bytes when getDatabaseBytes provided', () async {
-      const sqliteHeader = [0x53, 0x51, 0x4c, 0x69, 0x74, 0x65]; // "SQLite" magic
+    test('returns 200 and database bytes when getDatabaseBytes provided',
+        () async {
+      const sqliteHeader = [
+        0x53,
+        0x51,
+        0x4c,
+        0x69,
+        0x74,
+        0x65
+      ]; // "SQLite" magic
       await DriftDebugServer.start(
         query: mockQuery,
         enabled: true,
         port: 0,
-        getDatabaseBytes: () async => List<int>.from(sqliteHeader)..addAll(List.filled(100, 0)),
+        getDatabaseBytes: () async =>
+            List<int>.from(sqliteHeader)..addAll(List.filled(100, 0)),
       );
       final port = DriftDebugServer.port;
       expect(port, isNotNull);
@@ -581,11 +925,12 @@ void main() {
         final req = await client.get('localhost', port!, '/api/database');
         final resp = await req.close();
         expect(resp.statusCode, HttpStatus.ok);
-        expect(resp.headers.value('content-disposition'), contains('database.sqlite'));
+        expect(resp.headers.value('content-disposition'),
+            contains('database.sqlite'));
         expect(resp.headers.value('content-type'), contains('octet-stream'));
         final body = await resp.toList();
         final bytes = body.expand((b) => b).toList();
-        expect(bytes.length, 106);
+        expect(bytes, hasLength(106));
         expect(bytes.take(6).toList(), sqliteHeader);
       } finally {
         client.close();
@@ -599,10 +944,14 @@ void main() {
     setUp(() {
       mockQuery = (String sql) async {
         if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
-          return [{'name': 'items'}];
+          return [
+            {'name': 'items'}
+          ];
         }
         if (sql.contains('COUNT(*)') && sql.contains('items')) {
-          return [{'c': 2}];
+          return [
+            {'c': 2}
+          ];
         }
         if (sql.contains('SELECT * FROM "items"')) {
           return [
@@ -618,7 +967,8 @@ void main() {
       await DriftDebugServer.stop();
     });
 
-    test('POST /api/snapshot captures state and GET returns metadata', () async {
+    test('POST /api/snapshot captures state and GET returns metadata',
+        () async {
       await DriftDebugServer.start(
         query: mockQuery,
         enabled: true,
@@ -645,13 +995,15 @@ void main() {
         final getBody = await getResp.transform(utf8.decoder).join();
         final getData = jsonDecode(getBody) as Map<String, dynamic>;
         expect(getData['snapshot'], isNotNull);
-        expect((getData['snapshot'] as Map)['counts'], containsPair('items', 2));
+        expect(
+            (getData['snapshot'] as Map)['counts'], containsPair('items', 2));
       } finally {
         client.close();
       }
     });
 
-    test('GET /api/snapshot/compare returns diff when snapshot exists', () async {
+    test('GET /api/snapshot/compare returns diff when snapshot exists',
+        () async {
       await DriftDebugServer.start(
         query: mockQuery,
         enabled: true,
@@ -687,7 +1039,8 @@ void main() {
 
       final client = HttpClient();
       try {
-        final req = await client.get('localhost', port!, '/api/snapshot/compare');
+        final req =
+            await client.get('localhost', port!, '/api/snapshot/compare');
         final resp = await req.close();
         expect(resp.statusCode, HttpStatus.badRequest);
         final body = await resp.transform(utf8.decoder).join();
@@ -733,28 +1086,44 @@ void main() {
       mockQueryA = (String sql) async {
         if (sql.contains('ORDER BY type, name')) {
           return [
-            {'type': 'table', 'name': 'items', 'sql': 'CREATE TABLE items(id INT);'},
+            {
+              'type': 'table',
+              'name': 'items',
+              'sql': 'CREATE TABLE items(id INT);'
+            },
           ];
         }
         if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
-          return [{'name': 'items'}];
+          return [
+            {'name': 'items'}
+          ];
         }
         if (sql.contains('COUNT(*)') && sql.contains('items')) {
-          return [{'c': 3}];
+          return [
+            {'c': 3}
+          ];
         }
         return <Map<String, dynamic>>[];
       };
       mockQueryB = (String sql) async {
         if (sql.contains('ORDER BY type, name')) {
           return [
-            {'type': 'table', 'name': 'items', 'sql': 'CREATE TABLE items(id INT);'},
+            {
+              'type': 'table',
+              'name': 'items',
+              'sql': 'CREATE TABLE items(id INT);'
+            },
           ];
         }
         if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
-          return [{'name': 'items'}];
+          return [
+            {'name': 'items'}
+          ];
         }
         if (sql.contains('COUNT(*)') && sql.contains('items')) {
-          return [{'c': 5}];
+          return [
+            {'c': 5}
+          ];
         }
         return <Map<String, dynamic>>[];
       };
@@ -764,7 +1133,8 @@ void main() {
       await DriftDebugServer.stop();
     });
 
-    test('GET /api/compare/report returns 501 when queryCompare not set', () async {
+    test('GET /api/compare/report returns 501 when queryCompare not set',
+        () async {
       await DriftDebugServer.start(
         query: mockQueryA,
         enabled: true,
@@ -786,7 +1156,8 @@ void main() {
       }
     });
 
-    test('GET /api/compare/report returns diff when queryCompare set', () async {
+    test('GET /api/compare/report returns diff when queryCompare set',
+        () async {
       await DriftDebugServer.start(
         query: mockQueryA,
         enabled: true,
@@ -817,7 +1188,8 @@ void main() {
       }
     });
 
-    test('GET /api/compare/report?format=download returns attachment', () async {
+    test('GET /api/compare/report?format=download returns attachment',
+        () async {
       await DriftDebugServer.start(
         query: mockQueryA,
         enabled: true,
@@ -830,11 +1202,13 @@ void main() {
       final client = HttpClient();
       try {
         final req = await client.getUrl(
-          Uri.parse('http://localhost:$port/api/compare/report?format=download'),
+          Uri.parse(
+              'http://localhost:$port/api/compare/report?format=download'),
         );
         final resp = await req.close();
         expect(resp.statusCode, HttpStatus.ok);
-        expect(resp.headers.value('content-disposition'), contains('diff-report.json'));
+        expect(resp.headers.value('content-disposition'),
+            contains('diff-report.json'));
       } finally {
         client.close();
       }

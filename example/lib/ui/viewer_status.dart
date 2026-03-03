@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// Result of viewer startup: whether debug is enabled, server is running, and optional URL or error.
+///
+/// When [running] is true, [url] should be non-null in practice (copy button is disabled when [url] is null).
+/// [errorMessage] is used when initialization failed or when [enabled] is true but the viewer did not start.
 class ViewerInitResult {
   const ViewerInitResult({
     required this.enabled,
@@ -13,6 +16,7 @@ class ViewerInitResult {
   final bool enabled;
   final bool running;
   final Uri? url;
+
   /// When set, initialization failed; show this message to the user.
   final String? errorMessage;
 }
@@ -76,7 +80,9 @@ class ReadyView extends StatelessWidget {
         Text(
           init.running
               ? 'Drift debug viewer is running'
-              : (init.enabled ? 'Viewer failed to start' : 'Viewer disabled (release build)'),
+              : (init.enabled
+                  ? 'Viewer failed to start'
+                  : 'Viewer disabled (release build)'),
           style: Theme.of(context).textTheme.headlineSmall,
           textAlign: TextAlign.center,
         ),
@@ -140,4 +146,3 @@ class ReadyView extends StatelessWidget {
     );
   }
 }
-
