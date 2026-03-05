@@ -64,6 +64,24 @@ class _Snapshot {
       '_Snapshot(id: $id, createdAt: $createdAt, tables: ${tables.length} tables)';
 }
 
+/// Validated POST /api/sql request body (prefer_extension_type_for_wrapper, require_api_response_validation).
+extension type _SqlRequestBody(String _sql) implements Object {
+  /// Validated SQL string (exposed getter; representation is private per prefer_private_extension_type_field).
+  String get sql => _sql;
+
+  static const String _keySql = 'sql';
+
+  /// Validates shape and returns null on invalid (require_api_response_validation).
+  static _SqlRequestBody? fromJson(Object? decoded) {
+    if (decoded is! Map<String, dynamic>) return null;
+    final raw = decoded[_keySql];
+    if (raw is! String) return null;
+    final trimmedSql = raw.trim();
+    if (trimmedSql.isEmpty) return null;
+    return _SqlRequestBody(trimmedSql);
+  }
+}
+
 /// Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minimal web viewer.
 ///
 /// Works with any database: pass a [query] callback that runs SQL and returns rows as maps.
@@ -154,6 +172,26 @@ class _DriftDebugServerImpl {
   static const String _jsonKeyError = 'error';
   static const String _jsonKeyRows = 'rows';
   static const String _jsonKeySql = 'sql';
+
+  /// Validated POST /api/sql request body. Checks Content-Type then decodes and validates (require_content_type_validation, require_api_response_validation).
+  ({_SqlRequestBody? body, String? error}) _parseSqlBody(
+      HttpRequest request, String body) {
+    if (request.headers.contentType?.mimeType != 'application/json') {
+      return (body: null, error: 'Content-Type must be application/json');
+    }
+    Object? decoded;
+    try {
+      decoded = jsonDecode(body);
+    } on Object catch (error, stack) {
+      _logError(error, stack);
+      return (body: null, error: _errorInvalidJson);
+    }
+    final bodyObj = _SqlRequestBody.fromJson(decoded);
+    if (bodyObj == null) {
+      return (body: null, error: _errorMissingSql);
+    }
+    return (body: bodyObj, error: null);
+  }
   static const String _jsonKeyCount = 'count';
   static const String _jsonKeyOk = 'ok';
   static const String _jsonKeyGeneration = 'generation';
@@ -732,32 +770,8 @@ class _DriftDebugServerImpl {
     return true;
   }
 
-  /// Decodes and validates body shape for POST /api/sql. Call only after checking
-  /// Content-Type is application/json (require_content_type_validation). Returns the trimmed sql
-  /// and null error, or null sql and an error message.
-  ({String? sql, String? error}) _decodeAndValidateSqlBody(String body) {
-    final Object? decoded;
-    try {
-      decoded = jsonDecode(body);
-    } on Object catch (error, stack) {
-      _logError(error, stack);
-      return (sql: null, error: _errorInvalidJson);
-    }
-    if (decoded is! Map<String, dynamic>) {
-      return (sql: null, error: _errorInvalidJson);
-    }
-    final rawSql = decoded[_jsonKeySql];
-    if (rawSql is! String) {
-      return (sql: null, error: _errorMissingSql);
-    }
-    final String sql = rawSql.trim();
-    if (sql.isEmpty) {
-      return (sql: null, error: _errorMissingSql);
-    }
-    return (sql: sql, error: null);
-  }
-
   /// Handles POST /api/sql: body {"sql": "SELECT ..."}. Validates read-only via _isReadOnlySql; returns {"rows": [...]}.
+  /// Content-Type is checked before parsing (require_content_type_validation); body shape validated before use (require_api_response_validation).
   Future<void> _handleRunSql(HttpRequest request, DriftDebugQuery query) async {
     final req = request;
     final res = req.response;
@@ -777,33 +791,18 @@ class _DriftDebugServerImpl {
       await res.close();
       return;
     }
-    if (req.headers.contentType?.mimeType != 'application/json') {
+    final result = _parseSqlBody(req, body);
+    final bodyObj = result.body;
+    if (bodyObj == null) {
       res.statusCode = HttpStatus.badRequest;
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, String>{
-        _jsonKeyError: 'Content-Type must be application/json',
+        _jsonKeyError: result.error ?? _errorInvalidJson,
       }));
       await res.close();
       return;
     }
-    final result = _decodeAndValidateSqlBody(body);
-    final errorMsg = result.error;
-    if (errorMsg != null) {
-      res.statusCode = HttpStatus.badRequest;
-      _setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{_jsonKeyError: errorMsg}));
-      await res.close();
-      return;
-    }
-    final String? sqlNullable = result.sql;
-    if (sqlNullable == null || sqlNullable.isEmpty) {
-      res.statusCode = HttpStatus.badRequest;
-      _setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{_jsonKeyError: _errorMissingSql}));
-      await res.close();
-      return;
-    }
-    final String sql = sqlNullable;
+    final String sql = bodyObj.sql;
     if (!_isReadOnlySql(sql)) {
       res.statusCode = HttpStatus.badRequest;
       _setJsonHeaders(res);

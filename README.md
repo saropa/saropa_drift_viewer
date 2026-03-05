@@ -24,6 +24,8 @@ Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minima
 
 **Editor integration:** Run Task → **Open Drift Viewer** (VS Code/Cursor) or use the **Drift Viewer** extension in `extension/`.
 
+**Flutter overlay:** In debug builds, wrap your app with [DriftViewerOverlay](https://pub.dev/documentation/saropa_drift_viewer/latest/flutter/DriftViewerOverlay-class.html) to show a floating button that opens the viewer in the browser or in an in-app WebView. See [Flutter overlay](#flutter-overlay) below.
+
 ---
 
 ## Quick start
@@ -80,6 +82,22 @@ Open **http://127.0.0.1:8642**.
 From VS Code/Cursor: **Run Task → Open Drift Viewer**, or use the **Drift Viewer** extension (`extension/`) for a command-palette shortcut.
 
 **Example app:** [example/](example/) — from repo root: `flutter run -d windows`, then open http://127.0.0.1:8642. See [example/README.md](example/README.md).
+
+### 4. Flutter overlay (optional)
+
+In Flutter apps, add a floating button in debug builds that opens the viewer in the browser or in an in-app WebView:
+
+```dart
+import 'package:saropa_drift_viewer/flutter.dart';
+
+void main() {
+  runApp(DriftViewerOverlay(
+    child: MaterialApp(home: MyHomePage()),
+  ));
+}
+```
+
+Start the server as usual (e.g. `await myDb.startDriftViewer(enabled: kDebugMode);`). The overlay shows a small button (e.g. bottom-right); tap it for a menu: **Open in browser** or **Open in WebView**. The button is only visible when `kDebugMode` is true and the server is running. For custom layout, use [DriftViewerFloatingButton](https://pub.dev/documentation/saropa_drift_viewer/latest/flutter/DriftViewerFloatingButton-class.html) inside your own `Stack`.
 
 ---
 

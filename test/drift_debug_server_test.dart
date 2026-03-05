@@ -513,6 +513,31 @@ void main() {
       }
     });
 
+    test('POST /api/sql rejects body when Content-Type is not application/json',
+        () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.post('localhost', port!, '/api/sql');
+        req.headers.contentType = ContentType.text;
+        req.write(jsonEncode(<String, String>{'sql': 'SELECT 1'}));
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.badRequest);
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded['error'], contains('Content-Type'));
+      } finally {
+        client.close();
+      }
+    });
+
     test('POST /api/sql runs read-only SQL and returns rows', () async {
       await DriftDebugServer.start(
         query: mockQuery,

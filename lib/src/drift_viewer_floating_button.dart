@@ -34,8 +34,12 @@ const double _kSkeletonBarGap = 12;
 const double _kSkeletonCornerRadius = 4;
 const double _kSkeletonBlockWidth = 280;
 const double _kSkeletonBlockHeight = 80;
-/// Skeleton bar color (const so [_SkeletonBars] can be a const subtree per prefer_split_widget_const).
-const Color _kSkeletonColor = Color(0xFFE0E0E0);
+
+/// Max length for URL string in error messages (no_magic_number).
+const int _kUriStringDisplayMaxLength = 80;
+
+/// Max lines for error message text (no_magic_number).
+const int _kErrorMessageMaxLines = 3;
 
 // ---------------------------------------------------------------------------
 // Localized strings (Intl.message for avoid_hardcoded_locale_strings)
@@ -70,6 +74,11 @@ String get _sBack => Intl.message(
   'Back',
   name: 'sBack',
   desc: 'Back button tooltip and semantic label on WebView screen',
+);
+String get _sDriftViewer => Intl.message(
+  'Drift Viewer',
+  name: 'sDriftViewer',
+  desc: 'Semantic label for the Drift Viewer floating button icon',
 );
 String _sCouldNotOpen(Uri uri) => Intl.message(
   'Could not open $uri',
@@ -122,39 +131,69 @@ final class DriftViewerFloatingButton extends StatelessWidget {
 
   /// Route name for the in-app WebView screen. Register in [MaterialApp.onGenerateRoute]
   /// or [MaterialApp.routes] so [openInWebView] can use named routes for deep linking.
-  /// Example: `onGenerateRoute: (s) => s.name == DriftViewerFloatingButton.webViewRouteName
-  ///   ? DriftViewerFloatingButton.buildWebViewRoute(s.arguments as String) : null`
+  /// Example: `onGenerateRoute: (s) => s.name?.startsWith(DriftViewerFloatingButton.webViewRouteName) == true
+  ///   ? DriftViewerFloatingButton.buildWebViewRoute(s) : null`
   static const String webViewRouteName = '/drift-viewer-webview';
 
   /// Builds the route for the in-app WebView. Use when registering [webViewRouteName].
   ///
-  /// Returns a [MaterialPageRoute] that displays the WebView for the given [uriString].
-  /// Pass [uriString] from [RouteSettings.arguments] when using path-style deep links.
-  /// Only http and https schemes are allowed; invalid or unsupported URLs yield an error screen.
+  /// Pass [RouteSettings] from [MaterialApp.onGenerateRoute] for deep links (uri from
+  /// [RouteSettings.name] query or [RouteSettings.arguments]). Or pass [settingsOrUriString]
+  /// as a [String] for programmatic use. Only http and https schemes are allowed.
+  ///
+  /// Returns a [MaterialPageRoute] for the WebView screen or the error screen if the URI is invalid.
   @useResult
-  static Route<void> buildWebViewRoute(String uriString) {
+  static Route<void> buildWebViewRoute(dynamic settingsOrUriString) {
+    final String uriString = _uriStringFromRouteSettings(settingsOrUriString);
     final uri = Uri.tryParse(uriString);
+    final routeName = '$webViewRouteName?uri=${Uri.encodeComponent(uriString)}';
     if (uri == null ||
         (uri.scheme != 'http' && uri.scheme != 'https')) {
-      final urlSample = uriString.length > 80
-          ? '${uriString.substring(0, 80)}...'
-          : uriString;
-      return MaterialPageRoute<void>(
-        settings: const RouteSettings(name: webViewRouteName),
-        builder: (BuildContext _) => Scaffold(
-          body: Center(
-            child: Text(
-              _sInvalidOrUnsupportedUrl(urlSample),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ),
-      );
+      return _buildWebViewErrorRoute(routeName, uriString);
     }
+    return _buildWebViewScreenRoute(routeName, uri);
+  }
+
+  /// Uri string from RouteSettings (path/query param or arguments) or direct string (require_deep_link_testing).
+  static String _uriStringFromRouteSettings(dynamic settingsOrUriString) {
+    if (settingsOrUriString is RouteSettings) {
+      final name = settingsOrUriString.name;
+      if (name != null && name.contains('?uri=')) {
+        final idx = name.indexOf('?');
+        if (idx >= 0) {
+          final query = name.substring(idx + 1);
+          final params = Uri.splitQueryString(query);
+          final uri = params['uri'];
+          if (uri != null && uri.isNotEmpty) return uri;
+        }
+      }
+      final args = settingsOrUriString.arguments;
+      if (args is String && args.isNotEmpty) return args;
+    }
+    if (settingsOrUriString is String && settingsOrUriString.isNotEmpty) {
+      return settingsOrUriString;
+    }
+    return '';
+  }
+
+  /// Named route builder for error screen (prefer_named_routes_for_deep_links).
+  @useResult
+  static Route<void> _buildWebViewErrorRoute(String routeName, String uriString) {
+    final urlSample = uriString.length > _kUriStringDisplayMaxLength
+        ? '${uriString.substring(0, _kUriStringDisplayMaxLength)}...'
+        : uriString;
     return MaterialPageRoute<void>(
-      settings: const RouteSettings(name: webViewRouteName),
-      builder: (BuildContext _) => _DriftViewerWebViewScreen(uri: uri),
+      settings: RouteSettings(name: routeName, arguments: urlSample),
+      builder: (BuildContext _) => _WebViewErrorScreen(urlSample: urlSample),
+    );
+  }
+
+  /// Named route builder for WebView screen (prefer_named_routes_for_deep_links).
+  @useResult
+  static Route<void> _buildWebViewScreenRoute(String routeName, Uri uri) {
+    return MaterialPageRoute<void>(
+      settings: RouteSettings(name: routeName, arguments: uri.toString()),
+      builder: (BuildContext _) => _WebViewScreenFromSettings(uri: uri),
     );
   }
 
@@ -172,10 +211,12 @@ final class DriftViewerFloatingButton extends StatelessWidget {
       color: transparentSurface,
       child: PopupMenuButton<String>(
         tooltip: _sOpenDriftViewer,
-        icon: const Icon(Icons.storage, semanticLabel: 'Drift Viewer'),
+        icon: Icon(Icons.storage, semanticLabel: _sDriftViewer),
         onSelected: (String value) {
           if (value == 'browser') {
-            unawaited(_openInBrowser(context, uri));
+            unawaited(
+              _openInBrowser(context, uri).catchError(_logOpenInBrowserError),
+            );
           } else if (value == 'webview') {
             _openInWebView(context, uri);
           }
@@ -206,6 +247,59 @@ final class DriftViewerFloatingButton extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Error screen for invalid WebView URL (named widget for deep-link route; SafeArea when no AppBar).
+class _WebViewErrorScreen extends StatelessWidget {
+  const _WebViewErrorScreen({required this.urlSample});
+
+  final String urlSample;
+
+  @override
+  String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
+      '_WebViewErrorScreen(urlSample: $urlSample)';
+
+  @override
+  @useResult
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Text(
+            _sInvalidOrUnsupportedUrl(urlSample),
+            maxLines: _kErrorMessageMaxLines,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// WebView screen; [uri] is passed from route builder (parsing done there to avoid_expensive_build).
+class _WebViewScreenFromSettings extends StatelessWidget {
+  const _WebViewScreenFromSettings({required this.uri});
+
+  final Uri uri;
+
+  @override
+  String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
+      '_WebViewScreenFromSettings(uri: $uri)';
+
+  @override
+  @useResult
+  Widget build(BuildContext context) => _DriftViewerWebViewScreen(uri: uri);
+}
+
+// ---------------------------------------------------------------------------
+// Error logging for fire-and-forget futures (prefer_extracting_function_callbacks)
+// ---------------------------------------------------------------------------
+
+void _logOpenInBrowserError(Object e, StackTrace st) {
+  if (kDebugMode) {
+    debugPrint('DriftViewer _openInBrowser failed: $e');
+    debugPrint('$st');
   }
 }
 
@@ -284,10 +378,9 @@ Future<void> _openInBrowser(BuildContext context, Uri uri) async {
 }
 
 void _openInWebView(BuildContext context, Uri uri) {
-  final future = Navigator.of(context).pushNamed<void>(
-    DriftViewerFloatingButton.webViewRouteName,
-    arguments: uri.toString(),
-  );
+  final routeName =
+      '${DriftViewerFloatingButton.webViewRouteName}?uri=${Uri.encodeComponent(uri.toString())}';
+  final future = Navigator.of(context).pushNamed<void>(routeName);
   unawaited(future.catchError((Object e, StackTrace st) {
     if (kDebugMode) {
       debugPrint('DriftViewer pushNamed failed: $e');
@@ -341,7 +434,7 @@ class _DriftViewerLoadingPlaceholder extends StatelessWidget {
   }
 }
 
-/// Skeleton bars with const constructor; reads theme in build for prefer_split_widget_const.
+/// Skeleton bars; uses theme color for require_theme_color_from_scheme.
 class _SkeletonBars extends StatelessWidget {
   const _SkeletonBars();
 
@@ -352,31 +445,107 @@ class _SkeletonBars extends StatelessWidget {
   @override
   @useResult
   Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.surfaceContainerHighest;
+    return _SkeletonBarsContent(color: color);
+  }
+}
+
+/// Extracted skeleton shape for prefer_split_widget_const; receives theme color from parent.
+class _SkeletonBarsContent extends StatelessWidget {
+  const _SkeletonBarsContent({required this.color});
+
+  final Color color;
+
+  @override
+  String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
+      '_SkeletonBarsContent(color: $color)';
+
+  @override
+  @useResult
+  Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        Container(
-          width: _kSkeletonBarWidth,
-          height: _kSkeletonBarHeight,
-          margin: const EdgeInsets.only(bottom: _kSkeletonBarGap),
-          clipBehavior: Clip.hardEdge,
-          decoration: const BoxDecoration(
-            color: _kSkeletonColor,
-            borderRadius: BorderRadius.all(Radius.circular(_kSkeletonCornerRadius)),
-          ),
-        ),
-        Container(
-          width: _kSkeletonBlockWidth,
-          height: _kSkeletonBlockHeight,
-          clipBehavior: Clip.hardEdge,
-          decoration: const BoxDecoration(
-            color: _kSkeletonColor,
-            borderRadius: BorderRadius.all(Radius.circular(_kSkeletonCornerRadius)),
-          ),
-        ),
+        _SkeletonBar(color: color),
+        _SkeletonBlock(color: color),
       ],
     );
   }
+}
+
+/// Single skeleton bar (extracted for prefer_split_widget_const).
+class _SkeletonBar extends StatelessWidget {
+  const _SkeletonBar({required this.color});
+
+  final Color color;
+
+  @override
+  String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
+      '_SkeletonBar(color: $color)';
+
+  @override
+  @useResult
+  Widget build(BuildContext context) {
+    return Container(
+      width: _kSkeletonBarWidth,
+      height: _kSkeletonBarHeight,
+      margin: const EdgeInsets.only(bottom: _kSkeletonBarGap),
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius:
+            const BorderRadius.all(Radius.circular(_kSkeletonCornerRadius)),
+      ),
+    );
+  }
+}
+
+/// Skeleton block (extracted for prefer_split_widget_const).
+class _SkeletonBlock extends StatelessWidget {
+  const _SkeletonBlock({required this.color});
+
+  final Color color;
+
+  @override
+  String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
+      '_SkeletonBlock(color: $color)';
+
+  @override
+  @useResult
+  Widget build(BuildContext context) {
+    return Container(
+      width: _kSkeletonBlockWidth,
+      height: _kSkeletonBlockHeight,
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius:
+            const BorderRadius.all(Radius.circular(_kSkeletonCornerRadius)),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sandboxed WebView (prefer_webview_sandbox: controller must have allowFileAccess
+// false and navigation delegate restricting domain)
+// ---------------------------------------------------------------------------
+
+/// WebView wrapper that documents sandbox requirements (prefer_webview_sandbox).
+/// The [controller] must have file access disabled and a navigation delegate
+/// that restricts navigation to the intended domain (configured in initState above).
+class _SandboxedWebView extends StatelessWidget {
+  const _SandboxedWebView({required this.controller});
+
+  final WebViewController controller;
+
+  @override
+  String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
+      '_SandboxedWebView(controller: $controller)';
+
+  @override
+  @useResult
+  Widget build(BuildContext context) => WebViewWidget(controller: controller);
 }
 
 // ---------------------------------------------------------------------------
@@ -424,7 +593,11 @@ class _DriftViewerWebViewScreenState extends State<_DriftViewerWebViewScreen> {
       ..setNavigationDelegate(_createWebViewNavigationDelegate(uri));
     final platform = controller.platform;
     if (platform is AndroidWebViewController) {
-      platform.setAllowFileAccess(false);
+      unawaited(
+        platform.setAllowFileAccess(false).catchError(
+          (Object e, StackTrace st) => _logLoadError(e, st),
+        ),
+      );
     }
     _controller = controller;
     unawaited(
@@ -454,6 +627,7 @@ class _DriftViewerWebViewScreenState extends State<_DriftViewerWebViewScreen> {
           ),
         ),
         body: SafeArea(
+          top: false,
           child: Center(
             child: _DriftViewerLoadingPlaceholder(),
           ),
@@ -474,7 +648,8 @@ class _DriftViewerWebViewScreenState extends State<_DriftViewerWebViewScreen> {
         ),
       ),
       body: SafeArea(
-        child: WebViewWidget(controller: controller),
+        top: false,
+        child: _SandboxedWebView(controller: controller),
       ),
     );
   }

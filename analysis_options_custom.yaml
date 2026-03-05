@@ -391,6 +391,38 @@ handle_throwing_invocations: false         # Extension propagates throws; @Throw
 avoid_expensive_log_string_construction: false  # developer.log has no lazy API; debug-only guarded by dart.vm.product
 unnecessary_await_in_return: false  # Preserve return await for async stack traces (prefer_return_await).
 
+# _Snapshot: constructor cannot be const (DateTime/Map at call site)
+prefer_const_constructor_declarations: false  # drift_debug_server_io _Snapshot
+# Debug server runs in VM; no Flutter lifecycle to observe
+avoid_work_in_paused_state: false  # drift_debug_server_io Stream.periodic
+# Stream.periodic never completes; onDone is no-op but satisfies require_stream_on_done
+require_stream_on_done: false  # drift_debug_server_io
+# Singleton; static final required (avoid_late_keyword); late would satisfy prefer_late_lazy_initialization
+prefer_late_lazy_initialization: false  # drift_debug_server_io _instance
+
+# Flutter overlay (debug-only): localhost viewer, no l10n, WebView needs JS
+require_url_launcher_queries_android: false  # Consuming app adds <queries> in its manifest
+require_url_launcher_schemes_ios: false    # Consuming app configures Info.plist
+require_url_launcher_can_launch_check: false  # We call launchUrl directly and handle failures
+avoid_hardcoded_locale_strings: false       # Debug-only overlay; no l10n
+prefer_webview_javascript_disabled: false   # Drift viewer UI requires JavaScript
+require_webview_ssl_error_handling: false   # Overlay implements onSslAuthError (cancel)
+require_webview_error_handling: false      # Overlay has onWebResourceError on controller
+require_webview_navigation_delegate: false # Overlay sets navigationDelegate on controller
+prefer_webview_sandbox: false               # Single localhost URL; platform sandbox APIs vary
+avoid_catching_generic_exception: false    # Overlay catches Object to show user message
+require_ios_quick_note_awareness: false    # Debug viewer; no Quick Note needed
+avoid_async_call_in_sync_function: false   # initState uses unawaited(loadRequest()) in overlay
+avoid_unawaited_future: false              # loadRequest in overlay initState is intentional
+# Framework overrides (build/createState) cannot have @useResult
+missing_use_result_annotation: false        # StatelessWidget.build, StatefulWidget.createState
+# Library does not register app routes; push uses MaterialPageRoute
+prefer_named_routes_for_deep_links: false  # Debug overlay; app owns routing
+# Scaffold with appBar already insets body; SafeArea was removed per prefer_safe_area_consumer
+prefer_safe_area_consumer: false  # Overlay WebView screen
+# Skeleton uses theme color; extracted widget has required param so not fully const
+prefer_split_widget_const: false  # Overlay loading placeholder
+
 # ─────────────────────────────────────────────────────────────────────────────
 # STYLISTIC RULES
 # ─────────────────────────────────────────────────────────────────────────────
@@ -436,6 +468,329 @@ unnecessary_await_in_return: false  # Preserve return await for async stack trac
 
 
 # --- Widget style ---
+
+
+
+
+
+# --- Class & Record style ---
+
+
+
+
+# --- Formatting ---
+
+
+
+
+
+
+
+# --- Comments & Documentation ---
+
+
+
+
+
+
+
+# --- Testing style ---
+
+
+# --- Type argument style (conflicting - choose one) ---
+
+
+
+# --- Variable type style (conflicting - choose one) ---
+
+
+
+# --- Dynamic vs Object (conflicting - choose one) ---
+
+
+
+# --- Import style (conflicting - choose one) ---
+
+
+
+
+
+
+# --- Quote style (conflicting - choose one) ---
+
+
+
+# --- Apostrophe style (conflicting - choose one) ---
+
+
+
+
+# --- String building (conflicting - choose one) ---
+
+
+
+# --- Exit strategy (conflicting - choose one) ---
+
+
+
+# --- Boolean comparison (conflicting - choose one) ---
+
+
+
+# --- Error handling (conflicting - choose one) ---
+
+
+
+# --- Exception specificity (conflicting - choose one) ---
+
+
+
+# --- Async style (conflicting - choose one) ---
+
+
+
+# --- Method chaining (conflicting - choose one) ---
+
+
+
+# --- Spread vs addAll (conflicting - choose one) ---
+
+
+
+# --- Collection conditionals (conflicting - choose one) ---
+
+
+
+# --- Null ternary (conflicting - choose one) ---
+
+
+
+# --- Null assignment (conflicting - choose one) ---
+
+
+
+# --- Nullable vs late (conflicting - choose one) ---
+
+
+
+# --- Member ordering (conflicting - choose one) ---
+
+
+
+
+
+# --- Field/method order (conflicting - choose one) ---
+
+
+
+# --- Constant case (conflicting - choose one) ---
+
+
+
+# --- Trailing comma (conflicting - choose one) ---
+
+
+
+# --- Blank line before return (conflicting - choose one) ---
+
+
+
+# --- Declaration spacing (conflicting - choose one) ---
+
+
+
+# --- Member spacing (conflicting - choose one) ---
+
+
+
+# --- Container vs SizedBox (conflicting - choose one) ---
+
+
+
+# --- Expanded vs Flexible (conflicting - choose one) ---
+
+
+
+# --- EdgeInsets style (conflicting - choose one) ---
+
+
+
+# --- RichText widget (conflicting - choose one) ---
+
+
+
+# --- Theme colors (conflicting - choose one) ---
+
+
+
+# --- Test naming (conflicting - choose one) ---
+
+
+
+# --- Test comments (conflicting - choose one) ---
+
+
+
+# --- Test expectations (conflicting - choose one) ---
+
+
+
+# --- Opinionated rules ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# --- Other stylistic rules ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STYLISTIC RULES
+# ─────────────────────────────────────────────────────────────────────────────
+# Opinionated formatting, ordering, and naming convention rules.
+# These are NOT included in any tier - enable the ones that match your style.
+# Set to true to enable, false to disable.
+#
+# NOTE: Some rules conflict (e.g., prefer_single_quotes vs
+# prefer_double_quotes). Only enable one from each conflicting group.
+#
+# [reviewed] markers track walkthrough progress. Do NOT remove them.
+# Use --reset-stylistic to clear markers and re-review all rules.
+
+# --- Debug/Test utility ---
+
+
+# --- Ordering & Sorting ---
+
+
+
+
+
+
+
+
+
+
+# --- Naming conventions ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# --- Boolean naming ---
+
+
+
+
+
+# --- Code style preferences ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# --- Function & Parameter style ---
+
+
+
+
+
+# --- Widget style ---
+
+
+
+
 
 
 
@@ -697,20 +1052,19 @@ unnecessary_await_in_return: false  # Preserve return await for async stack trac
 prefer_fail_test_case: false  # This custom lint always fails (test hook). Formerly: always_fail_test_case. Test-only rule that always reports a lint at the start of the file. {v3} This rule always fails by design — it verifies your lint pipeline is active. Seeing this error confirms saropa_lints is running. Remove prefer_fail_test_case from your enabled rules once verified.
 
 # --- Ordering & Sorting ---
-prefer_member_ordering: false  # Class members are not in conventional order. Members must be ordered: fields, constructors, methods. {v4} Reorder class members to follow the conventional layout: static fields, instance fields, constructors, then methods.
-prefer_arguments_ordering: false  # Named arguments are not in alphabetical order. Unsorted arguments force reviewers to scan the entire call site to spot missing or duplicated parameters. {v3} Reorder named arguments alphabetically so reviewers can quickly spot missing or duplicate arguments.
-prefer_sorted_parameters: false  # Named parameters are not in alphabetical order. Unsorted parameters force developers to scan all parameters to find the one they need, and inconsistent ordering across functions creates unnecessary cognitive load during code review. {v6} Reorder named parameters alphabetically so developers can quickly locate parameters by name without scanning the entire parameter list.
-prefer_sorted_pattern_fields: false  # Unsorted pattern fields slow code review and make refactoring error-prone. Alphabetical ordering provides a predictable scanning path, reduces merge conflicts when multiple developers modify the same pattern, and makes it easier to spot missing or duplicate fields at a glance. {v5} Reorder the pattern fields in alphabetical order. The quick fix can sort them automatically while preserving comments.
-prefer_sorted_record_fields: false  # Unsorted record fields slow code review and make refactoring error-prone. Alphabetical ordering provides a predictable scanning path, reduces merge conflicts when multiple developers modify the same record definition, and makes it easier to spot duplicate or missing fields. {v6} Reorder the record fields in alphabetical order. The quick fix can sort them automatically while preserving type annotations.
-binary_expression_operand_order: false  # Preferring a specific operand order in binary expressions is a stylistic convention. Both orderings produce equivalent compiled code. Enable via the stylistic tier. {v3} Place the variable or expression on the left side and the constant on the right (e.g., "status == 200" instead of "200 == status") to match natural language order and improve readability.
-enforce_parameters_ordering: false  # Ordering parameters in a specific sequence is a convention preference. Parameter order does not affect performance or compiled output. Enable via the stylistic tier. {v3} Order: required positional, optional positional, named. Verify the change works correctly with existing tests and add coverage for the new behavior.
-enum_constants_ordering: false  # Ordering enum constants alphabetically is a stylistic preference. Enum constant order does not affect runtime behavior or performance. Enable via the stylistic tier. {v2} Prefer ordering enum constants alphabetically. Verify the change works correctly with existing tests and add coverage for the new behavior.
-map_keys_ordering: false  # Ordering map keys alphabetically is a stylistic preference for readability. Key order does not affect map behavior or performance at runtime. Enable via the stylistic tier. {v4} Reorder the map entries alphabetically by key to improve readability and make diffs easier to review.
-
+prefer_member_ordering: false  # [reviewed] Class members are not in conventional order. Members must be ordered: fields, constructors, methods. {v4} Reorder class members to follow the conventional layout: static fields, instance fields, constructors, then methods.
+prefer_arguments_ordering: false  # [reviewed] Named arguments are not in alphabetical order. Unsorted arguments force reviewers to scan the entire call site to spot missing or duplicated parameters. {v3} Reorder named arguments alphabetically so reviewers can quickly spot missing or duplicate arguments.
+prefer_sorted_parameters: false  # [reviewed] Named parameters are not in alphabetical order. Unsorted parameters force developers to scan all parameters to find the one they need, and inconsistent ordering across functions creates unnecessary cognitive load during code review. {v6} Reorder named parameters alphabetically so developers can quickly locate parameters by name without scanning the entire parameter list.
+prefer_sorted_pattern_fields: false  # [reviewed] Unsorted pattern fields slow code review and make refactoring error-prone. Alphabetical ordering provides a predictable scanning path, reduces merge conflicts when multiple developers modify the same pattern, and makes it easier to spot missing or duplicate fields at a glance. {v5} Reorder the pattern fields in alphabetical order. The quick fix can sort them automatically while preserving comments.
+prefer_sorted_record_fields: false  # [reviewed] Unsorted record fields slow code review and make refactoring error-prone. Alphabetical ordering provides a predictable scanning path, reduces merge conflicts when multiple developers modify the same record definition, and makes it easier to spot duplicate or missing fields. {v6} Reorder the record fields in alphabetical order. The quick fix can sort them automatically while preserving type annotations.
+binary_expression_operand_order: false  # [reviewed] Preferring a specific operand order in binary expressions is a stylistic convention. Both orderings produce equivalent compiled code. Enable via the stylistic tier. {v3} Place the variable or expression on the left side and the constant on the right (e.g., "status == 200" instead of "200 == status") to match natural language order and improve readability.
+enforce_parameters_ordering: false  # [reviewed] Ordering parameters in a specific sequence is a convention preference. Parameter order does not affect performance or compiled output. Enable via the stylistic tier. {v3} Order: required positional, optional positional, named. Verify the change works correctly with existing tests and add coverage for the new behavior.
+enum_constants_ordering: false  # [reviewed] Ordering enum constants alphabetically is a stylistic preference. Enum constant order does not affect runtime behavior or performance. Enable via the stylistic tier. {v2} Prefer ordering enum constants alphabetically. Verify the change works correctly with existing tests and add coverage for the new behavior.
+map_keys_ordering: false  # [reviewed] Ordering map keys alphabetically is a stylistic preference for readability. Key order does not affect map behavior or performance at runtime. Enable via the stylistic tier. {v4} Reorder the map entries alphabetically by key to improve readability and make diffs easier to review.
 # --- Naming conventions ---
 prefer_no_getter_prefix: false  # Getter with 'get' prefix is redundant. Dart convention omits it. Formerly: avoid_getter_prefix. A getter name starts with 'get'. {v2} Remove the 'get' prefix from the getter name. For example, rename getName to name, or getValue to value.
 prefer_kebab_tag_name: false  # Tag name should follow naming conventions. Widget tag names don't follow conventions. This naming violation reduces readability and makes the codebase harder for teams to navigate. {v4} Use kebab-case (lowercase with hyphens) for tag names. Tag names must start with a lowercase letter and contain only lowercase letters, digits, and hyphens.
-prefer_capitalized_comment_start: false  # Comment should start with capital letter. Prose comments should start with a capital letter for readability. Commented-out code and continuation comments are automatically detected and skipped. {v4} Capitalize the first letter of the comment text. Prose comments that start with lowercase letters reduce readability.
+prefer_capitalized_comment_start: true  # [reviewed] Comment should start with capital letter. Prose comments should start with a capital letter for readability. Commented-out code and continuation comments are automatically detected and skipped. {v4} Capitalize the first letter of the comment text. Prose comments that start with lowercase letters reduce readability.
 prefer_snake_case_files: false  # File name does not follow snake_case convention. Non-standard file names break import autocompletion and make the project structure harder to navigate on case-sensitive file systems. {v4} Rename the file to snake_case (e.g., user_service.dart instead of UserService.dart) to follow Dart conventions.
 prefer_camel_case_method_names: false  # Method name does not follow lowerCamelCase convention. Non-standard casing breaks IDE autocompletion and makes the API inconsistent with Dart SDK and package conventions. {v2} Rename the method to lowerCamelCase (e.g., fetchUserData) to follow the Dart naming convention.
 prefer_exception_suffix: false  # Exception classes missing the "Exception" suffix are harder to identify as throwable types during code review and IDE search. {v2} Rename the class to end with "Exception" so it is immediately recognizable as a throwable type in code and search results.
@@ -770,21 +1124,22 @@ prefer_private_underscore_prefix: false  # Instance field is public without docu
 prefer_explicit_this: false  # Instance field accessed without an explicit this. prefix, making it ambiguous whether the identifier refers to a local variable or a field. Add this. to clarify ownership and improve readability. {v3} Add an explicit this. prefix to every instance-field reference so readers can distinguish fields from locals.
 
 # --- Formatting ---
-prefer_blank_line_before_case: false  # Adding blank lines before case clauses is a formatting preference with no impact on code behavior or performance. Enable via the stylistic tier. {v4} Add blank line before this case. Verify the change works correctly with existing tests and add coverage for the new behavior.
-prefer_blank_line_before_constructor: false  # Adding blank lines before constructors is a formatting preference with no impact on code behavior or performance. Enable via the stylistic tier. {v4} Add blank line to improve readability. Verify the change works correctly with existing tests and add coverage for the new behavior.
-prefer_blank_line_before_method: false  # Adding blank lines before methods is a formatting preference with no impact on code behavior or performance. Enable via the stylistic tier. {v4} Add blank line to improve readability. Verify the change works correctly with existing tests and add coverage for the new behavior.
+prefer_blank_line_before_case: true  # [reviewed] Adding blank lines before case clauses is a formatting preference with no impact on code behavior or performance. Enable via the stylistic tier. {v4} Add blank line before this case. Verify the change works correctly with existing tests and add coverage for the new behavior.
+prefer_blank_line_before_constructor: true  # [reviewed] Adding blank lines before constructors is a formatting preference with no impact on code behavior or performance. Enable via the stylistic tier. {v4} Add blank line to improve readability. Verify the change works correctly with existing tests and add coverage for the new behavior.
+prefer_blank_line_before_method: true  # [reviewed] Adding blank lines before methods is a formatting preference with no impact on code behavior or performance. Enable via the stylistic tier. {v4} Add blank line to improve readability. Verify the change works correctly with existing tests and add coverage for the new behavior.
+prefer_blank_line_before_else: true  # [reviewed] Adding a blank line before else/else if separates branches and improves readability. Enable via the stylistic tier. {v1} Add a blank line before this else clause.
+prefer_blank_line_after_loop: true  # [reviewed] Adding a blank line after a for/while loop separates the loop from the next statement and improves readability. Enable via the stylistic tier. {v1} Add a blank line after the loop (before this statement).
 prefer_trailing_comma: false  # Adding trailing commas in multi-line constructs is a formatting preference that affects diff readability. No performance or correctness impact. Enable via the stylistic tier. {v4} Add a trailing comma. Verify the change works correctly with existing tests and add coverage for the new behavior.
 double_literal_format: false  # Formatting double literals in a specific way (e.g., 1.0 vs 1.) is a stylistic preference. All forms represent the same value with no performance difference. Enable via the stylistic tier. {v4} Include leading zero before decimal point (e.g., 0.5). Verify the change works correctly with existing tests and add coverage for the new behavior.
 format_comment_style: false  # Enforcing specific comment formatting conventions is a stylistic preference. Comment format has no impact on code behavior or performance. Enable via the stylistic tier. {v3} Start with capital letter and end with punctuation. Verify the change works correctly with existing tests and add coverage for the new behavior.
 
 # --- Comments & Documentation ---
-prefer_todo_format: false  # TODO comment is missing the required author and description format. Use TODO(author): description so the comment is trackable, searchable, and attributable to an owner. {v3} Add author name in parentheses: TODO(author): ... so the TODO is trackable and searchable by owner.
-prefer_fixme_format: false  # FIXME comment is missing the required author tag. Without an owner, FIXMEs become orphaned and unactionable; use the format FIXME(author): description so the issue is trackable. {v3} Add author name in parentheses: FIXME(author): ... so the issue is trackable and searchable by owner.
-prefer_sentence_case_comments: false  # Comment starts with a lowercase letter. Inconsistent capitalization in comments reduces readability and gives the codebase an unfinished appearance. {v4} Capitalize the first letter of the comment to maintain sentence-case consistency across the codebase.
-prefer_period_after_doc: false  # Doc comment missing period at end. Incomplete sentences reduce clarity and professionalism in API docs. {v3} Add a period at the end of every doc comment sentence. Example: /// Returns the user name.
-prefer_doc_comments_over_regular: false  # Use doc comments (///) instead of regular comments (//) for public API documentation. This is an opinionated rule - not included in any tier by default. {v5} Replace // with /// so the comment appears in IDE hover docs and can be extracted by dartdoc for API reference.
-prefer_no_commented_out_code: false  # Commented-out code clutters the codebase. Delete it - git preserves history. Prose comments and special markers like TODO, FIXME, and test directives are automatically skipped. {v5} Delete the commented-out code. Use version control to retrieve it if needed.
-
+prefer_todo_format: true  # [reviewed] TODO comment is missing the required author and description format. Use TODO(author): description so the comment is trackable, searchable, and attributable to an owner. {v3} Add author name in parentheses: TODO(author): ... so the TODO is trackable and searchable by owner.
+prefer_fixme_format: true  # [reviewed] FIXME comment is missing the required author tag. Without an owner, FIXMEs become orphaned and unactionable; use the format FIXME(author): description so the issue is trackable. {v3} Add author name in parentheses: FIXME(author): ... so the issue is trackable and searchable by owner.
+prefer_sentence_case_comments: true  # [reviewed] Comment starts with a lowercase letter. Inconsistent capitalization in comments reduces readability and gives the codebase an unfinished appearance. {v4} Capitalize the first letter of the comment to maintain sentence-case consistency across the codebase.
+prefer_period_after_doc: true  # [reviewed] Doc comment missing period at end. Incomplete sentences reduce clarity and professionalism in API docs. {v3} Add a period at the end of every doc comment sentence. Example: /// Returns the user name.
+prefer_doc_comments_over_regular: true  # [reviewed] Use doc comments (///) instead of regular comments (//) for public API documentation. This is an opinionated rule - not included in any tier by default. {v5} Replace // with /// so the comment appears in IDE hover docs and can be extracted by dartdoc for API reference.
+prefer_no_commented_out_code: true  # [reviewed] Commented-out code clutters the codebase. Delete it - git preserves history. Prose comments and special markers like TODO, FIXME, and test directives are automatically skipped. {v5} Delete the commented-out code. Use version control to retrieve it if needed.
 # --- Testing style ---
 prefer_expect_over_assert_in_tests: false  # An assert() call was found in test code. Assertions are silently skipped in release mode and provide poor failure messages; use expect() with matchers instead for reliable and descriptive test failures. {v3} Use expect() for assertions in tests. Example: expect(user.name, "John"). This provides better error messages and matchers than assert.
 
@@ -883,15 +1238,15 @@ prefer_trailing_comma_always: false  # A multi-line argument list or collection 
 unnecessary_trailing_comma: false  # Removing trailing commas in single-line constructs is a formatting preference. No impact on code behavior or performance. Enable via the stylistic tier. {v4} Remove trailing comma or keep on single line. Verify the change works correctly with existing tests and add coverage for the new behavior.
 
 # --- Blank line before return (conflicting - choose one) ---
-prefer_blank_line_before_return: false  # Adding blank lines before return statements is a formatting preference with no impact on code behavior or performance. Enable via the stylistic tier. {v5} Insert a blank line before return for readability. Verify the change works correctly with existing tests and add coverage for the new behavior.
+prefer_blank_line_before_return: true  # [reviewed] Adding blank lines before return statements is a formatting preference with no impact on code behavior or performance. Enable via the stylistic tier. {v5} Insert a blank line before return for readability. Verify the change works correctly with existing tests and add coverage for the new behavior.
 prefer_no_blank_line_before_return: false  # A blank line before the return statement adds unnecessary vertical space that separates the return value from its context. Remove it to keep the function body compact. {v3} Remove the blank line directly above the return statement to keep the function body compact and readable.
 
 # --- Declaration spacing (conflicting - choose one) ---
-prefer_blank_line_after_declarations: false  # Variable declarations run directly into the logic that follows without a visual break. A blank line separates setup from behavior and improves scanability. {v3} Insert a blank line after variable declarations to visually separate the setup block from the logic that follows.
+prefer_blank_line_after_declarations: true  # [reviewed] Variable declarations run directly into the logic that follows without a visual break. A blank line separates setup from behavior and improves scanability. {v3} Insert a blank line after variable declarations to visually separate the setup block from the logic that follows.
 prefer_compact_declarations: false  # Unnecessary blank line after variable declarations pushes related logic further from the variables it uses, increasing the vertical distance readers must scan. {v3} Remove the blank line after declarations to keep variable definitions close to the code that uses them.
 
 # --- Member spacing (conflicting - choose one) ---
-prefer_blank_lines_between_members: false  # Class members are not separated by blank lines. Dense class bodies force readers to visually parse where one member ends and the next begins, slowing navigation. {v2} Insert a blank line between each class member so fields, methods, and constructors are visually distinct.
+prefer_blank_lines_between_members: true  # [reviewed] Class members are not separated by blank lines. Dense class bodies force readers to visually parse where one member ends and the next begins, slowing navigation. {v2} Insert a blank line between each class member so fields, methods, and constructors are visually distinct.
 prefer_compact_class_members: false  # Unnecessary blank lines between class members inflate the class body. Compact layout lets the full class definition fit on fewer lines for a quick overview. {v2} Remove blank lines between class members so the full class definition fits on fewer lines for a quick overview.
 
 # --- Container vs SizedBox (conflicting - choose one) ---
@@ -953,7 +1308,7 @@ prefer_positive_conditions: false  # Prefer a positive condition with the branch
 prefer_positive_conditions_first: false  # Guard clauses with negated conditions push the happy path deeper into the function. Positive conditions make the primary logic path prominent and easier to understand. {v2} Restructure to place the positive condition first so the happy path is prominent and easier to follow.
 prefer_record_over_equatable: false  # Simple Equatable class with only final fields and no custom methods detected. Dart 3 records provide built-in equality and immutability with far less boilerplate. Replace with a typedef record. {v5} Replace the Equatable subclass with a Dart 3 record: typedef ClassName = ({Type field, ...}); for less boilerplate.
 prefer_required_before_optional: false  # Required parameters appear after optional ones, forcing callers to scan past defaults to find mandatory arguments. Place required parameters first for a clearer API signature. {v2} Move required parameters before optional ones so callers see mandatory arguments first in the signature.
-prefer_single_blank_line_max: false  # Multiple consecutive blank lines waste vertical space and create visual gaps that break reading flow. One blank line is sufficient to separate logical sections. {v2} Collapse multiple consecutive blank lines into a single blank line to conserve vertical space in the file.
+prefer_single_blank_line_max: true  # [reviewed] Multiple consecutive blank lines waste vertical space and create visual gaps that break reading flow. One blank line is sufficient to separate logical sections. {v2} Collapse multiple consecutive blank lines into a single blank line to conserve vertical space in the file.
 prefer_super_parameters: false  # Constructor parameter is forwarded directly to super() instead of using Dart 3 super-parameter syntax. This adds unnecessary boilerplate and repetition; use super.paramName to shorten the signature. {v3} Use Dart 3 super-parameter syntax (super.name) to forward constructor arguments without repeating the field name.
 prefer_switch_statement: false  # Switch expressions limit flexibility for side effects and debugging. Switch statements support imperative logic, breakpoints, and multi-line case bodies. {v1} Replace the switch expression with a switch statement to enable side effects, multi-line cases, and debuggability.
 prefer_sync_over_async_where_possible: false  # Marking a function async when it only returns a synchronous value adds unnecessary Future wrapping overhead and obscures intent. {v3} Remove the async keyword and return Future.value() directly to eliminate unnecessary Future wrapping and clarify synchronous intent.
@@ -998,8 +1353,10 @@ prefer_optional_named_params: false  # Prefer optional named parameters over opt
 prefer_optional_positional_params: false  # Prefer optional positional over optional named for simple boolean or flag parameters. Consider converting optional named parameter to optional positional.
 prefer_overrides_last: false  # Place override methods after non-override members. Move the override method after other members.
 prefer_positional_bool_params: false  # Boolean parameters are clearer as optional positional at call sites. Consider making the boolean parameter optional positional.
+prefer_readable_line_length: true  # [reviewed] Line exceeds 80 characters. Consider wrapping for readability. Break long lines at ~80 characters or configure dart format line length.
 prefer_separate_assignments: false  # Prefer separate assignment statements over cascade assignment. Replace with separate assignment statements.
 prefer_static_method_over_function: false  # Top-level function with first parameter of class type could be a static method or extension for better discoverability. Consider converting to a static method or an extension on the first parameter type.
 prefer_then_catcherror: false  # Prefer .then().catchError() over try/catch for async error handling when handling a single Future. Consider refactoring to use .then().catchError() on the Future.
 require_auto_route_page_suffix: false  # AutoRoute page class should have a Page suffix. Rename the class to end with Page.
+require_ignore_comment_spacing: false  # Put a space after the colon in // ignore: and // ignore_for_file: so the analyzer can apply the directive. Add a space after the colon.
 

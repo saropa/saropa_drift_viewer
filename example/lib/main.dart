@@ -3,14 +3,14 @@ import 'dart:io';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:saropa_drift_viewer/saropa_drift_viewer.dart';
+import 'package:saropa_drift_viewer/flutter.dart';
 
 import 'database/app_database.dart';
 import 'ui/viewer_status.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ExampleApp());
+  runApp(const DriftViewerOverlay(child: ExampleApp()));
 }
 
 class ExampleApp extends StatelessWidget {
@@ -24,6 +24,13 @@ class ExampleApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
+      onGenerateRoute: (RouteSettings settings) {
+        if (settings.name != null &&
+            settings.name!.startsWith(DriftViewerFloatingButton.webViewRouteName)) {
+          return DriftViewerFloatingButton.buildWebViewRoute(settings);
+        }
+        return null;
+      },
       home: const HomePage(title: 'Drift Viewer Example'),
     );
   }
