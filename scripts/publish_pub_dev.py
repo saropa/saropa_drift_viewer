@@ -641,15 +641,49 @@ def run_tests(package_dir: Path) -> bool:
     return True
 
 
+def _analysis_options_without_plugins(path: Path) -> tuple[str, str] | None:
+    """Read analysis_options.yaml and return (content_without_plugins, full_content).
+    If no 'plugins:' section at root level, return None (no change needed).
+    """
+    text = path.read_text(encoding="utf-8")
+    lines = text.splitlines(keepends=True)
+    for i, line in enumerate(lines):
+        # Root-level key only: no leading space, key is "plugins:"
+        if line.startswith("plugins:") and not line.strip().startswith("#"):
+            # Strip from this line to end of file (entire plugins block)
+            without_plugins = "".join(lines[:i])
+            return (without_plugins.rstrip() + "\n", text)
+    return None
+
+
 def run_analysis(package_dir: Path) -> bool:
-    """Run dart analyze (in package directory)."""
+    """Run dart analyze (in package directory).
+    Temporarily removes analyzer plugins from analysis_options.yaml to avoid
+    plugin crashes (e.g. saropa_lints MetadataImpl/Iterable compatibility)
+    then restores the file.
+    """
     print_header("STEP 6: RUNNING STATIC ANALYSIS")
 
-    result = run_command(
-        ["dart", "analyze", "--fatal-infos"], package_dir, "Analyzing code"
-    )
+    opts_path = package_dir / "analysis_options.yaml"
+    backup_path = package_dir / "analysis_options.yaml.publish_backup"
+    modified = _analysis_options_without_plugins(opts_path)
 
-    return result.returncode == 0
+    try:
+        if modified is not None:
+            without_plugins, original = modified
+            backup_path.write_text(original, encoding="utf-8")
+            opts_path.write_text(without_plugins, encoding="utf-8")
+            print_info("Temporarily disabled analyzer plugins to avoid plugin crashes.")
+
+        result = run_command(
+            ["dart", "analyze", "--fatal-infos"], package_dir, "Analyzing code"
+        )
+        return result.returncode == 0
+    finally:
+        if backup_path.exists():
+            shutil.copy2(backup_path, opts_path)
+            backup_path.unlink()
+            print_info("Restored analysis_options.yaml.")
 
 
 def validate_changelog(package_dir: Path, version: str) -> tuple[bool, str]:
