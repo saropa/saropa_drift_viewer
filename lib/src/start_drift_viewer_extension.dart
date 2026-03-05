@@ -16,8 +16,7 @@ Future<List<Map<String, dynamic>>> _runDriftQuery(Object db, String sql) async {
     final dynamic rows = await selectable.get();
     if (rows is! List) {
       throw StateError(
-        'startDriftViewer expected customSelect(sql).get() to return a List, '
-        + 'but got ${rows.runtimeType}.',
+        'startDriftViewer expected customSelect(sql).get() to return a List, but got ${rows.runtimeType}.',
       );
     }
 
@@ -25,24 +24,25 @@ Future<List<Map<String, dynamic>>> _runDriftQuery(Object db, String sql) async {
       final dynamic data = row.data;
       if (data is! Map) {
         throw StateError(
-          'startDriftViewer expected each row to have a Map-like data field, '
-          + 'but got ${data.runtimeType}.',
+          'startDriftViewer expected each row to have a Map-like data field, but got ${data.runtimeType}.',
         );
       }
       return Map<String, dynamic>.from(data);
     }).toList(growable: false);
   } on NoSuchMethodError catch (e, st) {
+    // Error path only; developer.log has no lazy message API.
     developer.log(
-      'startDriftViewer requires a Drift-like database with customSelect(sql).get() '
-      + 'and rows exposing row.data as a Map. Missing member: $e',
+      // ignore: avoid_expensive_log_string_construction
+      'startDriftViewer requires a Drift-like database with customSelect(sql).get() and rows exposing row.data as a Map. Missing member: $e',
       name: _kStartViewerLogName,
       error: e,
       stackTrace: st,
     );
+    // throwWithStackTrace returns Never; no return value to use.
+    // ignore: avoid_ignoring_return_values
     Error.throwWithStackTrace(
       StateError(
-        'startDriftViewer requires a Drift-like database with customSelect(sql).get() '
-        + 'and rows exposing row.data as a Map. Missing member: $e',
+        'startDriftViewer requires a Drift-like database with customSelect(sql).get() and rows exposing row.data as a Map. Missing member: $e',
       ),
       st,
     );
@@ -84,7 +84,8 @@ extension StartDriftViewerExtension on Object {
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
   }) async {
-    // ignore: unnecessary_await_in_return — keep await for stack trace (prefer_return_await).
+    // Preserve return await so async stack trace is retained (prefer_return_await).
+    // ignore: unnecessary_await_in_return
     return await DriftDebugServer.start(
       query: (sql) => _runDriftQuery(this, sql),
       enabled: enabled,

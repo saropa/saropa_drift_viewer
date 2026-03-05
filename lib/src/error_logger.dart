@@ -7,11 +7,13 @@ bool _isDebugEnvironment() =>
 /// Logger name used when the log/error callback itself throws (so failures are visible in dev tools).
 const String _kLoggerFailureName = 'DriftDebugErrorLogger';
 
+/// Log callback type (used in [DriftDebugLoggerCallbacks] to satisfy avoid_function_type_in_records).
+typedef _LogCallback = void Function(String message);
+/// Error callback type (used in [DriftDebugLoggerCallbacks] to satisfy avoid_function_type_in_records).
+typedef _ErrorCallback = void Function(Object error, StackTrace stack);
+
 /// Type for the pair of log and error callbacks returned by [DriftDebugErrorLogger.callbacks].
-typedef DriftDebugLoggerCallbacks = ({
-  void Function(String message) log,
-  void Function(Object error, StackTrace stack) error,
-});
+typedef DriftDebugLoggerCallbacks = ({_LogCallback log, _ErrorCallback error});
 
 /// Best-practice error and message logger for the Drift debug server.
 ///
@@ -27,7 +29,10 @@ typedef DriftDebugLoggerCallbacks = ({
 ///   onError: DriftDebugErrorLogger.errorCallback(prefix: 'DriftDebug'),
 /// );
 /// ```
-abstract final class DriftDebugErrorLogger {
+///
+/// Kept as a class (not an extension) for stable public API.
+// Static methods take [prefix] as first arg; kept as class for API stability.
+abstract final class DriftDebugErrorLogger { // ignore: prefer_extension_over_utility_class
   const DriftDebugErrorLogger._();
 
   /// Default prefix used in log messages when none is provided.
@@ -37,10 +42,10 @@ abstract final class DriftDebugErrorLogger {
   ///
   /// [prefix] is prepended to messages for easier filtering. Uses [developer.log]
   /// so IDEs and debugging tools can display output. Logging never throws.
-  /// Empty [message] is allowed (logged as-is). Empty [prefix] uses the default prefix constant for the log name.
+  /// Empty message is allowed (logged as-is). Empty [prefix] uses the default prefix constant for the log name.
   /// [useDeveloperLog] is reserved for future use; logging always uses [developer.log].
   ///
-  /// Returns a function that logs the given [message] with optional [prefix].
+  /// Returns a function that logs the given message with optional [prefix].
   static void Function(String message) logCallback({
     String prefix = defaultPrefix,
     bool useDeveloperLog = true,
@@ -74,7 +79,7 @@ abstract final class DriftDebugErrorLogger {
   /// Empty [prefix] uses the default prefix constant for the log name.
   /// [useDeveloperLog] is reserved for future use.
   ///
-  /// Returns a function that logs the given [error] and [stack] with optional [prefix].
+  /// Returns a function that logs the given error and stack with optional [prefix].
   static void Function(Object error, StackTrace stack) errorCallback({
     String prefix = defaultPrefix,
     bool includeStack = true,

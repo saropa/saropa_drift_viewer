@@ -1,6 +1,5 @@
 // VM-only implementation: this file is selected by conditional export when
 // dart.library.io is available. The stub (drift_debug_server_stub.dart) is used on web.
-// ignore_for_file: avoid_platform_specific_imports
 // This file is the VM-only implementation selected by conditional export; dart:io is required.
 //
 // Architecture: Single [_DriftDebugServerImpl] instance holds server, query callback, auth state,
@@ -12,6 +11,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
+// This file is the VM-only implementation; conditional export uses stub on web. dart:io is required here.
+// ignore: avoid_platform_specific_imports
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -106,7 +107,8 @@ class _DriftDebugServerImpl {
   static const int _maxPort = 65535;
   static const int _maxLimit = 1000;
   static const int _defaultLimit = 200;
-  static const int _maxOffset = 2000000;
+  // SDK 3.0 compatibility: digit separators (2_000_000) require SDK 3.6+.
+  static const int _maxOffset = 2000000; // ignore: prefer_digit_separators
   static const Duration _changeCheckInterval = Duration(seconds: 2);
   static const Duration _longPollTimeout = Duration(seconds: 30);
   static const Duration _longPollCheckInterval = Duration(milliseconds: 300); // Poll interval during long-poll wait
@@ -184,8 +186,7 @@ class _DriftDebugServerImpl {
   static const String _errorInvalidJson = 'Invalid JSON';
   static const String _errorMissingSql = 'Missing or empty sql';
   static const String _errorReadOnlyOnly =
-      'Only read-only SQL is allowed (SELECT or WITH ... SELECT). '
-      + 'INSERT/UPDATE/DELETE and DDL are rejected.';
+      'Only read-only SQL is allowed (SELECT or WITH ... SELECT). INSERT/UPDATE/DELETE and DDL are rejected.';
   static const String _errorUnknownTablePrefix = 'Unknown table: ';
   static const String _errorNoSnapshot =
       'No snapshot. POST /api/snapshot first to capture state.';
@@ -234,6 +235,8 @@ class _DriftDebugServerImpl {
   static const int _minLimit = 1;
   /// Number of hex digits per byte in SQL X'...' literal (no_magic_number).
   static const int _hexBytePadding = 2;
+  /// Radix for hex in SQL X'...' literal (no_magic_number).
+  static const int _hexRadix = 16;
   static const String _attachmentSchemaSql = 'schema.sql';
   static const String _attachmentDumpSql = 'dump.sql';
   static const String _contentTypeApplicationOctetStream = 'application';
@@ -311,7 +314,9 @@ class _DriftDebugServerImpl {
   ///   onError: callbacks.error,
   /// );
   /// ```
-   Future<void> start({
+  /// Throws [ArgumentError] documented above. Package does not use @Throws annotation.
+  // ignore: prefer_correct_throws
+  Future<void> start({
     required DriftDebugQuery query,
     bool enabled = true,
     int port = _defaultPort,
@@ -340,9 +345,7 @@ class _DriftDebugServerImpl {
         basicAuthPassword != null && basicAuthPassword.isNotEmpty;
     if (hasBasicUser != hasBasicPassword) {
       throw ArgumentError(
-        'Basic auth requires both basicAuthUser and basicAuthPassword to be set, '
-        + 'or neither. Partial configuration is not allowed.',
-      );
+        'Basic auth requires both basicAuthUser and basicAuthPassword to be set, or neither. Partial configuration is not allowed.');
     }
 
     _query = query;
@@ -415,7 +418,8 @@ class _DriftDebugServerImpl {
   }
 
    void _log(String message) {
-    _onLog?.call(message);
+    final callback = _onLog;
+    if (callback != null) callback(message);
   }
 
    void _logError(Object error, StackTrace stack) {
@@ -425,7 +429,8 @@ class _DriftDebugServerImpl {
       error: error,
       stackTrace: stack,
     );
-    _onError?.call(error, stack);
+    final callback = _onError;
+    if (callback != null) callback(error, stack);
   }
 
   /// Returns substring from [start] to [end] (or end of string). Safe for auth header parsing (avoids range errors).
@@ -1085,7 +1090,7 @@ class _DriftDebugServerImpl {
       return "'${value.replaceAll(r'\', r'\\').replaceAll("'", "''")}'";
     }
     if (value is List<int>) {
-      return "X'${value.map((b) => b.toRadixString(16).padLeft(_hexBytePadding, '0')).join()}'";
+      return "X'${value.map((b) => b.toRadixString(_hexRadix).padLeft(_hexBytePadding, '0')).join()}'";
     }
     return "'${value.toString().replaceAll(r'\', r'\\').replaceAll("'", "''")}'";
   }
@@ -1372,7 +1377,10 @@ class _DriftDebugServerImpl {
         _jsonKeySchemaSame: schemaSame,
         _jsonKeySchemaDiff:
             schemaSame ? null : <String, String>{_jsonKeyA: schemaA, _jsonKeyB: schemaB},
+        // JSON encoder expects List for array values; iterable is not sufficient.
+        // ignore: avoid_unnecessary_to_list
         _jsonKeyTablesOnlyInA: tablesA.where((t) => !tablesB.contains(t)).toList(),
+        // ignore: avoid_unnecessary_to_list
         _jsonKeyTablesOnlyInB: tablesB.where((t) => !tablesA.contains(t)).toList(),
         _jsonKeyTableCounts: countDiffs,
         _jsonKeyGeneratedAt: DateTime.now().toUtc().toIso8601String(),
