@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
+  <meta name="description" content="saropa_drift_viewer API docs, for the Dart programming language.">
+  <title>saropa_drift_viewer - Dart API docs</title>
+
+
+  
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+  
+  <link rel="stylesheet" href="static-assets/github.css?v1">
+  <link rel="stylesheet" href="static-assets/styles.css?v1">
+  <link rel="icon" href="static-assets/favicon.png?v1">
+  
+</head>
+
+<body data-base-href="" data-using-base-href="false" class="light-theme">
+<div id="overlay-under-drawer"></div>
+<header id="title">
+  <span id="sidenav-left-toggle" class="material-symbols-outlined" role="button" tabindex="0">menu</span>
+  <ol class="breadcrumbs gt-separated dark hidden-xs">
+    <li><a href="https://saropa.com">saropa_drift_viewer package</a></li>
+  </ol>
+  <div class="self-name">saropa_drift_viewer</div>
+  <form class="search navbar-right" role="search">
+    <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+  <button class="toggle" id="theme-button" title="Toggle between light and dark mode" aria-label="Light and dark mode toggle">
+    <span id="dark-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      dark_mode
+    </span>
+    <span id="light-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      light_mode
+    </span>
+  </button>
+</header>
+<main>
+  <div id="dartdoc-main-content" class="main-content">
+      
+<section class="desc markdown">
+  <h1 id="saropa_drift_viewer">saropa_drift_viewer</h1>
+<p><a href="https://pub.dev/packages/saropa_drift_viewer"><img src="https://img.shields.io/pub/v/saropa_drift_viewer.svg" alt="pub package"></a>
+<a href="https://github.com/saropa/saropa_drift_viewer/actions/workflows/main.yaml"><img src="https://github.com/saropa/saropa_drift_viewer/actions/workflows/main.yaml/badge.svg" alt="CI"></a>
+<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a></p>
+<p>Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minimal web UI. Use from any Flutter/Dart app that has a Drift (or other SQLite) database.</p>
+<h2 id="setup">Setup</h2>
+<h3 id="1-add-the-dependency">1. Add the dependency</h3>
+<p><strong>From pub.dev:</strong></p>
+<pre class="language-yaml"><code class="language-yaml"># pubspec.yaml
+dependencies:
+  saropa_drift_viewer: ^0.1.0
+</code></pre>
+<p><strong>Path dependency (local or monorepo):</strong></p>
+<pre class="language-yaml"><code class="language-yaml">dependencies:
+  saropa_drift_viewer:
+    path: ../path/to/saropa_drift_viewer
+</code></pre>
+<p>Then run <code>flutter pub get</code> or <code>dart pub get</code>.</p>
+<h3 id="2-start-the-viewer-drift-apps">2. Start the viewer (Drift apps)</h3>
+<p>After your Drift database is initialized, call <code>startDriftViewer</code> on it (e.g. in <code>main()</code> or right after DB init):</p>
+<pre class="language-dart"><code class="language-dart">import 'package:saropa_drift_viewer/saropa_drift_viewer.dart';
+
+// After your database is ready (e.g. AppDatabase, or your GeneratedDatabase subclass):
+await myDb.startDriftViewer(enabled: kDebugMode);
+</code></pre>
+<h3 id="3-open-in-a-browser">3. Open in a browser</h3>
+<p>Open <strong><a href="http://127.0.0.1:8642">http://127.0.0.1:8642</a></strong>. From VS Code/Cursor: <strong>Run Task → Open Drift Viewer</strong> (uses <code>.vscode/tasks.json</code> in this repo). Or install the <strong>Drift Viewer</strong> extension (<code>extension/</code>) for a command-palette shortcut. You'll see a list of tables (with row counts); click one to view its rows as JSON. The UI supports <strong>live refresh</strong> (table view updates when data changes, no manual refresh), <strong>pagination</strong> (limit/offset), <strong>client-side row filter</strong>, a <strong>collapsible schema</strong> panel, <strong>export table as CSV</strong>, and a <strong>light/dark theme</strong> (saved in the browser). A <strong>read-only SQL runner</strong> lets you run ad-hoc <code>SELECT</code> queries with table/column autofill and templates; results can be shown as a table or JSON. You can <strong>export schema (no data)</strong> as <code>schema.sql</code>, <strong>export a full dump (schema + data)</strong> as <code>dump.sql</code>, or <strong>download the raw SQLite file</strong> (binary <code>.sqlite</code>) to open in DB Browser or similar—the download option requires passing <code>getDatabaseBytes</code> when starting the server (see below). <strong>Snapshot / time travel</strong>: take an in-memory snapshot of all tables, then "Compare to now" to see added/removed/unchanged rows per table and export the diff as JSON. <strong>Database diff</strong>: when you pass <code>queryCompare</code> at startup (e.g. a second DB such as staging), the UI can show a diff report (schema + per-table row counts) and export it.</p>
+<hr>
+<h2 id="drift-one-line-setup">Drift: one-line setup</h2>
+<p>For Drift apps, the extension on <code>GeneratedDatabase</code> is the simplest option:</p>
+<pre class="language-dart"><code class="language-dart">import 'package:saropa_drift_viewer/saropa_drift_viewer.dart';
+
+// One call after DB is initialized:
+await myDb.startDriftViewer(enabled: kDebugMode);
+</code></pre>
+<p>Optional parameters:</p>
+<ul>
+<li><strong><code>port</code></strong> — default <code>8642</code>.</li>
+<li><strong><code>loopbackOnly</code></strong> — if <code>true</code>, bind to <code>127.0.0.1</code> only; if <code>false</code>, bind to <code>0.0.0.0</code>.</li>
+<li><strong><code>corsOrigin</code></strong> — <code>'*'</code> (default), a specific origin, or <code>null</code> to omit CORS.</li>
+<li><strong><code>authToken</code></strong> — optional. When set, every request must include <code>Authorization: Bearer &lt;token&gt;</code> or <code>?token=&lt;token&gt;</code>. Use for secure dev tunnels (e.g. ngrok).</li>
+<li><strong><code>basicAuthUser</code></strong> and <strong><code>basicAuthPassword</code></strong> — optional. When both set, HTTP Basic auth is accepted (alternative to token).</li>
+<li><strong><code>getDatabaseBytes</code></strong> — optional. When set, the UI offers "Download database (raw .sqlite)" and <code>GET /api/database</code> serves the file (e.g. <code>() =&gt; File(yourDbPath).readAsBytes()</code>). Open the downloaded file in DB Browser or similar.</li>
+<li><strong><code>onLog</code></strong> — e.g. <code>(msg) =&gt; debugPrint(msg)</code>.</li>
+<li><strong><code>onError</code></strong> — e.g. <code>(err, stack) =&gt; debugPrint('$err\n$stack')</code>.</li>
+</ul>
+<p>Example with logging:</p>
+<pre class="language-dart"><code class="language-dart">await myDb.startDriftViewer(
+  enabled: kDebugMode,
+  onLog: (String message) =&gt; debugPrint(message),
+  onError: (Object error, StackTrace stack) =&gt; debugPrint('$error\n$stack'),
+);
+</code></pre>
+<hr>
+<h2 id="callback-based-api-non-drift-or-custom">Callback-based API (non-Drift or custom)</h2>
+<p>If you don't use Drift or want to plug in another SQL source, use <code>DriftDebugServer.start</code> with a <code>query</code> callback:</p>
+<pre class="language-dart"><code class="language-dart">import 'package:saropa_drift_viewer/saropa_drift_viewer.dart';
+
+await DriftDebugServer.start(
+  query: (String sql) async {
+    // Run [sql] with your executor and return rows as list of maps.
+    final rows = await yourExecutor.customSelect(sql).get();
+    return rows.map((r) =&gt; Map&lt;String, dynamic&gt;.from(r.data)).toList();
+  },
+  enabled: kDebugMode,
+  onLog: debugPrint,
+  onError: (e, s) =&gt; debugPrint('$e\n$s'),
+);
+</code></pre>
+<hr>
+<h2 id="api-summary">API summary</h2>
+<table>
+<thead>
+<tr>
+<th>API</th>
+<th>Use when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>db.startDriftViewer(enabled: ...)</code></strong></td>
+<td>You have a Drift <code>GeneratedDatabase</code> (one-line setup).</td>
+</tr>
+<tr>
+<td><strong><code>DriftDebugServer.start(query: ..., enabled: ...)</code></strong></td>
+<td>You use raw SQLite, or want to supply the query callback yourself.</td>
+</tr>
+</tbody>
+</table>
+<p>Common parameters:</p>
+<ul>
+<li><strong><code>enabled</code></strong> — typically <code>kDebugMode</code>. If <code>false</code>, the server is not started.</li>
+<li><strong><code>port</code></strong> — default <code>8642</code>.</li>
+<li><strong><code>loopbackOnly</code></strong> — bind to loopback only (default <code>false</code>).</li>
+<li><strong><code>corsOrigin</code></strong> — CORS header: <code>'*'</code>, specific origin, or <code>null</code> to disable.</li>
+<li><strong><code>authToken</code></strong> — optional; when set, requests require Bearer token or <code>?token=</code>. Use for tunnels (ngrok, port forwarding).</li>
+<li><strong><code>basicAuthUser</code></strong> / <strong><code>basicAuthPassword</code></strong> — optional; when both set, HTTP Basic auth is accepted.</li>
+<li><strong><code>getDatabaseBytes</code></strong> — optional; when set, <code>GET /api/database</code> serves the raw SQLite file for download (e.g. open in DB Browser). Use e.g. <code>() =&gt; File(dbPath).readAsBytes()</code>.</li>
+<li><strong><code>queryCompare</code></strong> — optional; when set, enables database diff: compare the main DB with another (e.g. staging) via the UI or <code>GET /api/compare/report</code> (schema + per-table row count diff; export as JSON).</li>
+<li><strong><code>onLog</code></strong>, <strong><code>onError</code></strong> — optional; for your logger or <code>debugPrint</code> / <code>print</code>.</li>
+</ul>
+<p>Only one server can run per process; calling start again when already running is a no-op. Use <strong><code>DriftDebugServer.stop()</code></strong> to shut down the server so you can call <strong><code>start</code></strong> again (e.g. in tests or graceful shutdown).</p>
+<p><strong>Health:</strong> <code>GET http://127.0.0.1:8642/api/health</code> returns <code>{"ok": true}</code> for scripts or probes.</p>
+<p><strong>Live refresh:</strong> <code>GET http://127.0.0.1:8642/api/generation</code> returns <code>{"generation": N}</code>. Use <code>?since=N</code> to long-poll until the generation changes (or 30s timeout); the UI uses this to refresh when data changes.</p>
+<hr>
+<h2 id="security">Security</h2>
+<p><strong>Debug only.</strong> Do not enable in production. By default the server binds to <code>0.0.0.0</code>; use <strong><code>loopbackOnly: true</code></strong> to bind to <code>127.0.0.1</code> only. It serves read-only table listing and table data. The SQL runner accepts arbitrary <strong>read-only</strong> SQL (<code>SELECT</code> / <code>WITH ... SELECT</code> only); all write and DDL statements are rejected. Table and column endpoints use allow-lists; table names and limit/offset are validated.</p>
+<p><strong>Secure dev tunnel:</strong> When exposing the viewer over a tunnel (e.g. ngrok) or port forwarding, use <strong><code>authToken</code></strong> or <strong><code>basicAuthUser</code></strong> / <strong><code>basicAuthPassword</code></strong> so the server is not open to the internet. Example:</p>
+<pre class="language-dart"><code class="language-dart">await DriftDebugServer.start(
+  query: runQuery,
+  enabled: kDebugMode,
+  authToken: 'your-secret-token',  // open https://your-tunnel.example/?token=your-secret-token
+  // or: basicAuthUser: 'dev', basicAuthPassword: 'pass',
+);
+</code></pre>
+<p>With token auth, open the viewer at <code>https://your-tunnel.example/?token=your-secret-token</code>; the page will use the token for all API calls. You can also send <code>Authorization: Bearer your-secret-token</code> on requests.</p>
+<hr>
+<h2 id="publishing">Publishing</h2>
+<p><strong>Publish script (from repo root):</strong></p>
+<pre class="language-bash"><code class="language-bash">python scripts/publish_pub_dev.py
+</code></pre>
+<p><strong>Manual:</strong> Bump version in <code>pubspec.yaml</code>, then <code>git tag v0.1.0</code> and <code>git push origin v0.1.0</code>. GitHub Actions publishes to pub.dev.</p>
+<ul>
+<li><a href="https://pub.dev/packages/saropa_drift_viewer">Package on pub.dev</a></li>
+</ul>
+</section>
+
+
+      <section class="summary">
+          <h2>Libraries</h2>
+        <dl>
+          <dt id="saropa_drift_viewer">
+  <span class="name"><a href="saropa_drift_viewer/">saropa_drift_viewer</a></span> 
+
+</dt>
+<dd>Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minimal web viewer.
+</dd>
+
+        </dl>
+      </section>
+  </div> <!-- /.main-content -->
+  <div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
+    <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
+<header id="header-search-sidebar" class="hidden-l">
+  <form class="search-sidebar" role="search">
+    <input type="text" id="search-sidebar" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+</header>
+<ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
+    <li><a href="https://saropa.com">saropa_drift_viewer package</a></li>
+</ol>
+
+    <h5 class="hidden-xs"><span class="package-name">saropa_drift_viewer</span> <span class="package-kind">package</span></h5>
+    <ol>
+      <li class="section-title">Libraries</li>
+      <li><a href="saropa_drift_viewer/">saropa_drift_viewer</a></li>
+</ol>
+
+  </div>
+  <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
+  </div>
+</main>
+<footer>
+  <span class="no-break">
+    saropa_drift_viewer
+      0.1.0
+  </span>
+  
+</footer>
+
+
+<script src="static-assets/highlight.pack.js?v1"></script>
+<script src="static-assets/docs.dart.js"></script>
+
+</body>
+</html>
+
