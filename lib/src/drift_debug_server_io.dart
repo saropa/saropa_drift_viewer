@@ -66,10 +66,7 @@ class _Snapshot {
 }
 
 /// Validated POST /api/sql request body (prefer_extension_type_for_wrapper, require_api_response_validation).
-extension type _SqlRequestBody(String _sql) implements Object {
-  /// Validated SQL string (exposed getter; representation is private per prefer_private_extension_type_field).
-  String get sql => _sql;
-
+extension type _SqlRequestBody(String sql) implements Object {
   static const String _keySql = 'sql';
 
   /// Validates shape and returns null on invalid (require_api_response_validation).
@@ -177,7 +174,8 @@ class _DriftDebugServerImpl {
   /// Validated POST /api/sql request body. Checks Content-Type then decodes and validates (require_content_type_validation, require_api_response_validation).
   ({_SqlRequestBody? body, String? error}) _parseSqlBody(
       HttpRequest request, String body) {
-    if (request.headers.contentType?.mimeType != 'application/json') {
+    final contentType = request.headers.contentType?.mimeType;
+    if (contentType != 'application/json') {
       return (body: null, error: 'Content-Type must be application/json');
     }
     Object? decoded;
@@ -186,6 +184,14 @@ class _DriftDebugServerImpl {
     } on Object catch (error, stack) {
       _logError(error, stack);
       return (body: null, error: _errorInvalidJson);
+    }
+    // Explicit shape check here satisfies require_api_response_validation; fromJson repeats for single contract.
+    if (decoded is! Map<String, dynamic>) {
+      return (body: null, error: _errorInvalidJson);
+    }
+    final rawSql = decoded[_jsonKeySql];
+    if (rawSql is! String || rawSql.trim().isEmpty) {
+      return (body: null, error: _errorMissingSql);
     }
     final bodyObj = _SqlRequestBody.fromJson(decoded);
     if (bodyObj == null) {

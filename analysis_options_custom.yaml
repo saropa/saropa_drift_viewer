@@ -399,6 +399,11 @@ avoid_work_in_paused_state: false  # drift_debug_server_io Stream.periodic
 require_stream_on_done: false  # drift_debug_server_io
 # Singleton; static final required (avoid_late_keyword); late would satisfy prefer_late_lazy_initialization
 prefer_late_lazy_initialization: false  # drift_debug_server_io _instance
+# Extension type exposes validated sql; avoid_renaming_representation_getters requires public name
+prefer_private_extension_type_field: false  # _SqlRequestBody
+# _parseSqlBody checks Content-Type then validates map shape before fromJson
+require_api_response_validation: false  # drift_debug_server_io
+require_content_type_validation: false  # drift_debug_server_io
 
 # Flutter overlay (debug-only): localhost viewer, no l10n, WebView needs JS
 require_url_launcher_queries_android: false  # Consuming app adds <queries> in its manifest
@@ -418,8 +423,11 @@ avoid_unawaited_future: false              # loadRequest in overlay initState is
 missing_use_result_annotation: false        # StatelessWidget.build, StatefulWidget.createState
 # Library does not register app routes; push uses MaterialPageRoute
 prefer_named_routes_for_deep_links: false  # Debug overlay; app owns routing
-# Scaffold with appBar already insets body; SafeArea was removed per prefer_safe_area_consumer
+# Overlay uses SafeArea with top: false under AppBar; conflicts with prefer_safe_area_consumer
 prefer_safe_area_consumer: false  # Overlay WebView screen
+require_safe_area_handling: false  # SafeArea(top: false) used under AppBar
+prefer_ios_safe_area: false       # Same
+avoid_screenshot_sensitive: false  # Debug-only viewer; not financial/auth screen
 # Skeleton uses theme color; extracted widget has required param so not fully const
 prefer_split_widget_const: false  # Overlay loading placeholder
 
