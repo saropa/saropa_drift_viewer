@@ -1,0 +1,30 @@
+# One-time workflow: run this to add yourself as an uploader on pub.dev.
+# After you have Admin access, delete this file.
+#
+# 1. In GitHub: Settings → Secrets and variables → Actions → New repository secret
+#    Name: PUB_DEV_UPLOADER_EMAIL
+#    Value: your Google account email (the one you use for pub.dev / saropa.com)
+# 2. Actions → Add uploader (one-time) → Run workflow
+# 3. When done: remove this workflow and the "Add uploader" step from publish.yml
+
+name: Add uploader (one-time)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  add-uploader:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dart-lang/setup-dart@v1
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+
+      - name: Add uploader to package
+        run: dart pub uploader add ${{ secrets.PUB_DEV_UPLOADER_EMAIL }}
