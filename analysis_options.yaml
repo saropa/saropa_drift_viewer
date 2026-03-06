@@ -1,5 +1,6 @@
 # Analysis options for pure Dart package (no Flutter).
-# saropa_lints is in dev_dependencies; use custom_lint CLI for its rules.
+# saropa_lints is in dev_dependencies; use the plugins: saropa_lints: section below (no include:).
+# Do NOT add: include: package:saropa_lints/analysis_options.yaml — that URI is not provided by saropa_lints 6.x.
 analyzer:
   exclude:
     - "**/*.bak"

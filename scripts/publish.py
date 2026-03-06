@@ -73,6 +73,8 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 import webbrowser
 from datetime import datetime
 from enum import Enum
@@ -365,6 +367,21 @@ def get_package_name(pubspec_path: Path) -> str:
     if not match:
         raise ValueError("Could not find name in pubspec.yaml")
     return match.group(1).strip()
+
+
+def package_on_pub_dev(package_name: str) -> bool:
+    """Return True if the package page exists on pub.dev (not 404)."""
+    try:
+        req = urllib.request.Request(
+            f"https://pub.dev/packages/{package_name}",
+            headers={"User-Agent": "saropa_drift_viewer_publish_script/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.status == 200
+    except urllib.error.HTTPError as e:
+        return e.code != 404  # 404 -> not on pub.dev; other -> assume yes
+    except Exception:
+        return True  # network/other: assume on pub.dev, don't prompt
 
 
 def get_latest_changelog_version(changelog_path: Path) -> str | None:
@@ -1273,29 +1290,29 @@ def main() -> int:
         )
     print()
 
-    print_colored(
-        "  If this is a first-time publish (or the package is not yet on pub.dev), "
-        "run locally: dart pub publish",
-        Color.YELLOW,
-    )
-    response = (
-        input("  Run 'dart pub publish' now? [y/N] ").strip().lower()
-    )
-    if response.startswith("y"):
-        print()
-        print_colored("  Running: dart pub publish", Color.CYAN)
-        use_shell = get_shell_mode()
-        result = subprocess.run(
-            ["dart", "pub", "publish"],
-            cwd=package_dir,
-            shell=use_shell,
+    if not package_on_pub_dev(package_name):
+        print_colored(
+            "  Package is not yet on pub.dev. Run locally: dart pub publish",
+            Color.YELLOW,
         )
-        if result.returncode != 0:
-            print_warning(
-                f"dart pub publish exited with code {result.returncode}. "
-                "Fix any errors and run it again from the package directory."
+        response = (
+            input("  Run 'dart pub publish' now? [y/N] ").strip().lower()
+        )
+        if response.startswith("y"):
+            print()
+            print_colored("  Running: dart pub publish", Color.CYAN)
+            use_shell = get_shell_mode()
+            result = subprocess.run(
+                ["dart", "pub", "publish"],
+                cwd=package_dir,
+                shell=use_shell,
             )
-    print()
+            if result.returncode != 0:
+                print_warning(
+                    f"dart pub publish exited with code {result.returncode}. "
+                    "Fix any errors and run it again from the package directory."
+                )
+        print()
 
     try:
         webbrowser.open(f"https://github.com/{repo_path}/actions")

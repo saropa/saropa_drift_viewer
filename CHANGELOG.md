@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **pub.dev** — [saropa_drift_viewer](https://pub.dev/packages/saropa_drift_viewer)
 
 
+## [Unreleased]
+
+### Changed
+
+- Publish tooling: `scripts/publish.py` now checks whether the package already exists on pub.dev before offering a local `dart pub publish` for first-time publishes.
+- CI workflow: removed the one-time \"Add uploader\" workflow and inline step; maintainers can use `dart pub uploader` or the pub.dev UI directly when needed.
+- Tooling docs: clarified in `analysis_options.yaml` comments that saropa_lints 6.x does not provide `analysis_options.yaml` as an include target.
+
+
 ## [0.2.2] - 2026-03-05
 
 ### Changed

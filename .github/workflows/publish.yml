@@ -39,11 +39,3 @@ jobs:
 
       - name: Publish to pub.dev
         run: dart pub publish --force
-
-      # One-time: add your Google account as uploader so you can use the Admin tab on pub.dev.
-      # 1. Add a repo secret PUB_DEV_UPLOADER_EMAIL with your Google account email.
-      # 2. Push a tag (or run the add-uploader workflow below) to trigger this.
-      # 3. After you have access, remove this step and the add-uploader workflow.
-      - name: Add uploader (remove after you have access)
-        run: dart pub uploader add ${{ secrets.PUB_DEV_UPLOADER_EMAIL }}
-        continue-on-error: true
