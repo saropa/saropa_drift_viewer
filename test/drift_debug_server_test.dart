@@ -413,6 +413,53 @@ void main() {
       }
     });
 
+    test('GET /api/schema/metadata returns tables with columns, types, pk, and rowCount',
+        () async {
+      await DriftDebugServer.start(
+        query: mockQuery,
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req =
+            await client.get('localhost', port!, '/api/schema/metadata');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+        expect(
+            resp.headers.value('content-type'), contains('application/json'));
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded, contains('tables'));
+
+        final tables = decoded['tables'] as List<dynamic>;
+        expect(tables, hasLength(1));
+
+        final table = tables.first as Map<String, dynamic>;
+        expect(table, containsPair('name', 'items'));
+        expect(table, contains('rowCount'));
+        expect(table['rowCount'], 2);
+
+        final columns = table['columns'] as List<dynamic>;
+        expect(columns, hasLength(2));
+
+        final idCol = columns[0] as Map<String, dynamic>;
+        expect(idCol, containsPair('name', 'id'));
+        expect(idCol, containsPair('type', 'INTEGER'));
+        expect(idCol, containsPair('pk', true));
+
+        final nameCol = columns[1] as Map<String, dynamic>;
+        expect(nameCol, containsPair('name', 'name'));
+        expect(nameCol, containsPair('type', 'TEXT'));
+        expect(nameCol, containsPair('pk', false));
+      } finally {
+        client.close();
+      }
+    });
+
     test('GET /api/dump returns schema plus INSERT statements', () async {
       await DriftDebugServer.start(
         query: mockQuery,
@@ -1245,6 +1292,177 @@ void main() {
         expect(resp.statusCode, HttpStatus.ok);
         expect(resp.headers.value('content-disposition'),
             contains('diff-report.json'));
+      } finally {
+        client.close();
+      }
+    });
+  });
+
+  group('GET /api/schema/metadata', () {
+    tearDown(() async {
+      await DriftDebugServer.stop();
+    });
+
+    test('returns multiple tables with correct row counts', () async {
+      await DriftDebugServer.start(
+        query: (String sql) async {
+          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+            return [
+              {'name': 'orders'},
+              {'name': 'users'},
+            ];
+          }
+          if (sql.contains('PRAGMA table_info("users")')) {
+            return [
+              {'cid': 0, 'name': 'id', 'type': 'INTEGER', 'notnull': 1, 'dflt_value': null, 'pk': 1},
+              {'cid': 1, 'name': 'email', 'type': 'TEXT', 'notnull': 0, 'dflt_value': null, 'pk': 0},
+              {'cid': 2, 'name': 'created_at', 'type': 'TEXT', 'notnull': 0, 'dflt_value': null, 'pk': 0},
+            ];
+          }
+          if (sql.contains('PRAGMA table_info("orders")')) {
+            return [
+              {'cid': 0, 'name': 'id', 'type': 'INTEGER', 'notnull': 1, 'dflt_value': null, 'pk': 1},
+              {'cid': 1, 'name': 'user_id', 'type': 'INTEGER', 'notnull': 1, 'dflt_value': null, 'pk': 0},
+              {'cid': 2, 'name': 'total', 'type': 'REAL', 'notnull': 0, 'dflt_value': null, 'pk': 0},
+            ];
+          }
+          if (sql.contains('COUNT(*)') && sql.contains('"users"')) {
+            return [{'c': 42}];
+          }
+          if (sql.contains('COUNT(*)') && sql.contains('"orders"')) {
+            return [{'c': 7}];
+          }
+          return <Map<String, dynamic>>[];
+        },
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req =
+            await client.get('localhost', port!, '/api/schema/metadata');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        final tables = decoded['tables'] as List<dynamic>;
+        expect(tables, hasLength(2));
+
+        final orders = tables[0] as Map<String, dynamic>;
+        expect(orders['name'], 'orders');
+        expect(orders['rowCount'], 7);
+        expect((orders['columns'] as List).length, 3);
+
+        final users = tables[1] as Map<String, dynamic>;
+        expect(users['name'], 'users');
+        expect(users['rowCount'], 42);
+        expect((users['columns'] as List).length, 3);
+
+        // Verify column details
+        final userCols = users['columns'] as List<dynamic>;
+        final idCol = userCols[0] as Map<String, dynamic>;
+        expect(idCol['name'], 'id');
+        expect(idCol['type'], 'INTEGER');
+        expect(idCol['pk'], true);
+
+        final emailCol = userCols[1] as Map<String, dynamic>;
+        expect(emailCol['name'], 'email');
+        expect(emailCol['type'], 'TEXT');
+        expect(emailCol['pk'], false);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('returns empty tables array when no tables exist', () async {
+      await DriftDebugServer.start(
+        query: (String sql) async {
+          return <Map<String, dynamic>>[];
+        },
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req =
+            await client.get('localhost', port!, '/api/schema/metadata');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        final tables = decoded['tables'] as List<dynamic>;
+        expect(tables, isEmpty);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('returns single-column table with correct rowCount', () async {
+      await DriftDebugServer.start(
+        query: (String sql) async {
+          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+            return [
+              {'name': 'items'}
+            ];
+          }
+          if (sql.contains('PRAGMA table_info')) {
+            return [
+              {'cid': 0, 'name': 'id', 'type': 'INTEGER', 'notnull': 1, 'dflt_value': null, 'pk': 1},
+            ];
+          }
+          if (sql.contains('COUNT(*)')) {
+            return [{'c': 5}];
+          }
+          return <Map<String, dynamic>>[];
+        },
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req =
+            await client.get('localhost', port!, '/api/schema/metadata');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        final tables = decoded['tables'] as List<dynamic>;
+        expect(tables, hasLength(1));
+        expect((tables[0] as Map)['rowCount'], 5);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('handles query error gracefully', () async {
+      await DriftDebugServer.start(
+        query: (String sql) async {
+          throw Exception('Database locked');
+        },
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req =
+            await client.get('localhost', port!, '/api/schema/metadata');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.internalServerError);
       } finally {
         client.close();
       }

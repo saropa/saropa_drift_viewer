@@ -1950,6 +1950,7 @@ class _DriftDebugServerImpl {
     async function loadSchemaMeta() {
       if (schemaMeta) return schemaMeta;
       var r = await fetch('/api/schema/metadata', authOpts());
+      if (!r.ok) throw new Error('Failed to load schema metadata (HTTP ' + r.status + ')');
       schemaMeta = await r.json();
       return schemaMeta;
     }
@@ -3119,6 +3120,9 @@ class _DriftDebugServerImpl {
           document.getElementById('sql-error').textContent = result.error || 'Could not convert to SQL.';
           document.getElementById('sql-error').style.display = 'block';
         }
+      } catch (err) {
+        document.getElementById('sql-error').textContent = 'Error: ' + (err.message || err);
+        document.getElementById('sql-error').style.display = 'block';
       } finally {
         btn.disabled = false;
         btn.textContent = 'Convert to SQL';

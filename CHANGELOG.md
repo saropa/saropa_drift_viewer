@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Web UI: data charts** — Bar, pie, line/time-series, and histogram charts rendered as inline SVG from SQL query results. Chart type selector, X/Y axis pickers, and Render button appear after SQL results. Large datasets (>500 rows) are automatically sampled for SVG performance. Pie chart groups slices below 2% into "Other" and handles single-slice (100%) rendering. All chart colors use CSS variables for theme support. Zero new dependencies (pure inline SVG).
+- **Web UI: natural language to SQL** — "Ask in English" input converts plain English questions (e.g. "how many users", "latest 5 orders", "average price") to SQL via pattern matching. New `GET /api/schema/metadata` endpoint provides table names, column names/types, primary keys, and row counts. Schema metadata is cached client-side. Supports count, average, sum, min/max, distinct, latest/oldest, and group-by patterns. Converted SQL is editable before running. No external API keys or dependencies.
 
 ## [0.2.3]
 
