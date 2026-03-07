@@ -17,6 +17,7 @@ Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minima
 - **Collapsible schema** panel; export table as CSV
 - **Light/dark theme** (saved in localStorage)
 - **Read-only SQL runner** with table/column autofill, templates, and query history (localStorage)
+- **Data charts** — Bar, pie, line/time-series, and histogram from SQL results (inline SVG, no dependencies)
 - **Export** schema-only (`schema.sql`), full dump (schema + data), or raw SQLite file (when `getDatabaseBytes` is set)
 - **Live refresh** via long-poll when data changes
 - **Snapshot / time travel** — in-memory snapshot, compare to now, export diff

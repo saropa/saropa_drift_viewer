@@ -5,6 +5,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **pub.dev** — [saropa_drift_viewer](https://pub.dev/packages/saropa_drift_viewer)
 
+## [Unreleased]
+
+### Added
+
+- **Web UI: data charts** — Bar, pie, line/time-series, and histogram charts rendered as inline SVG from SQL query results. Chart type selector, X/Y axis pickers, and Render button appear after SQL results. Large datasets (>500 rows) are automatically sampled for SVG performance. Pie chart groups slices below 2% into "Other" and handles single-slice (100%) rendering. All chart colors use CSS variables for theme support. Zero new dependencies (pure inline SVG).
+
 ## [0.2.3]
 
 We're focusing on backend tooling and documentation in this release.

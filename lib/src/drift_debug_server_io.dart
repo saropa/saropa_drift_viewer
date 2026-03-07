@@ -148,10 +148,14 @@ class _DriftDebugServerImpl {
   static const String _pathSuffixColumns = '/columns';
   static const String _pathApiSql = '/api/sql';
   static const String _pathApiSqlAlt = 'api/sql';
+  static const String _pathApiSqlExplain = '/api/sql/explain';
+  static const String _pathApiSqlExplainAlt = 'api/sql/explain';
   static const String _pathApiSchema = '/api/schema';
   static const String _pathApiSchemaAlt = 'api/schema';
   static const String _pathApiSchemaDiagram = '/api/schema/diagram';
   static const String _pathApiSchemaDiagramAlt = 'api/schema/diagram';
+  static const String _pathApiSchemaMetadata = '/api/schema/metadata';
+  static const String _pathApiSchemaMetadataAlt = 'api/schema/metadata';
   static const String _pathApiDump = '/api/dump';
   static const String _pathApiDumpAlt = 'api/dump';
   static const String _pathApiDatabase = '/api/database';
@@ -162,6 +166,10 @@ class _DriftDebugServerImpl {
   static const String _pathApiSnapshotCompareAlt = 'api/snapshot/compare';
   static const String _pathApiComparePrefix = '/api/compare/';
   static const String _pathApiComparePrefixAlt = 'api/compare/';
+  static const String _pathApiCompareReport = '/api/compare/report';
+  static const String _pathApiCompareReportAlt = 'api/compare/report';
+  static const String _pathApiIndexSuggestions = '/api/index-suggestions';
+  static const String _pathApiIndexSuggestionsAlt = 'api/index-suggestions';
   static const String _queryParamLimit = 'limit';
   static const String _queryParamOffset = 'offset';
   static const String _queryParamSince = 'since';
@@ -243,8 +251,6 @@ class _DriftDebugServerImpl {
       'Database download not configured. Pass getDatabaseBytes to DriftDebugServer.start (e.g. () => File(dbPath).readAsBytes()).';
   static const String _errorCompareNotConfigured =
       'Database compare not configured. Pass queryCompare to DriftDebugServer.start.';
-  static const String _pathApiCompareReport = '/api/compare/report';
-  static const String _pathApiCompareReportAlt = 'api/compare/report';
   static const String _jsonKeyCountColumn = 'c';
   static const String _attachmentDatabaseSqlite =
       'attachment; filename="database.sqlite"';
@@ -270,6 +276,7 @@ class _DriftDebugServerImpl {
   static const String _jsonKeyCounts = 'counts';
   static const String _jsonKeyType = 'type';
   static const String _jsonKeyPk = 'pk';
+  static const String _jsonKeyRowCount = 'rowCount';
   static const String _pragmaFrom = 'from';
   static const String _pragmaTo = 'to';
   static const String _fkFromTable = 'fromTable';
@@ -658,6 +665,11 @@ class _DriftDebugServerImpl {
         return;
       }
       if (req.method == _methodPost &&
+          (path == _pathApiSqlExplain || path == _pathApiSqlExplainAlt)) {
+        await _handleExplainSql(req, query);
+        return;
+      }
+      if (req.method == _methodPost &&
           (path == _pathApiSql || path == _pathApiSqlAlt)) {
         await _handleRunSql(req, query);
         return;
@@ -670,6 +682,12 @@ class _DriftDebugServerImpl {
       if (req.method == _methodGet &&
           (path == _pathApiSchemaDiagram || path == _pathApiSchemaDiagramAlt)) {
         await _sendSchemaDiagram(res, query);
+        return;
+      }
+      if (req.method == _methodGet &&
+          (path == _pathApiSchemaMetadata ||
+              path == _pathApiSchemaMetadataAlt)) {
+        await _sendSchemaMetadata(res, query);
         return;
       }
       if (req.method == _methodGet &&
@@ -707,6 +725,12 @@ class _DriftDebugServerImpl {
           (path.startsWith(_pathApiComparePrefix) ||
               path.startsWith(_pathApiComparePrefixAlt))) {
         await _handleCompareReport(res, req, query);
+        return;
+      }
+      if (req.method == _methodGet &&
+          (path == _pathApiIndexSuggestions ||
+              path == _pathApiIndexSuggestionsAlt)) {
+        await _handleIndexSuggestions(res, query);
         return;
       }
 
@@ -826,6 +850,67 @@ class _DriftDebugServerImpl {
       final List<Map<String, dynamic>> rows = _normalizeRows(raw);
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, dynamic>{_jsonKeyRows: rows}));
+    } on Object catch (error, stack) {
+      _logError(error, stack);
+      res.statusCode = HttpStatus.internalServerError;
+      _setJsonHeaders(res);
+      res.write(jsonEncode(<String, String>{_jsonKeyError: error.toString()}));
+    } finally {
+      await res.close();
+    }
+  }
+
+  /// Handles POST /api/sql/explain: body {"sql": "SELECT ..."}. Prepends EXPLAIN QUERY PLAN, validates read-only via _isReadOnlySql.
+  /// Content-Type is checked before parsing (require_content_type_validation); body shape validated before use (require_api_response_validation).
+  Future<void> _handleExplainSql(
+      HttpRequest request, DriftDebugQuery query) async {
+    final res = request.response;
+    String body;
+    try {
+      final builder = BytesBuilder();
+      await for (final chunk in request) {
+        builder.add(chunk);
+      }
+      body = utf8.decode(builder.toBytes());
+    } on Object catch (error, stack) {
+      _logError(error, stack);
+      res.statusCode = HttpStatus.badRequest;
+      _setJsonHeaders(res);
+      res.write(jsonEncode(
+          <String, String>{_jsonKeyError: _errorInvalidRequestBody}));
+      await res.close();
+      return;
+    }
+    final result = _parseSqlBody(request, body);
+    final bodyObj = result.body;
+    if (bodyObj == null) {
+      res.statusCode = HttpStatus.badRequest;
+      _setJsonHeaders(res);
+      res.write(jsonEncode(<String, String>{
+        _jsonKeyError: result.error ?? _errorInvalidJson,
+      }));
+      await res.close();
+      return;
+    }
+    final String sql = bodyObj.sql;
+    if (!_isReadOnlySql(sql)) {
+      res.statusCode = HttpStatus.badRequest;
+      _setJsonHeaders(res);
+      res.write(jsonEncode(<String, String>{
+        _jsonKeyError: _errorReadOnlyOnly,
+      }));
+      await res.close();
+      return;
+    }
+    try {
+      final explainSql = 'EXPLAIN QUERY PLAN $sql';
+      final dynamic raw = await query(explainSql);
+      final rows = _normalizeRows(raw);
+      _setJsonHeaders(res);
+      res.write(jsonEncode(<String, dynamic>{
+        _jsonKeyRows: rows,
+        _jsonKeySql: explainSql,
+      }));
     } on Object catch (error, stack) {
       _logError(error, stack);
       res.statusCode = HttpStatus.internalServerError;
@@ -1136,6 +1221,47 @@ class _DriftDebugServerImpl {
       res.headers.contentType = ContentType.json;
       _setCors(res);
       res.write(jsonEncode(<String, String>{_jsonKeyError: error.toString()}));
+    } finally {
+      await res.close();
+    }
+  }
+
+  /// Sends schema metadata for GET /api/schema/metadata: tables with columns (name, type, pk) and row counts.
+  /// Used by the natural-language-to-SQL engine on the client side.
+  Future<void> _sendSchemaMetadata(
+    HttpResponse response,
+    DriftDebugQuery query,
+  ) async {
+    final res = response;
+    try {
+      final tableNames = await _getTableNames(query);
+      final tables = <Map<String, dynamic>>[];
+      for (final tableName in tableNames) {
+        final infoRows = _normalizeRows(
+          await query('PRAGMA table_info("$tableName")'),
+        );
+        final columns = infoRows
+            .map((r) => <String, dynamic>{
+                  _jsonKeyName: r[_jsonKeyName] ?? '',
+                  _jsonKeyType: r[_jsonKeyType] ?? '',
+                  _jsonKeyPk: (r[_jsonKeyPk] is int) ? r[_jsonKeyPk] != 0 : false,
+                })
+            .toList();
+        final countRows = _normalizeRows(
+          await query('SELECT COUNT(*) AS $_jsonKeyCountColumn FROM "$tableName"'),
+        );
+        final count = _extractCountFromRows(countRows);
+        tables.add(<String, dynamic>{
+          _jsonKeyName: tableName,
+          _jsonKeyColumns: columns,
+          _jsonKeyRowCount: count,
+        });
+      }
+      _setJsonHeaders(res);
+      res.write(jsonEncode(<String, dynamic>{_jsonKeyTables: tables}));
+    } on Object catch (error, stack) {
+      _logError(error, stack);
+      await _sendErrorResponse(res, error);
     } finally {
       await res.close();
     }
@@ -1473,6 +1599,134 @@ class _DriftDebugServerImpl {
     }
   }
 
+  // Patterns for index suggestion heuristics (hoisted to avoid per-column allocation).
+  static final RegExp _reIdSuffix = RegExp(r'_id$', caseSensitive: false);
+  static final RegExp _reDateTimeSuffix = RegExp(
+    r'(created|updated|deleted|date|time|_at)$',
+    caseSensitive: false,
+  );
+
+  /// Analyzes table schemas for missing indexes. Checks foreign key columns
+  /// without indexes, columns with naming patterns suggesting frequent query
+  /// use (*_id, *_at, *_date), and existing index coverage.
+  Future<void> _handleIndexSuggestions(
+    HttpResponse response,
+    DriftDebugQuery query,
+  ) async {
+    final res = response;
+    try {
+      final tableNames = await _getTableNames(query);
+      final suggestions = <Map<String, dynamic>>[];
+
+      for (final tableName in tableNames) {
+        // Get existing indexed columns
+        final existingIndexRows = _normalizeRows(
+          await query('PRAGMA index_list("$tableName")'),
+        );
+        final indexedColumns = <String>{};
+        for (final idx in existingIndexRows) {
+          final idxName = idx['name'] as String?;
+          if (idxName == null) continue;
+          final idxInfoRows = _normalizeRows(
+            await query('PRAGMA index_info("$idxName")'),
+          );
+          for (final col in idxInfoRows) {
+            final colName = col['name'] as String?;
+            if (colName != null) indexedColumns.add(colName);
+          }
+        }
+
+        // Check foreign keys — these columns should always be indexed
+        final fkRows = _normalizeRows(
+          await query('PRAGMA foreign_key_list("$tableName")'),
+        );
+        for (final fk in fkRows) {
+          final fromCol = fk['from'] as String?;
+          if (fromCol != null && !indexedColumns.contains(fromCol)) {
+            suggestions.add(<String, dynamic>{
+              'table': tableName,
+              'column': fromCol,
+              'reason':
+                  'Foreign key without index (references ${fk['table']}.${fk['to']})',
+              'sql':
+                  'CREATE INDEX idx_${tableName}_$fromCol ON "$tableName"("$fromCol");',
+              'priority': 'high',
+            });
+          }
+        }
+
+        // Check column naming patterns
+        final colInfoRows = _normalizeRows(
+          await query('PRAGMA table_info("$tableName")'),
+        );
+        for (final col in colInfoRows) {
+          final colName = col['name'] as String?;
+          final pk = col['pk'];
+          if (colName == null) continue;
+          if (pk is int && pk > 0) continue;
+          if (indexedColumns.contains(colName)) continue;
+
+          final alreadySuggested = suggestions.any(
+            (s) => s['table'] == tableName && s['column'] == colName,
+          );
+
+          // Columns ending in _id likely used in JOINs/WHERE
+          if (!alreadySuggested &&
+              _reIdSuffix.hasMatch(colName)) {
+            suggestions.add(<String, dynamic>{
+              'table': tableName,
+              'column': colName,
+              'reason':
+                  'Column ending in _id \u2014 likely used in JOINs/WHERE',
+              'sql':
+                  'CREATE INDEX idx_${tableName}_$colName ON "$tableName"("$colName");',
+              'priority': 'medium',
+            });
+          }
+
+          // Date/time columns often used in ORDER BY or range queries
+          if (!alreadySuggested &&
+              _reDateTimeSuffix.hasMatch(colName)) {
+            suggestions.add(<String, dynamic>{
+              'table': tableName,
+              'column': colName,
+              'reason':
+                  'Date/time column \u2014 often used in ORDER BY or range queries',
+              'sql':
+                  'CREATE INDEX idx_${tableName}_$colName ON "$tableName"("$colName");',
+              'priority': 'low',
+            });
+          }
+        }
+      }
+
+      // Sort by priority
+      const priorityOrder = <String, int>{
+        'high': 0,
+        'medium': 1,
+        'low': 2,
+      };
+      suggestions.sort(
+        (a, b) => (priorityOrder[a['priority']] ?? 3)
+            .compareTo(priorityOrder[b['priority']] ?? 3),
+      );
+
+      _setJsonHeaders(res);
+      res.write(jsonEncode(<String, dynamic>{
+        'suggestions': suggestions,
+        'tablesAnalyzed': tableNames.length,
+      }));
+    } on Object catch (error, stack) {
+      _logError(error, stack);
+      res.statusCode = HttpStatus.internalServerError;
+      res.headers.contentType = ContentType.json;
+      _setCors(res);
+      res.write(jsonEncode(<String, String>{_jsonKeyError: error.toString()}));
+    } finally {
+      await res.close();
+    }
+  }
+
   void _setAttachmentHeaders(HttpResponse response, String filename) {
     final res = response;
     res.headers.contentType =
@@ -1561,6 +1815,17 @@ class _DriftDebugServerImpl {
     .diagram-table .diagram-name { font-weight: 600; font-size: 13px; }
     .diagram-table .diagram-col { font-size: 11px; fill: var(--muted); }
     .diagram-link { stroke: var(--muted); stroke-width: 1; fill: none; }
+    .chart-bar { fill: var(--link); }
+    .chart-bar:hover { fill: var(--fg); }
+    .chart-label { font-size: 10px; fill: var(--muted); }
+    .chart-axis { stroke: var(--border); stroke-width: 1; }
+    .chart-axis-label { font-size: 11px; fill: var(--muted); }
+    .chart-line { stroke: var(--link); stroke-width: 2; fill: none; }
+    .chart-dot { fill: var(--link); }
+    .chart-dot:hover { fill: var(--fg); r: 5; }
+    .chart-slice { stroke: var(--bg); stroke-width: 2; cursor: pointer; }
+    .chart-slice:hover { opacity: 0.8; }
+    .chart-legend { font-size: 11px; fill: var(--fg); }
   </style>
 </head>
 <body>
@@ -1582,14 +1847,36 @@ class _DriftDebugServerImpl {
       <select id="sql-fields" multiple title="Hold Ctrl/Cmd to pick multiple"><option value="">—</option></select>
       <button type="button" id="sql-apply-template">Apply template</button>
       <button type="button" id="sql-run">Run</button>
+      <button type="button" id="sql-explain">Explain</button>
       <label for="sql-history">History:</label>
       <select id="sql-history" title="Recent queries — select to reuse"><option value="">— Recent —</option></select>
       <label for="sql-result-format">Show as:</label>
       <select id="sql-result-format"><option value="table">Table</option><option value="json">JSON</option></select>
     </div>
+    <div class="sql-toolbar" style="margin-bottom:0.35rem;">
+      <label for="nl-input">Ask in English:</label>
+      <input type="text" id="nl-input" placeholder="e.g. how many users were created today?" style="flex:1;min-width:20rem;" />
+      <button type="button" id="nl-convert">Convert to SQL</button>
+    </div>
     <textarea id="sql-input" placeholder="SELECT * FROM my_table LIMIT 10"></textarea>
     <div id="sql-error" class="sql-error" style="display: none;"></div>
     <div id="sql-result" class="sql-result" style="display: none;"></div>
+    <div id="chart-controls" class="sql-toolbar" style="display:none;margin-top:0.5rem;">
+      <label for="chart-type">Chart:</label>
+      <select id="chart-type">
+        <option value="none">None</option>
+        <option value="bar">Bar</option>
+        <option value="pie">Pie</option>
+        <option value="line">Line / Time series</option>
+        <option value="histogram">Histogram</option>
+      </select>
+      <label for="chart-x">X / Label:</label>
+      <select id="chart-x"></select>
+      <label for="chart-y">Y / Value:</label>
+      <select id="chart-y"></select>
+      <button type="button" id="chart-render">Render</button>
+    </div>
+    <div id="chart-container" style="display:none;margin-top:0.5rem;"></div>
   </div>
   <div class="search-bar">
     <label for="search-input">Search:</label>
@@ -1636,6 +1923,12 @@ class _DriftDebugServerImpl {
     <p id="compare-status" class="meta"></p>
     <pre id="compare-result" class="meta diff-result" style="display: none; max-height: 40vh;"></pre>
   </div>
+  <div class="collapsible-header" id="index-toggle">▼ Index suggestions</div>
+  <div id="index-collapsible" class="collapsible-body collapsed">
+    <p class="meta">Analyze tables for missing indexes based on schema patterns.</p>
+    <button type="button" id="index-analyze">Analyze</button>
+    <div id="index-results" style="display:none;"></div>
+  </div>
   <div class="collapsible-header" id="schema-toggle">▼ Schema</div>
   <div id="schema-collapsible" class="collapsible-body collapsed"><pre id="schema-inline-pre" class="meta">Loading…</pre></div>
   <div class="collapsible-header" id="diagram-toggle">▼ Schema diagram</div>
@@ -1652,6 +1945,74 @@ class _DriftDebugServerImpl {
       if (DRIFT_VIEWER_AUTH_TOKEN) o.headers['Authorization'] = 'Bearer ' + DRIFT_VIEWER_AUTH_TOKEN;
       return o;
     }
+    // --- Natural language to SQL ---
+    var schemaMeta = null;
+    async function loadSchemaMeta() {
+      if (schemaMeta) return schemaMeta;
+      var r = await fetch('/api/schema/metadata', authOpts());
+      schemaMeta = await r.json();
+      return schemaMeta;
+    }
+    function nlToSql(question, meta) {
+      var q = question.toLowerCase().trim();
+      var tables = meta.tables || [];
+      var target = null;
+      for (var i = 0; i < tables.length; i++) {
+        var t = tables[i];
+        var name = t.name.toLowerCase();
+        var singular = name.endsWith('s') ? name.slice(0, -1) : name;
+        if (q.includes(name) || q.includes(singular)) { target = t; break; }
+      }
+      if (!target && tables.length === 1) target = tables[0];
+      if (!target) return { sql: null, error: 'Could not identify a table from your question.' };
+      var mentioned = target.columns.filter(function (c) {
+        return q.includes(c.name.toLowerCase().replace(/_/g, ' ')) || q.includes(c.name.toLowerCase());
+      });
+      var selectCols = mentioned.length > 0
+        ? mentioned.map(function (c) { return '"' + c.name + '"'; }).join(', ')
+        : '*';
+      var sql = '';
+      var tn = '"' + target.name + '"';
+      if (/how many|count|total number/i.test(q)) {
+        sql = 'SELECT COUNT(*) FROM ' + tn;
+      } else if (/average|avg|mean/i.test(q)) {
+        var numCol = (mentioned.find(function (c) { return /int|real|num|float/i.test(c.type); })) ||
+          target.columns.find(function (c) { return /int|real|num|float/i.test(c.type); });
+        sql = numCol ? 'SELECT AVG("' + numCol.name + '") FROM ' + tn : 'SELECT * FROM ' + tn + ' LIMIT 50';
+      } else if (/sum|total\b/i.test(q) && !/total number/i.test(q)) {
+        var numCol = (mentioned.find(function (c) { return /int|real|num|float/i.test(c.type); })) ||
+          target.columns.find(function (c) { return /int|real|num|float/i.test(c.type); });
+        sql = numCol ? 'SELECT SUM("' + numCol.name + '") FROM ' + tn : 'SELECT * FROM ' + tn + ' LIMIT 50';
+      } else if (/max|maximum|highest|largest|biggest/i.test(q)) {
+        var numCol = (mentioned.find(function (c) { return /int|real|num|float/i.test(c.type); })) ||
+          target.columns.find(function (c) { return /int|real|num|float/i.test(c.type); });
+        sql = numCol ? 'SELECT MAX("' + numCol.name + '") FROM ' + tn : 'SELECT * FROM ' + tn + ' ORDER BY 1 DESC LIMIT 1';
+      } else if (/min|minimum|lowest|smallest/i.test(q)) {
+        var numCol = (mentioned.find(function (c) { return /int|real|num|float/i.test(c.type); })) ||
+          target.columns.find(function (c) { return /int|real|num|float/i.test(c.type); });
+        sql = numCol ? 'SELECT MIN("' + numCol.name + '") FROM ' + tn : 'SELECT * FROM ' + tn + ' ORDER BY 1 ASC LIMIT 1';
+      } else if (/distinct|unique/i.test(q)) {
+        var col = mentioned[0] || target.columns[1] || target.columns[0];
+        sql = 'SELECT DISTINCT "' + col.name + '" FROM ' + tn;
+      } else if (/latest|newest|most recent|last (\d+)/i.test(q)) {
+        var dateCol = target.columns.find(function (c) { return /date|time|created|updated/i.test(c.name); });
+        var match = q.match(/last (\d+)/i);
+        var limit = match ? parseInt(match[1]) : 10;
+        sql = 'SELECT ' + selectCols + ' FROM ' + tn + (dateCol ? ' ORDER BY "' + dateCol.name + '" DESC' : '') + ' LIMIT ' + limit;
+      } else if (/oldest|earliest|first (\d+)/i.test(q)) {
+        var dateCol = target.columns.find(function (c) { return /date|time|created|updated/i.test(c.name); });
+        var match2 = q.match(/first (\d+)/i);
+        var limit = match2 ? parseInt(match2[1]) : 10;
+        sql = 'SELECT ' + selectCols + ' FROM ' + tn + (dateCol ? ' ORDER BY "' + dateCol.name + '" ASC' : '') + ' LIMIT ' + limit;
+      } else if (/group by|per\s+\w+|by\s+\w+/i.test(q)) {
+        var groupCol = mentioned[0] || target.columns[1] || target.columns[0];
+        sql = 'SELECT "' + groupCol.name + '", COUNT(*) AS count FROM ' + tn + ' GROUP BY "' + groupCol.name + '" ORDER BY count DESC';
+      } else {
+        sql = 'SELECT ' + selectCols + ' FROM ' + tn + ' LIMIT 50';
+      }
+      return { sql: sql, table: target.name };
+    }
+
     function esc(s) {
       if (s == null) return '';
       const d = document.createElement('div');
@@ -1982,6 +2343,62 @@ class _DriftDebugServerImpl {
       });
     })();
 
+    (function initIndexSuggestions() {
+      const toggle = document.getElementById('index-toggle');
+      const collapsible = document.getElementById('index-collapsible');
+      const btn = document.getElementById('index-analyze');
+      const container = document.getElementById('index-results');
+      if (toggle && collapsible) {
+        toggle.addEventListener('click', function() {
+          const isCollapsed = collapsible.classList.contains('collapsed');
+          collapsible.classList.toggle('collapsed', !isCollapsed);
+          this.textContent = isCollapsed ? '▲ Index suggestions' : '▼ Index suggestions';
+        });
+      }
+      if (btn) btn.addEventListener('click', function() {
+        btn.disabled = true;
+        btn.textContent = 'Analyzing…';
+        container.style.display = 'none';
+        fetch('/api/index-suggestions', authOpts())
+          .then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Request failed'); });
+            return r.json();
+          })
+          .then(function(data) {
+            var suggestions = data.suggestions || [];
+            if (suggestions.length === 0) {
+              container.innerHTML = '<p class="meta" style="color:#7cb342;">No index suggestions — schema looks good!</p>';
+              container.style.display = 'block';
+              return;
+            }
+            var priorityColors = { high: '#e57373', medium: '#ffb74d', low: '#7cb342' };
+            var html = '<p class="meta">' + suggestions.length + ' suggestion(s) across ' + data.tablesAnalyzed + ' tables:</p>';
+            html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
+            html += '<tr><th style="border:1px solid var(--border);padding:4px;">Priority</th><th style="border:1px solid var(--border);padding:4px;">Table.Column</th><th style="border:1px solid var(--border);padding:4px;">Reason</th><th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
+            suggestions.forEach(function(s) {
+              var color = priorityColors[s.priority] || 'var(--fg)';
+              html += '<tr>';
+              html += '<td style="border:1px solid var(--border);padding:4px;color:' + color + ';font-weight:bold;">' + esc(s.priority).toUpperCase() + '</td>';
+              html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(s.table) + '.' + esc(s.column) + '</td>';
+              html += '<td style="border:1px solid var(--border);padding:4px;">' + esc(s.reason) + '</td>';
+              html += '<td style="border:1px solid var(--border);padding:4px;"><code style="font-size:11px;cursor:pointer;" title="Click to copy" onclick="navigator.clipboard.writeText(this.textContent)">' + esc(s.sql) + '</code></td>';
+              html += '</tr>';
+            });
+            html += '</table>';
+            container.innerHTML = html;
+            container.style.display = 'block';
+          })
+          .catch(function(e) {
+            container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(e.message) + '</p>';
+            container.style.display = 'block';
+          })
+          .finally(function() {
+            btn.disabled = false;
+            btn.textContent = 'Analyze';
+          });
+      });
+    })();
+
     document.getElementById('export-csv').addEventListener('click', function(e) {
       e.preventDefault();
       if (!currentTableName || !currentTableJson || currentTableJson.length === 0) {
@@ -2273,6 +2690,148 @@ class _DriftDebugServerImpl {
       }
     }
 
+    // --- Chart rendering (pure SVG, no dependencies) ---
+    var CHART_COLORS = [
+      '#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f',
+      '#edc948', '#b07aa1', '#ff9da7', '#9c755f', '#bab0ac'
+    ];
+
+    function renderBarChart(container, data, xKey, yKey) {
+      var W = 600, H = 300, PAD = 50;
+      var vals = data.map(function(d) { return Number(d[yKey]) || 0; });
+      var maxVal = Math.max.apply(null, vals.concat([1]));
+      var barW = Math.max(4, (W - PAD * 2) / data.length - 2);
+      var svg = '<svg width="' + W + '" height="' + H + '" xmlns="http://www.w3.org/2000/svg">';
+      svg += '<line class="chart-axis" x1="' + PAD + '" y1="' + (H - PAD) + '" x2="' + (W - PAD) + '" y2="' + (H - PAD) + '"/>';
+      svg += '<line class="chart-axis" x1="' + PAD + '" y1="' + PAD + '" x2="' + PAD + '" y2="' + (H - PAD) + '"/>';
+      for (var i = 0; i <= 4; i++) {
+        var v = (maxVal / 4 * i).toFixed(maxVal > 100 ? 0 : 1);
+        var y = H - PAD - (i / 4) * (H - PAD * 2);
+        svg += '<text class="chart-axis-label" x="' + (PAD - 4) + '" y="' + (y + 3) + '" text-anchor="end">' + v + '</text>';
+      }
+      data.forEach(function(d, i) {
+        var val = Number(d[yKey]) || 0;
+        var bh = (val / maxVal) * (H - PAD * 2);
+        var x = PAD + i * (barW + 2);
+        var by = H - PAD - bh;
+        svg += '<rect class="chart-bar" x="' + x + '" y="' + by + '" width="' + barW + '" height="' + bh + '">';
+        svg += '<title>' + esc(String(d[xKey])) + ': ' + val + '</title></rect>';
+        if (data.length <= 20) {
+          svg += '<text class="chart-label" x="' + (x + barW / 2) + '" y="' + (H - PAD + 14) + '" text-anchor="middle" transform="rotate(-45,' + (x + barW / 2) + ',' + (H - PAD + 14) + ')">' + esc(String(d[xKey]).slice(0, 12)) + '</text>';
+        }
+      });
+      svg += '</svg>';
+      container.innerHTML = svg;
+      container.style.display = 'block';
+    }
+
+    function renderPieChart(container, data, labelKey, valueKey) {
+      var W = 500, H = 350, R = 130, CX = 200, CY = H / 2;
+      var vals = data.map(function(d) { return Math.max(0, Number(d[valueKey]) || 0); });
+      var total = vals.reduce(function(a, b) { return a + b; }, 0) || 1;
+      var threshold = total * 0.02;
+      var significant = [];
+      var otherVal = 0;
+      data.forEach(function(d, i) {
+        if (vals[i] >= threshold) significant.push({ label: d[labelKey], value: vals[i] });
+        else otherVal += vals[i];
+      });
+      if (otherVal > 0) significant.push({ label: 'Other', value: otherVal });
+      var svg = '<svg width="' + W + '" height="' + H + '" xmlns="http://www.w3.org/2000/svg">';
+      var angle = 0;
+      significant.forEach(function(d, i) {
+        var sweep = (d.value / total) * 2 * Math.PI;
+        var color = CHART_COLORS[i % CHART_COLORS.length];
+        var pct = (d.value / total * 100).toFixed(1);
+        var tip = '<title>' + esc(String(d.label)) + ': ' + d.value + ' (' + pct + '%)</title>';
+        if (sweep >= 2 * Math.PI - 0.001) {
+          // Full circle — SVG arc degenerates when start ≈ end; use <circle> instead
+          svg += '<circle class="chart-slice" cx="' + CX + '" cy="' + CY + '" r="' + R + '" fill="' + color + '">' + tip + '</circle>';
+        } else {
+          var x1 = CX + R * Math.cos(angle);
+          var y1 = CY + R * Math.sin(angle);
+          var x2 = CX + R * Math.cos(angle + sweep);
+          var y2 = CY + R * Math.sin(angle + sweep);
+          var large = sweep > Math.PI ? 1 : 0;
+          svg += '<path class="chart-slice" d="M' + CX + ',' + CY + ' L' + x1 + ',' + y1 + ' A' + R + ',' + R + ' 0 ' + large + ' 1 ' + x2 + ',' + y2 + ' Z" fill="' + color + '">' + tip + '</path>';
+        }
+        angle += sweep;
+      });
+      significant.forEach(function(d, i) {
+        var ly = 20 + i * 18;
+        var lx = CX + R + 30;
+        var color = CHART_COLORS[i % CHART_COLORS.length];
+        svg += '<rect x="' + lx + '" y="' + (ly - 8) + '" width="10" height="10" fill="' + color + '"/>';
+        svg += '<text class="chart-legend" x="' + (lx + 14) + '" y="' + ly + '">' + esc(String(d.label).slice(0, 20)) + ' (' + d.value + ')</text>';
+      });
+      svg += '</svg>';
+      container.innerHTML = svg;
+      container.style.display = 'block';
+    }
+
+    function renderLineChart(container, data, xKey, yKey) {
+      var W = 600, H = 300, PAD = 50;
+      var vals = data.map(function(d) { return Number(d[yKey]) || 0; });
+      var maxVal = Math.max.apply(null, vals.concat([1]));
+      var minVal = Math.min.apply(null, vals.concat([0]));
+      var range = maxVal - minVal || 1;
+      var stepX = (W - PAD * 2) / Math.max(data.length - 1, 1);
+      var svg = '<svg width="' + W + '" height="' + H + '" xmlns="http://www.w3.org/2000/svg">';
+      svg += '<line class="chart-axis" x1="' + PAD + '" y1="' + (H - PAD) + '" x2="' + (W - PAD) + '" y2="' + (H - PAD) + '"/>';
+      svg += '<line class="chart-axis" x1="' + PAD + '" y1="' + PAD + '" x2="' + PAD + '" y2="' + (H - PAD) + '"/>';
+      var points = data.map(function(d, i) {
+        var x = PAD + i * stepX;
+        var y = H - PAD - ((Number(d[yKey]) || 0) - minVal) / range * (H - PAD * 2);
+        return x + ',' + y;
+      });
+      svg += '<polygon points="' + PAD + ',' + (H - PAD) + ' ' + points.join(' ') + ' ' + (PAD + (data.length - 1) * stepX) + ',' + (H - PAD) + '" fill="var(--link)" opacity="0.1"/>';
+      svg += '<polyline class="chart-line" points="' + points.join(' ') + '"/>';
+      data.forEach(function(d, i) {
+        var x = PAD + i * stepX;
+        var y = H - PAD - ((Number(d[yKey]) || 0) - minVal) / range * (H - PAD * 2);
+        svg += '<circle class="chart-dot" cx="' + x + '" cy="' + y + '" r="3"><title>' + esc(String(d[xKey])) + ': ' + d[yKey] + '</title></circle>';
+      });
+      svg += '</svg>';
+      container.innerHTML = svg;
+      container.style.display = 'block';
+    }
+
+    function renderHistogram(container, data, valueKey, bins) {
+      bins = bins || 10;
+      var vals = data.map(function(d) { return Number(d[valueKey]); }).filter(function(v) { return isFinite(v); });
+      if (vals.length === 0) { container.innerHTML = '<p class="meta">No numeric data.</p>'; container.style.display = 'block'; return; }
+      var min = Math.min.apply(null, vals);
+      var max = Math.max.apply(null, vals);
+      var binWidth = (max - min) / bins || 1;
+      var counts = new Array(bins).fill(0);
+      vals.forEach(function(v) {
+        var idx = Math.min(Math.floor((v - min) / binWidth), bins - 1);
+        counts[idx]++;
+      });
+      var histData = counts.map(function(c, i) {
+        return { label: (min + i * binWidth).toFixed(1) + '-' + (min + (i + 1) * binWidth).toFixed(1), value: c };
+      });
+      renderBarChart(container, histData, 'label', 'value');
+    }
+
+    document.getElementById('chart-render').addEventListener('click', function() {
+      var type = document.getElementById('chart-type').value;
+      var xKey = document.getElementById('chart-x').value;
+      var yKey = document.getElementById('chart-y').value;
+      var container = document.getElementById('chart-container');
+      var rows = window._chartRows || [];
+      if (type === 'none' || rows.length === 0) { container.style.display = 'none'; return; }
+      var chartData = rows;
+      if (rows.length > 500) {
+        var nth = Math.ceil(rows.length / 500);
+        chartData = rows.filter(function(_, i) { return i % nth === 0; });
+      }
+      if (type === 'bar') renderBarChart(container, chartData, xKey, yKey);
+      else if (type === 'pie') renderPieChart(container, chartData, xKey, yKey);
+      else if (type === 'line') renderLineChart(container, chartData, xKey, yKey);
+      else if (type === 'histogram') renderHistogram(container, chartData, yKey);
+    });
+
     (function initSqlRunner() {
       const toggle = document.getElementById('sql-runner-toggle');
       const collapsible = document.getElementById('sql-runner-collapsible');
@@ -2281,6 +2840,7 @@ class _DriftDebugServerImpl {
       const fieldsSel = document.getElementById('sql-fields');
       const applyBtn = document.getElementById('sql-apply-template');
       const runBtn = document.getElementById('sql-run');
+      const explainBtn = document.getElementById('sql-explain');
       const historySel = document.getElementById('sql-history');
       const formatSel = document.getElementById('sql-result-format');
       const inputEl = document.getElementById('sql-input');
@@ -2365,6 +2925,9 @@ class _DriftDebugServerImpl {
           errorEl.style.display = 'none';
           resultEl.style.display = 'none';
           resultEl.innerHTML = '';
+          // Hide chart controls and container from previous query
+          document.getElementById('chart-controls').style.display = 'none';
+          document.getElementById('chart-container').style.display = 'none';
           if (!sql) {
             errorEl.textContent = 'Enter a SELECT query.';
             errorEl.style.display = 'block';
@@ -2399,6 +2962,20 @@ class _DriftDebugServerImpl {
                 resultEl.innerHTML = '<p class="meta">' + rows.length + ' row(s)</p><pre>' + esc(JSON.stringify(rows, null, 2)) + '</pre>';
               }
               resultEl.style.display = 'block';
+              // Show chart controls when results available
+              var chartControls = document.getElementById('chart-controls');
+              if (rows.length > 0) {
+                var keys2 = Object.keys(rows[0]);
+                var xSel = document.getElementById('chart-x');
+                var ySel = document.getElementById('chart-y');
+                xSel.innerHTML = keys2.map(function(k) { return '<option>' + esc(k) + '</option>'; }).join('');
+                ySel.innerHTML = keys2.map(function(k) { return '<option>' + esc(k) + '</option>'; }).join('');
+                chartControls.style.display = 'flex';
+                window._chartRows = rows;
+              } else {
+                chartControls.style.display = 'none';
+                document.getElementById('chart-container').style.display = 'none';
+              }
               pushSqlHistory(sql, rows.length);
               refreshHistoryDropdown(historySel);
             })
@@ -2409,6 +2986,76 @@ class _DriftDebugServerImpl {
             .finally(() => {
               runBtn.disabled = false;
               runBtn.textContent = runBtnOrigText;
+            });
+        });
+      }
+      if (explainBtn && inputEl && errorEl && resultEl) {
+        explainBtn.addEventListener('click', function() {
+          const sql = inputEl.value.trim();
+          if (!sql) return;
+          const btn = this;
+          const orig = btn.textContent;
+          btn.textContent = 'Explaining\u2026';
+          btn.disabled = true;
+          errorEl.style.display = 'none';
+          resultEl.style.display = 'none';
+          resultEl.innerHTML = '';
+          fetch('/api/sql/explain', authOpts({
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sql: sql })
+          }))
+            .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+            .then(({ ok, data }) => {
+              if (!ok) {
+                errorEl.textContent = data.error || 'Request failed';
+                errorEl.style.display = 'block';
+                return;
+              }
+              const rows = data.rows || [];
+              let html = '<p class="meta" style="font-weight:bold;">EXPLAIN QUERY PLAN</p>';
+              html += '<pre style="font-family:monospace;font-size:12px;line-height:1.6;">';
+              let hasScan = false;
+              let hasIndex = false;
+              rows.forEach(r => {
+                const detail = r.detail || JSON.stringify(r);
+                const indent = '  '.repeat(r.id || 0);
+                let icon = '   ';
+                let style = '';
+                if (/\\bSCAN\\b/.test(detail)) {
+                  icon = '!! ';
+                  style = ' style="color:#e57373;"';
+                  hasScan = true;
+                } else if (/SEARCH.*INDEX/.test(detail)) {
+                  icon = 'OK ';
+                  style = ' style="color:#7cb342;"';
+                  hasIndex = true;
+                } else if (/USING.*INDEX/.test(detail)) {
+                  icon = 'OK ';
+                  style = ' style="color:#7cb342;"';
+                  hasIndex = true;
+                }
+                html += '<span' + style + '>' + icon + indent + esc(detail) + '</span>\\n';
+              });
+              html += '</pre>';
+              if (hasScan) {
+                html += '<p class="meta" style="color:#e57373;margin-top:0.3rem;">';
+                html += 'Warning: Full table scan detected. Consider adding an index on the filtered/sorted column.</p>';
+              }
+              if (hasIndex && !hasScan) {
+                html += '<p class="meta" style="color:#7cb342;margin-top:0.3rem;">';
+                html += 'Good: Query uses index(es) for efficient lookup.</p>';
+              }
+              resultEl.innerHTML = html;
+              resultEl.style.display = 'block';
+            })
+            .catch(e => {
+              errorEl.textContent = e.message || String(e);
+              errorEl.style.display = 'block';
+            })
+            .finally(() => {
+              btn.disabled = false;
+              btn.textContent = orig;
             });
         });
       }
@@ -2455,6 +3102,32 @@ class _DriftDebugServerImpl {
         })
         .catch(() => { setTimeout(pollGeneration, 2000); });
     }
+    // --- NL-to-SQL event handlers ---
+    document.getElementById('nl-convert').addEventListener('click', async function () {
+      var question = document.getElementById('nl-input').value.trim();
+      if (!question) return;
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = 'Converting...';
+      try {
+        var meta = await loadSchemaMeta();
+        var result = nlToSql(question, meta);
+        if (result.sql) {
+          document.getElementById('sql-input').value = result.sql;
+          document.getElementById('sql-error').style.display = 'none';
+        } else {
+          document.getElementById('sql-error').textContent = result.error || 'Could not convert to SQL.';
+          document.getElementById('sql-error').style.display = 'block';
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Convert to SQL';
+      }
+    });
+    document.getElementById('nl-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') document.getElementById('nl-convert').click();
+    });
+
     fetch('/api/tables', authOpts())
       .then(r => r.json())
       .then(tables => {
