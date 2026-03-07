@@ -803,67 +803,11 @@ class _DriftDebugServerImpl {
     return true;
   }
 
-  /// Handles POST /api/sql: body {"sql": "SELECT ..."}. Validates read-only via _isReadOnlySql; returns {"rows": [...]}.
-  /// Content-Type is checked before parsing (require_content_type_validation); body shape validated before use (require_api_response_validation).
-  Future<void> _handleRunSql(HttpRequest request, DriftDebugQuery query) async {
-    final req = request;
-    final res = req.response;
-    String body;
-    try {
-      final builder = BytesBuilder();
-      await for (final chunk in req) {
-        builder.add(chunk);
-      }
-      body = utf8.decode(builder.toBytes());
-    } on Object catch (error, stack) {
-      _logError(error, stack);
-      res.statusCode = HttpStatus.badRequest;
-      _setJsonHeaders(res);
-      res.write(jsonEncode(
-          <String, String>{_jsonKeyError: _errorInvalidRequestBody}));
-      await res.close();
-      return;
-    }
-    final result = _parseSqlBody(req, body);
-    final bodyObj = result.body;
-    if (bodyObj == null) {
-      res.statusCode = HttpStatus.badRequest;
-      _setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{
-        _jsonKeyError: result.error ?? _errorInvalidJson,
-      }));
-      await res.close();
-      return;
-    }
-    final String sql = bodyObj.sql;
-    if (!_isReadOnlySql(sql)) {
-      res.statusCode = HttpStatus.badRequest;
-      _setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{
-        _jsonKeyError: _errorReadOnlyOnly,
-      }));
-      await res.close();
-      return;
-    }
-    try {
-      final dynamic raw = await query(sql);
-      final List<Map<String, dynamic>> rows = _normalizeRows(raw);
-      _setJsonHeaders(res);
-      res.write(jsonEncode(<String, dynamic>{_jsonKeyRows: rows}));
-    } on Object catch (error, stack) {
-      _logError(error, stack);
-      res.statusCode = HttpStatus.internalServerError;
-      _setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{_jsonKeyError: error.toString()}));
-    } finally {
-      await res.close();
-    }
-  }
-
-  /// Handles POST /api/sql/explain: body {"sql": "SELECT ..."}. Prepends EXPLAIN QUERY PLAN, validates read-only via _isReadOnlySql.
-  /// Content-Type is checked before parsing (require_content_type_validation); body shape validated before use (require_api_response_validation).
-  Future<void> _handleExplainSql(
-      HttpRequest request, DriftDebugQuery query) async {
+  /// Reads, parses, and validates a POST SQL request body. Returns the validated read-only SQL
+  /// string, or null if validation failed (error response already sent and closed).
+  /// Shared by [_handleRunSql] and [_handleExplainSql] to avoid duplicating body-reading,
+  /// Content-Type checking, JSON parsing, and read-only validation.
+  Future<String?> _readAndValidateSqlBody(HttpRequest request) async {
     final res = request.response;
     String body;
     try {
@@ -879,7 +823,7 @@ class _DriftDebugServerImpl {
       res.write(jsonEncode(
           <String, String>{_jsonKeyError: _errorInvalidRequestBody}));
       await res.close();
-      return;
+      return null;
     }
     final result = _parseSqlBody(request, body);
     final bodyObj = result.body;
@@ -890,7 +834,7 @@ class _DriftDebugServerImpl {
         _jsonKeyError: result.error ?? _errorInvalidJson,
       }));
       await res.close();
-      return;
+      return null;
     }
     final String sql = bodyObj.sql;
     if (!_isReadOnlySql(sql)) {
@@ -900,8 +844,37 @@ class _DriftDebugServerImpl {
         _jsonKeyError: _errorReadOnlyOnly,
       }));
       await res.close();
-      return;
+      return null;
     }
+    return sql;
+  }
+
+  /// Handles POST /api/sql: body {"sql": "SELECT ..."}. Validates read-only via _isReadOnlySql; returns {"rows": [...]}.
+  Future<void> _handleRunSql(HttpRequest request, DriftDebugQuery query) async {
+    final sql = await _readAndValidateSqlBody(request);
+    if (sql == null) return;
+    final res = request.response;
+    try {
+      final dynamic raw = await query(sql);
+      final List<Map<String, dynamic>> rows = _normalizeRows(raw);
+      _setJsonHeaders(res);
+      res.write(jsonEncode(<String, dynamic>{_jsonKeyRows: rows}));
+    } on Object catch (error, stack) {
+      _logError(error, stack);
+      res.statusCode = HttpStatus.internalServerError;
+      _setJsonHeaders(res);
+      res.write(jsonEncode(<String, String>{_jsonKeyError: error.toString()}));
+    } finally {
+      await res.close();
+    }
+  }
+
+  /// Handles POST /api/sql/explain: body {"sql": "SELECT ..."}. Prepends EXPLAIN QUERY PLAN; returns {"rows": [...], "sql": "EXPLAIN ..."}.
+  Future<void> _handleExplainSql(
+      HttpRequest request, DriftDebugQuery query) async {
+    final sql = await _readAndValidateSqlBody(request);
+    if (sql == null) return;
+    final res = request.response;
     try {
       final explainSql = 'EXPLAIN QUERY PLAN $sql';
       final dynamic raw = await query(explainSql);
@@ -2920,23 +2893,32 @@ class _DriftDebugServerImpl {
         });
       }
 
+      // Shared: clear previous results and hide chart controls before any SQL operation.
+      function clearSqlResults() {
+        errorEl.style.display = 'none';
+        resultEl.style.display = 'none';
+        resultEl.innerHTML = '';
+        document.getElementById('chart-controls').style.display = 'none';
+        document.getElementById('chart-container').style.display = 'none';
+      }
+      // Shared: disable both Run and Explain buttons to prevent concurrent requests.
+      function setSqlButtonsDisabled(disabled) {
+        if (runBtn) runBtn.disabled = disabled;
+        if (explainBtn) explainBtn.disabled = disabled;
+      }
+
       if (runBtn && inputEl && errorEl && resultEl) {
         runBtn.addEventListener('click', function() {
           const sql = inputEl.value.trim();
-          errorEl.style.display = 'none';
-          resultEl.style.display = 'none';
-          resultEl.innerHTML = '';
-          // Hide chart controls and container from previous query
-          document.getElementById('chart-controls').style.display = 'none';
-          document.getElementById('chart-container').style.display = 'none';
+          clearSqlResults();
           if (!sql) {
             errorEl.textContent = 'Enter a SELECT query.';
             errorEl.style.display = 'block';
             return;
           }
           const runBtnOrigText = runBtn.textContent;
-          runBtn.textContent = 'Running…';
-          runBtn.disabled = true;
+          runBtn.textContent = 'Running\u2026';
+          setSqlButtonsDisabled(true);
           fetch('/api/sql', authOpts({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2985,7 +2967,7 @@ class _DriftDebugServerImpl {
               errorEl.style.display = 'block';
             })
             .finally(() => {
-              runBtn.disabled = false;
+              setSqlButtonsDisabled(false);
               runBtn.textContent = runBtnOrigText;
             });
         });
@@ -2993,14 +2975,15 @@ class _DriftDebugServerImpl {
       if (explainBtn && inputEl && errorEl && resultEl) {
         explainBtn.addEventListener('click', function() {
           const sql = inputEl.value.trim();
-          if (!sql) return;
-          const btn = this;
-          const orig = btn.textContent;
-          btn.textContent = 'Explaining\u2026';
-          btn.disabled = true;
-          errorEl.style.display = 'none';
-          resultEl.style.display = 'none';
-          resultEl.innerHTML = '';
+          clearSqlResults();
+          if (!sql) {
+            errorEl.textContent = 'Enter a SELECT query.';
+            errorEl.style.display = 'block';
+            return;
+          }
+          const explainOrigText = explainBtn.textContent;
+          explainBtn.textContent = 'Explaining\u2026';
+          setSqlButtonsDisabled(true);
           fetch('/api/sql/explain', authOpts({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3014,24 +2997,31 @@ class _DriftDebugServerImpl {
                 return;
               }
               const rows = data.rows || [];
+              // Build parent-to-depth map for tree indentation
+              var depthMap = {};
+              rows.forEach(function(r) {
+                var pid = r.parent || 0;
+                depthMap[r.id] = (depthMap[pid] != null ? depthMap[pid] + 1 : 0);
+              });
               let html = '<p class="meta" style="font-weight:bold;">EXPLAIN QUERY PLAN</p>';
               html += '<pre style="font-family:monospace;font-size:12px;line-height:1.6;">';
               let hasScan = false;
               let hasIndex = false;
-              rows.forEach(r => {
+              rows.forEach(function(r) {
                 const detail = r.detail || JSON.stringify(r);
-                const indent = '  '.repeat(r.id || 0);
+                const depth = depthMap[r.id] || 0;
+                const indent = '  '.repeat(depth);
                 let icon = '   ';
                 let style = '';
                 if (/\\bSCAN\\b/.test(detail)) {
                   icon = '!! ';
                   style = ' style="color:#e57373;"';
                   hasScan = true;
-                } else if (/SEARCH.*INDEX/.test(detail)) {
+                } else if (/\\bSEARCH\\b.*\\bINDEX\\b/.test(detail)) {
                   icon = 'OK ';
                   style = ' style="color:#7cb342;"';
                   hasIndex = true;
-                } else if (/USING.*INDEX/.test(detail)) {
+                } else if (/\\bUSING\\b.*\\bINDEX\\b/.test(detail)) {
                   icon = 'OK ';
                   style = ' style="color:#7cb342;"';
                   hasIndex = true;
@@ -3055,8 +3045,8 @@ class _DriftDebugServerImpl {
               errorEl.style.display = 'block';
             })
             .finally(() => {
-              btn.disabled = false;
-              btn.textContent = orig;
+              setSqlButtonsDisabled(false);
+              explainBtn.textContent = explainOrigText;
             });
         });
       }

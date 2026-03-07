@@ -17,6 +17,7 @@ Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minima
 - **Collapsible schema** panel; export table as CSV
 - **Light/dark theme** (saved in localStorage)
 - **Read-only SQL runner** with table/column autofill, templates, and query history (localStorage)
+- **EXPLAIN QUERY PLAN** — one-click query plan viewer highlights full table scans (red) and index lookups (green)
 - **Data charts** — Bar, pie, line/time-series, and histogram from SQL results (inline SVG, no dependencies)
 - **Export** schema-only (`schema.sql`), full dump (schema + data), or raw SQLite file (when `getDatabaseBytes` is set)
 - **Live refresh** via long-poll when data changes
@@ -136,7 +137,7 @@ Start the server as usual (e.g. `await myDb.startDriftViewer(enabled: kDebugMode
 **Debug only.** Do not enable in production.
 
 - Default bind: `0.0.0.0`; use **`loopbackOnly: true`** to bind to `127.0.0.1` only.
-- Read-only: table listing and table data; SQL runner accepts **read-only** SQL (`SELECT` / `WITH ... SELECT` only); writes and DDL are rejected. Table/column endpoints use allow-lists; table names and limit/offset are validated.
+- Read-only: table listing and table data; SQL runner and EXPLAIN accept **read-only** SQL (`SELECT` / `WITH ... SELECT` only); writes and DDL are rejected. Table/column endpoints use allow-lists; table names and limit/offset are validated.
 
 **Secure dev tunnel (ngrok, port forwarding):** use **`authToken`** or **`basicAuthUser`** / **`basicAuthPassword`**:
 
