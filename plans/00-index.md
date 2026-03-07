@@ -11,7 +11,7 @@
 | [03](03-data-charts.md) | Data Charts & Visualizations | L | 12 | — | DONE |
 | [04](04-explain-plan-viewer.md) | Query EXPLAIN Plan Viewer | S | 1 | — |
 | [05](05-smart-index-suggestions.md) | Smart Index Suggestions | M | 6 | — |
-| [06](06-data-bookmarks.md) | Data Bookmarks & Saved Queries | S | 2 | — |
+| [06](06-data-bookmarks.md) | Data Bookmarks & Saved Queries | S | 2 | — | DONE |
 | [07](07-row-level-diff.md) | Row-Level Diff (Time Travel) | M | 8 | Existing snapshot |
 | [08](08-interactive-relationships.md) | Interactive Table Relationships | M | 5 | — |
 | [09](09-data-import.md) | Data Import (Debug Only) | L | 14 | New writeQuery API |
