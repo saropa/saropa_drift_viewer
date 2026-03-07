@@ -17,6 +17,9 @@ import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
+import 'package:saropa_drift_viewer/src/drift_debug_session.dart';
+
+import 'server/server_constants.dart';
 
 // --- Public API (typedefs) ---
 
@@ -158,90 +161,9 @@ class _DriftDebugServerImpl {
   _Snapshot? _snapshot;
 
   /// In-memory shared sessions for collaborative debug (POST /api/session/share, GET /api/session/{id}).
-  final Map<String, Map<String, dynamic>> _sharedSessions = {};
+  final DriftDebugSessionStore _sessionStore = DriftDebugSessionStore();
 
-  /// Ring buffer of recent query timings for the performance monitor (max [_maxQueryTimings] entries).
-  static const int _maxQueryTimings = 500;
   final List<_QueryTiming> _queryTimings = [];
-
-  static const int _defaultPort = 8642;
-  static const int _minPort = 0;
-  static const int _maxPort = 65535;
-  static const int _maxLimit = 1000;
-  static const int _defaultLimit = 200;
-  // Digit separators (2_000_000) require SDK 3.6+; package supports SDK 3.0+. Rule disabled in analysis_options_custom.yaml.
-  static const int _maxOffset = 2000000;
-  static const Duration _longPollTimeout = Duration(seconds: 30);
-  static const Duration _longPollCheckInterval =
-      Duration(milliseconds: 300); // Poll interval during long-poll wait
-
-  // --- Route constants (method + path; alt forms allow path without leading slash) ---
-  static const String _methodGet = 'GET';
-  static const String _methodPost = 'POST';
-  static const String _methodDelete = 'DELETE';
-  static const String _pathApiHealth = '/api/health';
-  static const String _pathApiHealthAlt = 'api/health';
-  static const String _pathApiGeneration = '/api/generation';
-  static const String _pathApiGenerationAlt = 'api/generation';
-  static const String _pathApiTables = '/api/tables';
-  static const String _pathApiTablesAlt = 'api/tables';
-  static const String _pathApiTablePrefix = '/api/table/';
-  static const String _pathApiTablePrefixAlt = 'api/table/';
-  static const String _pathSuffixCount = '/count';
-  static const String _pathSuffixColumns = '/columns';
-  static const String _pathSuffixFkMeta = '/fk-meta';
-  static const String _pathApiSql = '/api/sql';
-  static const String _pathApiSqlAlt = 'api/sql';
-  static const String _pathApiSqlExplain = '/api/sql/explain';
-  static const String _pathApiSqlExplainAlt = 'api/sql/explain';
-  static const String _pathApiSchema = '/api/schema';
-  static const String _pathApiSchemaAlt = 'api/schema';
-  static const String _pathApiSchemaDiagram = '/api/schema/diagram';
-  static const String _pathApiSchemaDiagramAlt = 'api/schema/diagram';
-  static const String _pathApiSchemaMetadata = '/api/schema/metadata';
-  static const String _pathApiSchemaMetadataAlt = 'api/schema/metadata';
-  static const String _pathApiDump = '/api/dump';
-  static const String _pathApiDumpAlt = 'api/dump';
-  static const String _pathApiDatabase = '/api/database';
-  static const String _pathApiDatabaseAlt = 'api/database';
-  static const String _pathApiSnapshot = '/api/snapshot';
-  static const String _pathApiSnapshotAlt = 'api/snapshot';
-  static const String _pathApiSnapshotCompare = '/api/snapshot/compare';
-  static const String _pathApiSnapshotCompareAlt = 'api/snapshot/compare';
-  static const String _pathApiComparePrefix = '/api/compare/';
-  static const String _pathApiComparePrefixAlt = 'api/compare/';
-  static const String _pathApiCompareReport = '/api/compare/report';
-  static const String _pathApiCompareReportAlt = 'api/compare/report';
-  static const String _pathApiIndexSuggestions = '/api/index-suggestions';
-  static const String _pathApiIndexSuggestionsAlt = 'api/index-suggestions';
-  static const String _pathApiMigrationPreview = '/api/migration/preview';
-  static const String _pathApiMigrationPreviewAlt = 'api/migration/preview';
-  static const String _pathApiAnalyticsPerformance =
-      '/api/analytics/performance';
-  static const String _pathApiAnalyticsPerformanceAlt =
-      'api/analytics/performance';
-  static const String _pathApiAnalyticsAnomalies = '/api/analytics/anomalies';
-  static const String _pathApiAnalyticsAnomaliesAlt =
-      'api/analytics/anomalies';
-  static const String _pathApiAnalyticsSize = '/api/analytics/size';
-  static const String _pathApiAnalyticsSizeAlt = 'api/analytics/size';
-  static const String _pathApiSessionShare = '/api/session/share';
-  static const String _pathApiSessionShareAlt = 'api/session/share';
-  static const String _pathApiSessionPrefix = '/api/session/';
-  static const String _pathApiSessionPrefixAlt = 'api/session/';
-  static const String _pathSuffixAnnotate = '/annotate';
-  static const String _pathApiImport = '/api/import';
-  static const String _pathApiImportAlt = 'api/import';
-  static const Duration _sessionExpiry = Duration(hours: 1);
-  static const int _maxSessions = 50;
-  static const String _queryParamLimit = 'limit';
-  static const String _queryParamOffset = 'offset';
-  static const String _queryParamSince = 'since';
-  static const String _queryParamFormat = 'format';
-  static const String _formatDownload = 'download';
-  static const String _jsonKeyError = 'error';
-  static const String _jsonKeyRows = 'rows';
-  static const String _jsonKeySql = 'sql';
 
   /// Validated POST /api/sql request body. Checks Content-Type then decodes and validates (require_content_type_validation, require_api_response_validation).
   ({_SqlRequestBody? body, String? error}) _parseSqlBody(
@@ -255,137 +177,22 @@ class _DriftDebugServerImpl {
       decoded = jsonDecode(body);
     } on Object catch (error, stack) {
       _logError(error, stack);
-      return (body: null, error: _errorInvalidJson);
+      return (body: null, error: ServerConstants.errorInvalidJson);
     }
     // Explicit shape check here satisfies require_api_response_validation; fromJson repeats for single contract.
     if (decoded is! Map<String, dynamic>) {
-      return (body: null, error: _errorInvalidJson);
+      return (body: null, error: ServerConstants.errorInvalidJson);
     }
-    final rawSql = decoded[_jsonKeySql];
+    final rawSql = decoded[ServerConstants.jsonKeySql];
     if (rawSql is! String || rawSql.trim().isEmpty) {
-      return (body: null, error: _errorMissingSql);
+      return (body: null, error: ServerConstants.errorMissingSql);
     }
     final bodyObj = _SqlRequestBody.fromJson(decoded);
     if (bodyObj == null) {
-      return (body: null, error: _errorMissingSql);
+      return (body: null, error: ServerConstants.errorMissingSql);
     }
     return (body: bodyObj, error: null);
   }
-
-  static const String _jsonKeyCount = 'count';
-  static const String _jsonKeyOk = 'ok';
-  static const String _jsonKeyGeneration = 'generation';
-  static const String _jsonKeySnapshot = 'snapshot';
-  static const String _jsonKeyId = 'id';
-  static const String _jsonKeyCreatedAt = 'createdAt';
-  static const String _jsonKeyTableCount = 'tableCount';
-  static const String _jsonKeyTables = 'tables';
-  static const String _jsonKeyName = 'name';
-  static const String _jsonKeyColumns = 'columns';
-  static const String _jsonKeyTable = 'table';
-  static const String _jsonKeyCountThen = 'countThen';
-  static const String _jsonKeyCountNow = 'countNow';
-  static const String _jsonKeyAdded = 'added';
-  static const String _jsonKeyRemoved = 'removed';
-  static const String _jsonKeyUnchanged = 'unchanged';
-  static const String _jsonKeyCountA = 'countA';
-  static const String _jsonKeyCountB = 'countB';
-  static const String _jsonKeyDiff = 'diff';
-  static const String _jsonKeyOnlyInA = 'onlyInA';
-  static const String _jsonKeyOnlyInB = 'onlyInB';
-  static const String _headerAuthorization = 'authorization';
-  static const String _authSchemeBearer = 'Bearer ';
-  static const String _authSchemeBasic = 'Basic ';
-  static const String _headerContentDisposition = 'Content-Disposition';
-  static const String _headerWwwAuthenticate = 'WWW-Authenticate';
-  static const String _realmDriftDebug = 'Drift Debug Viewer';
-  static const String _sqlSchemaMaster =
-      "SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY type, name";
-  static const String _authRequiredMessage =
-      'Authentication required. Use Authorization header with Bearer scheme or HTTP Basic.';
-  static const String _errorInvalidRequestBody = 'Invalid request body';
-  static const String _errorInvalidJson = 'Invalid JSON';
-  static const String _errorMissingSql = 'Missing or empty sql';
-  static const String _errorReadOnlyOnly =
-      'Only read-only SQL is allowed (SELECT or WITH ... SELECT). INSERT/UPDATE/DELETE and DDL are rejected.';
-  static const String _errorUnknownTablePrefix = 'Unknown table: ';
-  static const String _errorNoSnapshot =
-      'No snapshot. POST /api/snapshot first to capture state.';
-  static const String _errorDatabaseDownloadNotConfigured =
-      'Database download not configured. Pass getDatabaseBytes to DriftDebugServer.start (e.g. () => File(dbPath).readAsBytes()).';
-  static const String _errorCompareNotConfigured =
-      'Database compare not configured. Pass queryCompare to DriftDebugServer.start.';
-  static const String _errorMigrationRequiresCompare =
-      'Migration preview requires queryCompare. '
-      'Pass queryCompare to DriftDebugServer.start().';
-  static const String _jsonKeyCountColumn = 'c';
-  static const String _attachmentDatabaseSqlite =
-      'attachment; filename="database.sqlite"';
-  static const String _attachmentSnapshotDiff =
-      'attachment; filename="snapshot-diff.json"';
-  static const String _attachmentDiffReport =
-      'attachment; filename="diff-report.json"';
-  static const String _messageSnapshotCleared = 'Snapshot cleared.';
-  static const String _sqlTableNames =
-      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
-  // Banner (no_magic_string)
-  static const String _bannerTop =
-      '╔══════════════════════════════════════════════════════════════╗';
-  static const String _bannerTitle =
-      '║                   DRIFT DEBUG SERVER                         ║';
-  static const String _bannerDivider =
-      '╟──────────────────────────────────────────────────────────────╢';
-  static const String _bannerOpen =
-      '║  Open in browser to view SQLite/Drift data as JSON:           ║';
-  static const String _bannerUrlPrefix = '║  http://127.0.0.1:';
-  static const String _bannerBottom =
-      '╚══════════════════════════════════════════════════════════════╝';
-  static const String _jsonKeyCounts = 'counts';
-  static const String _jsonKeyType = 'type';
-  static const String _jsonKeyPk = 'pk';
-  static const String _jsonKeyRowCount = 'rowCount';
-  static const String _pragmaFrom = 'from';
-  static const String _pragmaTo = 'to';
-  static const String _fkFromTable = 'fromTable';
-  static const String _fkFromColumn = 'fromColumn';
-  static const String _fkToTable = 'toTable';
-  static const String _fkToColumn = 'toColumn';
-  static const String _jsonKeyForeignKeys = 'foreignKeys';
-  static const String _jsonKeySnapshotId = 'snapshotId';
-  static const String _jsonKeySnapshotCreatedAt = 'snapshotCreatedAt';
-  static const String _jsonKeyComparedAt = 'comparedAt';
-  static const String _jsonKeySchemaSame = 'schemaSame';
-  static const String _jsonKeySchemaDiff = 'schemaDiff';
-  static const String _jsonKeyTablesOnlyInA = 'tablesOnlyInA';
-  static const String _jsonKeyTablesOnlyInB = 'tablesOnlyInB';
-  static const String _jsonKeyTableCounts = 'tableCounts';
-  static const String _jsonKeyGeneratedAt = 'generatedAt';
-  static const String _jsonKeyA = 'a';
-  static const String _jsonKeyB = 'b';
-  static const String _jsonKeyState = 'state';
-  static const String _jsonKeyExpiresAt = 'expiresAt';
-  static const String _jsonKeyAnnotations = 'annotations';
-  static const String _jsonKeyUrl = 'url';
-  static const String _jsonKeyStatus = 'status';
-  static const String _jsonKeyText = 'text';
-  static const String _jsonKeyAuthor = 'author';
-  static const String _jsonKeyAt = 'at';
-  static const String _errorSessionNotFound = 'Session not found or expired.';
-  static const int _radixBase36 = 36;
-  static const int _indexAfterSemicolon = 1;
-  static const int _minLimit = 1;
-
-  /// Number of hex digits per byte in SQL X'...' literal (no_magic_number).
-  static const int _hexBytePadding = 2;
-
-  /// Radix for hex in SQL X'...' literal (no_magic_number).
-  static const int _hexRadix = 16;
-  static const String _attachmentSchemaSql = 'schema.sql';
-  static const String _attachmentDumpSql = 'dump.sql';
-  static const String _contentTypeApplicationOctetStream = 'application';
-  static const String _contentTypeOctetStream = 'octet-stream';
-  static const String _contentTypeTextPlain = 'text';
-  static const String _charsetUtf8 = 'utf-8';
 
   /// Starts the debug server if [enabled] is true and [query] is provided.
   ///
@@ -461,7 +268,7 @@ class _DriftDebugServerImpl {
   Future<void> start({
     required DriftDebugQuery query,
     bool enabled = true,
-    int port = _defaultPort,
+    int port = ServerConstants.defaultPort,
     bool loopbackOnly = false,
     String? corsOrigin = '*',
     String? authToken,
@@ -478,9 +285,9 @@ class _DriftDebugServerImpl {
     if (existing != null) return;
 
     // Defensive: reject invalid port and partial Basic auth before binding.
-    if (port < _minPort || port > _maxPort) {
+    if (port < ServerConstants.minPort || port > ServerConstants.maxPort) {
       throw ArgumentError(
-        'Port must be in range $_minPort..$_maxPort (0 = any port), got: $port',
+        'Port must be in range ${ServerConstants.minPort}..${ServerConstants.maxPort} (0 = any port), got: $port',
       );
     }
     final hasBasicUser = basicAuthUser != null && basicAuthUser.isNotEmpty;
@@ -515,12 +322,12 @@ class _DriftDebugServerImpl {
       if (server == null) return;
       _serverSubscription = server.listen(_onRequest);
 
-      _log(_bannerTop);
-      _log(_bannerTitle);
-      _log(_bannerDivider);
-      _log(_bannerOpen);
-      _log('$_bannerUrlPrefix$port');
-      _log(_bannerBottom);
+      _log(ServerConstants.bannerTop);
+      _log(ServerConstants.bannerTitle);
+      _log(ServerConstants.bannerDivider);
+      _log(ServerConstants.bannerOpen);
+      _log('${ServerConstants.bannerUrlPrefix}$port');
+      _log(ServerConstants.bannerBottom);
     } on Object catch (error, stack) {
       _logError(error, stack);
     }
@@ -578,7 +385,6 @@ class _DriftDebugServerImpl {
     if (callback != null) callback(error, stack);
   }
 
-
   /// Wraps a query call with timing instrumentation. Records duration, row count, and errors.
   Future<List<Map<String, dynamic>>> _timedQuery(
     DriftDebugQuery query,
@@ -597,7 +403,7 @@ class _DriftDebugServerImpl {
     }
   }
 
-  /// Appends a timing entry; evicts oldest when buffer exceeds [_maxQueryTimings].
+  /// Appends a timing entry; evicts oldest when buffer exceeds [ServerConstants.maxQueryTimings].
   void _recordTiming(String sql, int durationMs, int rowCount, String? error) {
     _queryTimings.add(_QueryTiming(
       sql: sql,
@@ -606,7 +412,7 @@ class _DriftDebugServerImpl {
       error: error,
       at: DateTime.now().toUtc(),
     ));
-    if (_queryTimings.length > _maxQueryTimings) {
+    if (_queryTimings.length > ServerConstants.maxQueryTimings) {
       _queryTimings.removeAt(0);
     }
   }
@@ -646,11 +452,11 @@ class _DriftDebugServerImpl {
   bool _isAuthenticated(HttpRequest request) {
     final tokenHash = _authTokenHash;
     if (tokenHash != null) {
-      final authHeader = request.headers.value(_headerAuthorization);
+      final authHeader = request.headers.value(ServerConstants.headerAuthorization);
       if (authHeader != null &&
-          authHeader.length > _authSchemeBearer.length &&
-          authHeader.startsWith(_authSchemeBearer)) {
-        final token = _safeSubstring(authHeader, _authSchemeBearer.length);
+          authHeader.length > ServerConstants.authSchemeBearer.length &&
+          authHeader.startsWith(ServerConstants.authSchemeBearer)) {
+        final token = _safeSubstring(authHeader, ServerConstants.authSchemeBearer.length);
         if (token.isEmpty) return false;
         final incomingHash = sha256.convert(utf8.encode(token)).bytes;
         if (_secureCompareBytes(incomingHash, tokenHash)) return true;
@@ -659,13 +465,13 @@ class _DriftDebugServerImpl {
     final user = _basicAuthUser;
     final password = _basicAuthPassword;
     if (user != null && user.isNotEmpty && password != null) {
-      final authHeader = request.headers.value(_headerAuthorization);
+      final authHeader = request.headers.value(ServerConstants.headerAuthorization);
       if (authHeader != null &&
-          authHeader.length >= _authSchemeBasic.length &&
-          authHeader.startsWith(_authSchemeBasic)) {
+          authHeader.length >= ServerConstants.authSchemeBasic.length &&
+          authHeader.startsWith(ServerConstants.authSchemeBasic)) {
         try {
           final basicPayload =
-              _safeSubstring(authHeader, _authSchemeBasic.length);
+              _safeSubstring(authHeader, ServerConstants.authSchemeBasic.length);
           if (basicPayload.isEmpty) return false;
           final decoded = utf8.decode(base64.decode(basicPayload));
           final colon = decoded.indexOf(':');
@@ -691,11 +497,11 @@ class _DriftDebugServerImpl {
     res.statusCode = HttpStatus.unauthorized;
     if (_basicAuthUser != null && _basicAuthPassword != null) {
       res.headers
-          .set(_headerWwwAuthenticate, 'Basic realm="$_realmDriftDebug"');
+          .set(ServerConstants.headerWwwAuthenticate, 'Basic realm="${ServerConstants.realmDriftDebug}"');
     }
     _setJsonHeaders(res);
     res.write(
-        jsonEncode(<String, String>{_jsonKeyError: _authRequiredMessage}));
+        jsonEncode(<String, String>{ServerConstants.jsonKeyError: ServerConstants.authRequiredMessage}));
     await res.close();
   }
 
@@ -717,13 +523,13 @@ class _DriftDebugServerImpl {
 
     // Health and generation are handled before query check so probes / live-refresh work without DB.
     try {
-      if (req.method == _methodGet &&
-          (path == _pathApiHealth || path == _pathApiHealthAlt)) {
+      if (req.method == ServerConstants.methodGet &&
+          (path == ServerConstants.pathApiHealth || path == ServerConstants.pathApiHealthAlt)) {
         await _sendHealth(res);
         return;
       }
-      if (req.method == _methodGet &&
-          (path == _pathApiGeneration || path == _pathApiGenerationAlt)) {
+      if (req.method == ServerConstants.methodGet &&
+          (path == ServerConstants.pathApiGeneration || path == ServerConstants.pathApiGenerationAlt)) {
         await _handleGeneration(req);
         return;
       }
@@ -741,31 +547,31 @@ class _DriftDebugServerImpl {
     }
 
     try {
-      if (req.method == _methodGet && (path == '/' || path.isEmpty)) {
+      if (req.method == ServerConstants.methodGet && (path == '/' || path.isEmpty)) {
         await _sendHtml(res, req);
         return;
       }
-      if (req.method == _methodGet &&
-          (path == _pathApiTables || path == _pathApiTablesAlt)) {
+      if (req.method == ServerConstants.methodGet &&
+          (path == ServerConstants.pathApiTables || path == ServerConstants.pathApiTablesAlt)) {
         await _sendTableList(res, query);
         return;
       }
-      if (req.method == _methodGet &&
-          (path.startsWith(_pathApiTablePrefix) ||
-              path.startsWith(_pathApiTablePrefixAlt))) {
+      if (req.method == ServerConstants.methodGet &&
+          (path.startsWith(ServerConstants.pathApiTablePrefix) ||
+              path.startsWith(ServerConstants.pathApiTablePrefixAlt))) {
         final String suffix = path.replaceFirst(RegExp(r'^/?api/table/'), '');
-        if (suffix.endsWith(_pathSuffixCount)) {
+        if (suffix.endsWith(ServerConstants.pathSuffixCount)) {
           final String tableName = suffix.replaceFirst(RegExp(r'/count$'), '');
           await _sendTableCount(res, query, tableName);
           return;
         }
-        if (suffix.endsWith(_pathSuffixColumns)) {
+        if (suffix.endsWith(ServerConstants.pathSuffixColumns)) {
           final String tableName =
               suffix.replaceFirst(RegExp(r'/columns$'), '');
           await _sendTableColumns(res, query, tableName);
           return;
         }
-        if (suffix.endsWith(_pathSuffixFkMeta)) {
+        if (suffix.endsWith(ServerConstants.pathSuffixFkMeta)) {
           final String tableName =
               suffix.replaceFirst(RegExp(r'/fk-meta$'), '');
           await _sendTableFkMeta(res, query, tableName);
@@ -773,9 +579,9 @@ class _DriftDebugServerImpl {
         }
         final String tableName = suffix;
         final int limit =
-            _parseLimit(req.uri.queryParameters[_queryParamLimit]);
+            _parseLimit(req.uri.queryParameters[ServerConstants.queryParamLimit]);
         final int offset =
-            _parseOffset(req.uri.queryParameters[_queryParamOffset]);
+            _parseOffset(req.uri.queryParameters[ServerConstants.queryParamOffset]);
         await _sendTableData(
             response: res,
             query: query,
@@ -784,131 +590,131 @@ class _DriftDebugServerImpl {
             offset: offset);
         return;
       }
-      if (req.method == _methodPost &&
-          (path == _pathApiSqlExplain || path == _pathApiSqlExplainAlt)) {
+      if (req.method == ServerConstants.methodPost &&
+          (path == ServerConstants.pathApiSqlExplain || path == ServerConstants.pathApiSqlExplainAlt)) {
         await _handleExplainSql(req, query);
         return;
       }
-      if (req.method == _methodPost &&
-          (path == _pathApiSql || path == _pathApiSqlAlt)) {
+      if (req.method == ServerConstants.methodPost &&
+          (path == ServerConstants.pathApiSql || path == ServerConstants.pathApiSqlAlt)) {
         await _handleRunSql(req, query);
         return;
       }
-      if (req.method == _methodGet &&
-          (path == _pathApiSchema || path == _pathApiSchemaAlt)) {
+      if (req.method == ServerConstants.methodGet &&
+          (path == ServerConstants.pathApiSchema || path == ServerConstants.pathApiSchemaAlt)) {
         await _sendSchemaDump(res, query);
         return;
       }
-      if (req.method == _methodGet &&
-          (path == _pathApiSchemaDiagram || path == _pathApiSchemaDiagramAlt)) {
+      if (req.method == ServerConstants.methodGet &&
+          (path == ServerConstants.pathApiSchemaDiagram || path == ServerConstants.pathApiSchemaDiagramAlt)) {
         await _sendSchemaDiagram(res, query);
         return;
       }
-      if (req.method == _methodGet &&
-          (path == _pathApiSchemaMetadata ||
-              path == _pathApiSchemaMetadataAlt)) {
+      if (req.method == ServerConstants.methodGet &&
+          (path == ServerConstants.pathApiSchemaMetadata ||
+              path == ServerConstants.pathApiSchemaMetadataAlt)) {
         await _sendSchemaMetadata(res, query);
         return;
       }
-      if (req.method == _methodGet &&
-          (path == _pathApiDump || path == _pathApiDumpAlt)) {
+      if (req.method == ServerConstants.methodGet &&
+          (path == ServerConstants.pathApiDump || path == ServerConstants.pathApiDumpAlt)) {
         await _sendFullDump(res, query);
         return;
       }
-      if (req.method == _methodGet &&
-          (path == _pathApiDatabase || path == _pathApiDatabaseAlt)) {
+      if (req.method == ServerConstants.methodGet &&
+          (path == ServerConstants.pathApiDatabase || path == ServerConstants.pathApiDatabaseAlt)) {
         await _sendDatabaseFile(res);
         return;
       }
-      if (req.method == _methodPost &&
-          (path == _pathApiSnapshot || path == _pathApiSnapshotAlt)) {
+      if (req.method == ServerConstants.methodPost &&
+          (path == ServerConstants.pathApiSnapshot || path == ServerConstants.pathApiSnapshotAlt)) {
         await _handleSnapshotCreate(res, query);
         return;
       }
-      if (req.method == _methodGet &&
-          (path == _pathApiSnapshot || path == _pathApiSnapshotAlt)) {
+      if (req.method == ServerConstants.methodGet &&
+          (path == ServerConstants.pathApiSnapshot || path == ServerConstants.pathApiSnapshotAlt)) {
         await _handleSnapshotGet(res);
         return;
       }
-      if (req.method == _methodGet &&
-          (path == _pathApiSnapshotCompare ||
-              path == _pathApiSnapshotCompareAlt)) {
+      if (req.method == ServerConstants.methodGet &&
+          (path == ServerConstants.pathApiSnapshotCompare ||
+              path == ServerConstants.pathApiSnapshotCompareAlt)) {
         await _handleSnapshotCompare(res, req, query);
         return;
       }
-      if (req.method == _methodDelete &&
-          (path == _pathApiSnapshot || path == _pathApiSnapshotAlt)) {
+      if (req.method == ServerConstants.methodDelete &&
+          (path == ServerConstants.pathApiSnapshot || path == ServerConstants.pathApiSnapshotAlt)) {
         await _handleSnapshotDelete(res);
         return;
       }
-      if (req.method == _methodGet &&
-          (path.startsWith(_pathApiComparePrefix) ||
-              path.startsWith(_pathApiComparePrefixAlt))) {
+      if (req.method == ServerConstants.methodGet &&
+          (path.startsWith(ServerConstants.pathApiComparePrefix) ||
+              path.startsWith(ServerConstants.pathApiComparePrefixAlt))) {
         await _handleCompareReport(res, req, query);
         return;
       }
-      if (req.method == _methodGet &&
-          (path == _pathApiIndexSuggestions ||
-              path == _pathApiIndexSuggestionsAlt)) {
+      if (req.method == ServerConstants.methodGet &&
+          (path == ServerConstants.pathApiIndexSuggestions ||
+              path == ServerConstants.pathApiIndexSuggestionsAlt)) {
         await _handleIndexSuggestions(res, query);
         return;
       }
-      if (req.method == _methodGet &&
-          (path == _pathApiMigrationPreview ||
-              path == _pathApiMigrationPreviewAlt)) {
+      if (req.method == ServerConstants.methodGet &&
+          (path == ServerConstants.pathApiMigrationPreview ||
+              path == ServerConstants.pathApiMigrationPreviewAlt)) {
         await _handleMigrationPreview(res, query);
         return;
       }
-      if (req.method == _methodGet &&
-          (path == _pathApiAnalyticsAnomalies ||
-              path == _pathApiAnalyticsAnomaliesAlt)) {
+      if (req.method == ServerConstants.methodGet &&
+          (path == ServerConstants.pathApiAnalyticsAnomalies ||
+              path == ServerConstants.pathApiAnalyticsAnomaliesAlt)) {
         await _handleAnomalyDetection(res, query);
         return;
       }
-      if (req.method == _methodGet &&
-          (path == _pathApiAnalyticsSize ||
-              path == _pathApiAnalyticsSizeAlt)) {
+      if (req.method == ServerConstants.methodGet &&
+          (path == ServerConstants.pathApiAnalyticsSize ||
+              path == ServerConstants.pathApiAnalyticsSizeAlt)) {
         await _handleSizeAnalytics(res, query);
         return;
       }
-      if (req.method == _methodPost &&
-          (path == _pathApiImport || path == _pathApiImportAlt)) {
+      if (req.method == ServerConstants.methodPost &&
+          (path == ServerConstants.pathApiImport || path == ServerConstants.pathApiImportAlt)) {
         await _handleImport(req);
         return;
       }
-      if (req.method == _methodPost &&
-          (path == _pathApiSessionShare ||
-              path == _pathApiSessionShareAlt)) {
+      if (req.method == ServerConstants.methodPost &&
+          (path == ServerConstants.pathApiSessionShare ||
+              path == ServerConstants.pathApiSessionShareAlt)) {
         await _handleSessionShare(req);
         return;
       }
-      if (path.startsWith(_pathApiSessionPrefix) ||
-          path.startsWith(_pathApiSessionPrefixAlt)) {
-        final suffix = path.startsWith(_pathApiSessionPrefix)
-            ? path.substring(_pathApiSessionPrefix.length)
-            : path.substring(_pathApiSessionPrefixAlt.length);
-        if (suffix.endsWith(_pathSuffixAnnotate) &&
-            req.method == _methodPost) {
+      if (path.startsWith(ServerConstants.pathApiSessionPrefix) ||
+          path.startsWith(ServerConstants.pathApiSessionPrefixAlt)) {
+        final suffix = path.startsWith(ServerConstants.pathApiSessionPrefix)
+            ? path.substring(ServerConstants.pathApiSessionPrefix.length)
+            : path.substring(ServerConstants.pathApiSessionPrefixAlt.length);
+        if (suffix.endsWith(ServerConstants.pathSuffixAnnotate) &&
+            req.method == ServerConstants.methodPost) {
           final sessionId =
               suffix.replaceFirst(RegExp(r'/annotate$'), '');
           await _handleSessionAnnotate(req, sessionId);
           return;
         }
-        if (req.method == _methodGet) {
+        if (req.method == ServerConstants.methodGet) {
           await _handleSessionGet(res, suffix);
           return;
         }
       }
 
-      if (req.method == _methodGet &&
-          (path == _pathApiAnalyticsPerformance ||
-              path == _pathApiAnalyticsPerformanceAlt)) {
+      if (req.method == ServerConstants.methodGet &&
+          (path == ServerConstants.pathApiAnalyticsPerformance ||
+              path == ServerConstants.pathApiAnalyticsPerformanceAlt)) {
         await _handlePerformanceAnalytics(res);
         return;
       }
-      if (req.method == _methodDelete &&
-          (path == _pathApiAnalyticsPerformance ||
-              path == _pathApiAnalyticsPerformanceAlt)) {
+      if (req.method == ServerConstants.methodDelete &&
+          (path == ServerConstants.pathApiAnalyticsPerformance ||
+              path == ServerConstants.pathApiAnalyticsPerformanceAlt)) {
         await _clearPerformanceData(res);
         return;
       }
@@ -939,16 +745,16 @@ class _DriftDebugServerImpl {
     // Only one statement (no semicolon in the middle; trailing semicolon allowed).
     final firstSemicolon = sqlNoStrings.indexOf(';');
     if (firstSemicolon >= 0 &&
-        firstSemicolon + _indexAfterSemicolon <= sqlNoStrings.length &&
-        firstSemicolon < sqlNoStrings.length - _indexAfterSemicolon) {
+        firstSemicolon + ServerConstants.indexAfterSemicolon <= sqlNoStrings.length &&
+        firstSemicolon < sqlNoStrings.length - ServerConstants.indexAfterSemicolon) {
       final after =
-          _safeSubstring(sqlNoStrings, firstSemicolon + _indexAfterSemicolon)
+          _safeSubstring(sqlNoStrings, firstSemicolon + ServerConstants.indexAfterSemicolon)
               .trim();
       if (after.isNotEmpty) return false;
     }
     final withoutTrailingSemicolon = sqlNoStrings.endsWith(';')
         ? _safeSubstring(
-                sqlNoStrings, 0, sqlNoStrings.length - _indexAfterSemicolon)
+                sqlNoStrings, 0, sqlNoStrings.length - ServerConstants.indexAfterSemicolon)
             .trim()
         : sqlNoStrings;
     final upper = withoutTrailingSemicolon.toUpperCase();
@@ -1000,7 +806,7 @@ class _DriftDebugServerImpl {
       res.statusCode = HttpStatus.badRequest;
       _setJsonHeaders(res);
       res.write(jsonEncode(
-          <String, String>{_jsonKeyError: _errorInvalidRequestBody}));
+          <String, String>{ServerConstants.jsonKeyError: ServerConstants.errorInvalidRequestBody}));
       await res.close();
       return null;
     }
@@ -1010,7 +816,7 @@ class _DriftDebugServerImpl {
       res.statusCode = HttpStatus.badRequest;
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, String>{
-        _jsonKeyError: result.error ?? _errorInvalidJson,
+        ServerConstants.jsonKeyError: result.error ?? ServerConstants.errorInvalidJson,
       }));
       await res.close();
       return null;
@@ -1020,7 +826,7 @@ class _DriftDebugServerImpl {
       res.statusCode = HttpStatus.badRequest;
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, String>{
-        _jsonKeyError: _errorReadOnlyOnly,
+        ServerConstants.jsonKeyError: ServerConstants.errorReadOnlyOnly,
       }));
       await res.close();
       return null;
@@ -1037,12 +843,12 @@ class _DriftDebugServerImpl {
       final dynamic raw = await query(sql);
       final List<Map<String, dynamic>> rows = _normalizeRows(raw);
       _setJsonHeaders(res);
-      res.write(jsonEncode(<String, dynamic>{_jsonKeyRows: rows}));
+      res.write(jsonEncode(<String, dynamic>{ServerConstants.jsonKeyRows: rows}));
     } on Object catch (error, stack) {
       _logError(error, stack);
       res.statusCode = HttpStatus.internalServerError;
       _setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{_jsonKeyError: error.toString()}));
+      res.write(jsonEncode(<String, String>{ServerConstants.jsonKeyError: error.toString()}));
     } finally {
       await res.close();
     }
@@ -1060,14 +866,14 @@ class _DriftDebugServerImpl {
       final rows = _normalizeRows(raw);
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, dynamic>{
-        _jsonKeyRows: rows,
-        _jsonKeySql: explainSql,
+        ServerConstants.jsonKeyRows: rows,
+        ServerConstants.jsonKeySql: explainSql,
       }));
     } on Object catch (error, stack) {
       _logError(error, stack);
       res.statusCode = HttpStatus.internalServerError;
       _setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{_jsonKeyError: error.toString()}));
+      res.write(jsonEncode(<String, String>{ServerConstants.jsonKeyError: error.toString()}));
     } finally {
       await res.close();
     }
@@ -1079,24 +885,24 @@ class _DriftDebugServerImpl {
     res.statusCode = HttpStatus.internalServerError;
     res.headers.contentType = ContentType.json;
     _setCors(res);
-    res.write(jsonEncode(<String, String>{_jsonKeyError: error.toString()}));
+    res.write(jsonEncode(<String, String>{ServerConstants.jsonKeyError: error.toString()}));
     await res.close();
   }
 
-  /// Parses limit query param; clamps to 1.._maxLimit; default _defaultLimit.
+  /// Parses limit query param; clamps to 1.._maxLimit; default ServerConstants.defaultLimit.
   int _parseLimit(String? value) {
-    if (value == null) return _defaultLimit;
+    if (value == null) return ServerConstants.defaultLimit;
     final int? n = int.tryParse(value);
-    if (n == null || n < _minLimit) return _defaultLimit;
-    return n.clamp(_minLimit, _maxLimit);
+    if (n == null || n < ServerConstants.minLimit) return ServerConstants.defaultLimit;
+    return n.clamp(ServerConstants.minLimit, ServerConstants.maxLimit);
   }
 
-  /// Parses offset query param; returns 0 if missing or invalid; caps at [_maxOffset].
+  /// Parses offset query param; returns 0 if missing or invalid; caps at [ServerConstants.maxOffset].
   int _parseOffset(String? value) {
     if (value == null) return 0;
     final int? n = int.tryParse(value);
     if (n == null || n < 0) return 0;
-    return n > _maxOffset ? _maxOffset : n;
+    return n > ServerConstants.maxOffset ? ServerConstants.maxOffset : n;
   }
 
   /// Normalizes raw query result to a list of maps. Handles null, non-List, and non-Map rows defensively.
@@ -1115,8 +921,8 @@ class _DriftDebugServerImpl {
   /// Extracts COUNT(*) result from a single-row query (column 'c'). Returns 0 if empty or null. Used for table count and diff.
   int _extractCountFromRows(List<Map<String, dynamic>> rows) {
     final firstRow = rows.firstOrNull;
-    if (firstRow == null || firstRow[_jsonKeyCountColumn] == null) return 0;
-    final countValue = firstRow[_jsonKeyCountColumn];
+    if (firstRow == null || firstRow[ServerConstants.jsonKeyCountColumn] == null) return 0;
+    final countValue = firstRow[ServerConstants.jsonKeyCountColumn];
     return countValue is int
         ? countValue
         : (countValue is num ? countValue.toInt() : 0);
@@ -1125,10 +931,10 @@ class _DriftDebugServerImpl {
   /// Fetches table names from sqlite_master (type='table', exclude sqlite_*). Used as allow-list for table routes.
   /// Defensively handles query returning null or non-List / non-Map rows.
   Future<List<String>> _getTableNames(DriftDebugQuery query) async {
-    final dynamic raw = await query(_sqlTableNames);
+    final dynamic raw = await query(ServerConstants.sqlTableNames);
     final List<Map<String, dynamic>> rows = _normalizeRows(raw);
     return rows
-        .map((row) => row[_jsonKeyName] as String? ?? '')
+        .map((row) => row[ServerConstants.jsonKeyName] as String? ?? '')
         .where((nameStr) => nameStr.isNotEmpty)
         .toList();
   }
@@ -1145,7 +951,7 @@ class _DriftDebugServerImpl {
       res.statusCode = HttpStatus.badRequest;
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, String>{
-        _jsonKeyError: '$_errorUnknownTablePrefix$tableName',
+        ServerConstants.jsonKeyError: '${ServerConstants.errorUnknownTablePrefix}$tableName',
       }));
       await res.close();
       return false;
@@ -1176,7 +982,7 @@ class _DriftDebugServerImpl {
     final dynamic rawInfo = await query('PRAGMA table_info("$tableName")');
     final List<Map<String, dynamic>> rows = _normalizeRows(rawInfo);
     final List<String> columns = rows
-        .map((r) => r[_jsonKeyName] as String? ?? '')
+        .map((r) => r[ServerConstants.jsonKeyName] as String? ?? '')
         .where((s) => s.isNotEmpty)
         .toList();
     _setJsonHeaders(res);
@@ -1198,16 +1004,16 @@ class _DriftDebugServerImpl {
       );
       final List<Map<String, dynamic>> fks = fkRows
           .map((r) {
-            final fromCol = r[_pragmaFrom] as String?;
-            final toTable = r[_jsonKeyTable] as String?;
-            final toCol = r[_pragmaTo] as String?;
+            final fromCol = r[ServerConstants.pragmaFrom] as String?;
+            final toTable = r[ServerConstants.jsonKeyTable] as String?;
+            final toCol = r[ServerConstants.pragmaTo] as String?;
             if (fromCol == null || toTable == null || toCol == null) {
               return null;
             }
             return <String, dynamic>{
-              _fkFromColumn: fromCol,
-              _fkToTable: toTable,
-              _fkToColumn: toCol,
+              ServerConstants.fkFromColumn: fromCol,
+              ServerConstants.fkToTable: toTable,
+              ServerConstants.fkToColumn: toCol,
             };
           })
           .whereType<Map<String, dynamic>>()
@@ -1235,7 +1041,7 @@ class _DriftDebugServerImpl {
     final List<Map<String, dynamic>> rows = _normalizeRows(rawCount);
     final int count = _extractCountFromRows(rows);
     _setJsonHeaders(res);
-    res.write(jsonEncode(<String, int>{_jsonKeyCount: count}));
+    res.write(jsonEncode(<String, int>{ServerConstants.jsonKeyCount: count}));
     await res.close();
   }
 
@@ -1260,11 +1066,11 @@ class _DriftDebugServerImpl {
 
   /// Fetches schema (CREATE statements) from sqlite_master, no data. Used for export and compare.
   Future<String> _getSchemaSql(DriftDebugQuery query) async {
-    final dynamic raw = await query(_sqlSchemaMaster);
+    final dynamic raw = await query(ServerConstants.sqlSchemaMaster);
     final List<Map<String, dynamic>> rows = _normalizeRows(raw);
     final buffer = StringBuffer();
     for (final row in rows) {
-      final stmt = row[_jsonKeySql] as String?;
+      final stmt = row[ServerConstants.jsonKeySql] as String?;
       if (stmt != null && stmt.isNotEmpty) {
         buffer.writeln(stmt);
         if (!stmt.trimRight().endsWith(';')) buffer.write(';');
@@ -1278,29 +1084,29 @@ class _DriftDebugServerImpl {
   Future<void> _sendHealth(HttpResponse response) async {
     final res = response;
     _setJsonHeaders(res);
-    res.write(jsonEncode(<String, dynamic>{_jsonKeyOk: true}));
+    res.write(jsonEncode(<String, dynamic>{ServerConstants.jsonKeyOk: true}));
     await res.close();
   }
 
   /// Handles GET /api/generation. Returns current [_generation]. Query parameter `since` triggers long-poll
-  /// until generation > since or [_longPollTimeout]; reduces client polling when idle.
+  /// until generation > since or [ServerConstants.longPollTimeout]; reduces client polling when idle.
   /// Change detection runs on demand (here and in the long-poll loop) to satisfy avoid_work_in_paused_state.
   Future<void> _handleGeneration(HttpRequest request) async {
     final req = request;
     final res = req.response;
     await _checkDataChange();
-    final sinceRaw = req.uri.queryParameters[_queryParamSince];
+    final sinceRaw = req.uri.queryParameters[ServerConstants.queryParamSince];
     final int? since = sinceRaw != null ? int.tryParse(sinceRaw) : null;
     if (since != null && since >= 0) {
-      final deadline = DateTime.now().toUtc().add(_longPollTimeout);
+      final deadline = DateTime.now().toUtc().add(ServerConstants.longPollTimeout);
       while (
           DateTime.now().toUtc().isBefore(deadline) && _generation <= since) {
-        await Future<void>.delayed(_longPollCheckInterval);
+        await Future<void>.delayed(ServerConstants.longPollCheckInterval);
         await _checkDataChange();
       }
     }
     _setJsonHeaders(res);
-    res.write(jsonEncode(<String, int>{_jsonKeyGeneration: _generation}));
+    res.write(jsonEncode(<String, int>{ServerConstants.jsonKeyGeneration: _generation}));
     await res.close();
   }
 
@@ -1336,7 +1142,7 @@ class _DriftDebugServerImpl {
     final res = response;
     final String schema = await _getSchemaSql(query);
     res.statusCode = HttpStatus.ok;
-    _setAttachmentHeaders(res, _attachmentSchemaSql);
+    _setAttachmentHeaders(res, ServerConstants.attachmentSchemaSql);
     res.write(schema);
     await res.close();
   }
@@ -1355,15 +1161,15 @@ class _DriftDebugServerImpl {
         final type = r['type'];
         final pk = r['pk'];
         return <String, dynamic>{
-          _jsonKeyName: name is String? ? name ?? '' : '',
-          _jsonKeyType: type is String? ? type ?? '' : '',
-          _jsonKeyPk: pk is int ? pk != 0 : false,
+          ServerConstants.jsonKeyName: name is String? ? name ?? '' : '',
+          ServerConstants.jsonKeyType: type is String? ? type ?? '' : '',
+          ServerConstants.jsonKeyPk: pk is int ? pk != 0 : false,
         };
       }).toList();
 
       tables.add(<String, dynamic>{
-        _jsonKeyName: tableName,
-        _jsonKeyColumns: columns,
+        ServerConstants.jsonKeyName: tableName,
+        ServerConstants.jsonKeyColumns: columns,
       });
 
       try {
@@ -1371,18 +1177,18 @@ class _DriftDebugServerImpl {
             await query('PRAGMA foreign_key_list("$tableName")');
         final List<Map<String, dynamic>> fkRows = _normalizeRows(rawFk);
         for (final r in fkRows) {
-          final toTable = r[_jsonKeyTable] as String?;
-          final fromCol = r[_pragmaFrom] as String?;
-          final toCol = r[_pragmaTo] as String?;
+          final toTable = r[ServerConstants.jsonKeyTable] as String?;
+          final fromCol = r[ServerConstants.pragmaFrom] as String?;
+          final toCol = r[ServerConstants.pragmaTo] as String?;
           if (toTable != null &&
               toTable.isNotEmpty &&
               fromCol != null &&
               toCol != null) {
             foreignKeys.add(<String, dynamic>{
-              _fkFromTable: tableName,
-              _fkFromColumn: fromCol,
-              _fkToTable: toTable,
-              _fkToColumn: toCol,
+              ServerConstants.fkFromTable: tableName,
+              ServerConstants.fkFromColumn: fromCol,
+              ServerConstants.fkToTable: toTable,
+              ServerConstants.fkToColumn: toCol,
             });
           }
         }
@@ -1392,8 +1198,8 @@ class _DriftDebugServerImpl {
     }
 
     return <String, dynamic>{
-      _jsonKeyTables: tables,
-      _jsonKeyForeignKeys: foreignKeys,
+      ServerConstants.jsonKeyTables: tables,
+      ServerConstants.jsonKeyForeignKeys: foreignKeys,
     };
   }
 
@@ -1410,7 +1216,7 @@ class _DriftDebugServerImpl {
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
       _setCors(res);
-      res.write(jsonEncode(<String, String>{_jsonKeyError: error.toString()}));
+      res.write(jsonEncode(<String, String>{ServerConstants.jsonKeyError: error.toString()}));
     } finally {
       await res.close();
     }
@@ -1432,23 +1238,23 @@ class _DriftDebugServerImpl {
         );
         final columns = infoRows
             .map((r) => <String, dynamic>{
-                  _jsonKeyName: r[_jsonKeyName] ?? '',
-                  _jsonKeyType: r[_jsonKeyType] ?? '',
-                  _jsonKeyPk: (r[_jsonKeyPk] is int) ? r[_jsonKeyPk] != 0 : false,
+                  ServerConstants.jsonKeyName: r[ServerConstants.jsonKeyName] ?? '',
+                  ServerConstants.jsonKeyType: r[ServerConstants.jsonKeyType] ?? '',
+                  ServerConstants.jsonKeyPk: (r[ServerConstants.jsonKeyPk] is int) ? r[ServerConstants.jsonKeyPk] != 0 : false,
                 })
             .toList();
         final countRows = _normalizeRows(
-          await query('SELECT COUNT(*) AS $_jsonKeyCountColumn FROM "$tableName"'),
+          await query('SELECT COUNT(*) AS ${ServerConstants.jsonKeyCountColumn} FROM "$tableName"'),
         );
         final count = _extractCountFromRows(countRows);
         tables.add(<String, dynamic>{
-          _jsonKeyName: tableName,
-          _jsonKeyColumns: columns,
-          _jsonKeyRowCount: count,
+          ServerConstants.jsonKeyName: tableName,
+          ServerConstants.jsonKeyColumns: columns,
+          ServerConstants.jsonKeyRowCount: count,
         });
       }
       _setJsonHeaders(res);
-      res.write(jsonEncode(<String, dynamic>{_jsonKeyTables: tables}));
+      res.write(jsonEncode(<String, dynamic>{ServerConstants.jsonKeyTables: tables}));
     } on Object catch (error, stack) {
       _logError(error, stack);
       await _sendErrorResponse(res, error);
@@ -1466,7 +1272,7 @@ class _DriftDebugServerImpl {
       return "'${value.replaceAll(r'\', r'\\').replaceAll("'", "''")}'";
     }
     if (value is List<int>) {
-      return "X'${value.map((b) => b.toRadixString(_hexRadix).padLeft(_hexBytePadding, '0')).join()}'";
+      return "X'${value.map((b) => b.toRadixString(ServerConstants.hexRadix).padLeft(ServerConstants.hexBytePadding, '0')).join()}'";
     }
     return "'${value.toString().replaceAll(r'\', r'\\').replaceAll("'", "''")}'";
   }
@@ -1502,7 +1308,7 @@ class _DriftDebugServerImpl {
     final res = response;
     final String dump = await _getFullDumpSql(query);
     res.statusCode = HttpStatus.ok;
-    _setAttachmentHeaders(res, _attachmentDumpSql);
+    _setAttachmentHeaders(res, ServerConstants.attachmentDumpSql);
     res.write(dump);
     await res.close();
   }
@@ -1516,7 +1322,7 @@ class _DriftDebugServerImpl {
       res.statusCode = HttpStatus.notImplemented;
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, String>{
-        _jsonKeyError: _errorDatabaseDownloadNotConfigured,
+        ServerConstants.jsonKeyError: ServerConstants.errorDatabaseDownloadNotConfigured,
       }));
       await res.close();
       return;
@@ -1526,8 +1332,8 @@ class _DriftDebugServerImpl {
       // Empty list is valid (e.g. in-memory DB); respond 200 with zero-length body.
       res.statusCode = HttpStatus.ok;
       res.headers.contentType = ContentType(
-          _contentTypeApplicationOctetStream, _contentTypeOctetStream);
-      res.headers.set(_headerContentDisposition, _attachmentDatabaseSqlite);
+          ServerConstants.contentTypeApplicationOctetStream, ServerConstants.contentTypeOctetStream);
+      res.headers.set(ServerConstants.headerContentDisposition, ServerConstants.attachmentDatabaseSqlite);
       _setCors(res);
       res.add(bytes);
     } on Object catch (error, stack) {
@@ -1535,7 +1341,7 @@ class _DriftDebugServerImpl {
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
       _setCors(res);
-      res.write(jsonEncode(<String, String>{_jsonKeyError: error.toString()}));
+      res.write(jsonEncode(<String, String>{ServerConstants.jsonKeyError: error.toString()}));
     } finally {
       await res.close();
     }
@@ -1571,17 +1377,17 @@ class _DriftDebugServerImpl {
       _snapshot = created;
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, dynamic>{
-        _jsonKeyId: created.id,
-        _jsonKeyCreatedAt: created.createdAt.toUtc().toIso8601String(),
-        _jsonKeyTableCount: created.tables.length,
-        _jsonKeyTables: created.tables.keys.toList(),
+        ServerConstants.jsonKeyId: created.id,
+        ServerConstants.jsonKeyCreatedAt: created.createdAt.toUtc().toIso8601String(),
+        ServerConstants.jsonKeyTableCount: created.tables.length,
+        ServerConstants.jsonKeyTables: created.tables.keys.toList(),
       }));
     } on Object catch (error, stack) {
       _logError(error, stack);
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
       _setCors(res);
-      res.write(jsonEncode(<String, String>{_jsonKeyError: error.toString()}));
+      res.write(jsonEncode(<String, String>{ServerConstants.jsonKeyError: error.toString()}));
     } finally {
       await res.close();
     }
@@ -1594,7 +1400,7 @@ class _DriftDebugServerImpl {
     if (snap == null) {
       res.statusCode = HttpStatus.ok;
       _setJsonHeaders(res);
-      res.write(jsonEncode(<String, dynamic>{_jsonKeySnapshot: null}));
+      res.write(jsonEncode(<String, dynamic>{ServerConstants.jsonKeySnapshot: null}));
       await res.close();
       return;
     }
@@ -1604,11 +1410,11 @@ class _DriftDebugServerImpl {
     }
     _setJsonHeaders(res);
     res.write(jsonEncode(<String, dynamic>{
-      _jsonKeySnapshot: <String, dynamic>{
-        _jsonKeyId: snap.id,
-        _jsonKeyCreatedAt: snap.createdAt.toUtc().toIso8601String(),
-        _jsonKeyTables: snap.tables.keys.toList(),
-        _jsonKeyCounts: tableCounts,
+      ServerConstants.jsonKeySnapshot: <String, dynamic>{
+        ServerConstants.jsonKeyId: snap.id,
+        ServerConstants.jsonKeyCreatedAt: snap.createdAt.toUtc().toIso8601String(),
+        ServerConstants.jsonKeyTables: snap.tables.keys.toList(),
+        ServerConstants.jsonKeyCounts: tableCounts,
       },
     }));
     await res.close();
@@ -1627,7 +1433,7 @@ class _DriftDebugServerImpl {
       res.statusCode = HttpStatus.badRequest;
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, String>{
-        _jsonKeyError: _errorNoSnapshot,
+        ServerConstants.jsonKeyError: ServerConstants.errorNoSnapshot,
       }));
       await res.close();
       return;
@@ -1647,24 +1453,24 @@ class _DriftDebugServerImpl {
         final removed = setThen.difference(setNow).length;
         final inBoth = setThen.intersection(setNow).length;
         tableDiffs.add(<String, dynamic>{
-          _jsonKeyTable: table,
-          _jsonKeyCountThen: rowsThen.length,
-          _jsonKeyCountNow: rowsNowList.length,
-          _jsonKeyAdded: added,
-          _jsonKeyRemoved: removed,
-          _jsonKeyUnchanged: inBoth,
+          ServerConstants.jsonKeyTable: table,
+          ServerConstants.jsonKeyCountThen: rowsThen.length,
+          ServerConstants.jsonKeyCountNow: rowsNowList.length,
+          ServerConstants.jsonKeyAdded: added,
+          ServerConstants.jsonKeyRemoved: removed,
+          ServerConstants.jsonKeyUnchanged: inBoth,
         });
       }
       final body = <String, dynamic>{
-        _jsonKeySnapshotId: snap.id,
-        _jsonKeySnapshotCreatedAt: snap.createdAt.toUtc().toIso8601String(),
-        _jsonKeyComparedAt: DateTime.now().toUtc().toIso8601String(),
-        _jsonKeyTables: tableDiffs,
+        ServerConstants.jsonKeySnapshotId: snap.id,
+        ServerConstants.jsonKeySnapshotCreatedAt: snap.createdAt.toUtc().toIso8601String(),
+        ServerConstants.jsonKeyComparedAt: DateTime.now().toUtc().toIso8601String(),
+        ServerConstants.jsonKeyTables: tableDiffs,
       };
-      if (req.uri.queryParameters[_queryParamFormat] == _formatDownload) {
+      if (req.uri.queryParameters[ServerConstants.queryParamFormat] == ServerConstants.formatDownload) {
         res.statusCode = HttpStatus.ok;
         res.headers.contentType = ContentType.json;
-        res.headers.set(_headerContentDisposition, _attachmentSnapshotDiff);
+        res.headers.set(ServerConstants.headerContentDisposition, ServerConstants.attachmentSnapshotDiff);
         _setCors(res);
         res.write(const JsonEncoder.withIndent('  ').convert(body));
       } else {
@@ -1676,7 +1482,7 @@ class _DriftDebugServerImpl {
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
       _setCors(res);
-      res.write(jsonEncode(<String, String>{_jsonKeyError: error.toString()}));
+      res.write(jsonEncode(<String, String>{ServerConstants.jsonKeyError: error.toString()}));
     } finally {
       await res.close();
     }
@@ -1688,7 +1494,7 @@ class _DriftDebugServerImpl {
     _snapshot = null;
     _setJsonHeaders(res);
     res.write(
-        jsonEncode(<String, String>{_jsonKeyOk: _messageSnapshotCleared}));
+        jsonEncode(<String, String>{ServerConstants.jsonKeyOk: ServerConstants.messageSnapshotCleared}));
     await res.close();
   }
 
@@ -1705,13 +1511,13 @@ class _DriftDebugServerImpl {
       res.statusCode = HttpStatus.notImplemented;
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, String>{
-        _jsonKeyError: _errorCompareNotConfigured,
+        ServerConstants.jsonKeyError: ServerConstants.errorCompareNotConfigured,
       }));
       await res.close();
       return;
     }
     final path = req.uri.path;
-    if (path != _pathApiCompareReport && path != _pathApiCompareReportAlt) {
+    if (path != ServerConstants.pathApiCompareReport && path != ServerConstants.pathApiCompareReportAlt) {
       res.statusCode = HttpStatus.notFound;
       await res.close();
       return;
@@ -1745,33 +1551,33 @@ class _DriftDebugServerImpl {
           countB = _extractCountFromRows(results[idx++]);
         }
         countDiffs.add(<String, dynamic>{
-          _jsonKeyTable: table,
-          _jsonKeyCountA: countA,
-          _jsonKeyCountB: countB,
-          _jsonKeyDiff: countA - countB,
-          _jsonKeyOnlyInA: !tablesB.contains(table),
-          _jsonKeyOnlyInB: !tablesA.contains(table),
+          ServerConstants.jsonKeyTable: table,
+          ServerConstants.jsonKeyCountA: countA,
+          ServerConstants.jsonKeyCountB: countB,
+          ServerConstants.jsonKeyDiff: countA - countB,
+          ServerConstants.jsonKeyOnlyInA: !tablesB.contains(table),
+          ServerConstants.jsonKeyOnlyInB: !tablesA.contains(table),
         });
       }
       final report = <String, dynamic>{
-        _jsonKeySchemaSame: schemaSame,
-        _jsonKeySchemaDiff: schemaSame
+        ServerConstants.jsonKeySchemaSame: schemaSame,
+        ServerConstants.jsonKeySchemaDiff: schemaSame
             ? null
-            : <String, String>{_jsonKeyA: schemaA, _jsonKeyB: schemaB},
+            : <String, String>{ServerConstants.jsonKeyA: schemaA, ServerConstants.jsonKeyB: schemaB},
         // JsonEncoder.convert expects List for array values; iterable is not sufficient.
-        _jsonKeyTablesOnlyInA:
+        ServerConstants.jsonKeyTablesOnlyInA:
             tablesA.where((t) => !tablesB.contains(t)).toList(),
         // Same: JSON encoder requires List, not Iterable.
-        _jsonKeyTablesOnlyInB:
+        ServerConstants.jsonKeyTablesOnlyInB:
             tablesB.where((t) => !tablesA.contains(t)).toList(),
-        _jsonKeyTableCounts: countDiffs,
-        _jsonKeyGeneratedAt: DateTime.now().toUtc().toIso8601String(),
+        ServerConstants.jsonKeyTableCounts: countDiffs,
+        ServerConstants.jsonKeyGeneratedAt: DateTime.now().toUtc().toIso8601String(),
       };
-      final format = req.uri.queryParameters[_queryParamFormat];
-      if (format == _formatDownload) {
+      final format = req.uri.queryParameters[ServerConstants.queryParamFormat];
+      if (format == ServerConstants.formatDownload) {
         res.statusCode = HttpStatus.ok;
         res.headers.contentType = ContentType.json;
-        res.headers.set(_headerContentDisposition, _attachmentDiffReport);
+        res.headers.set(ServerConstants.headerContentDisposition, ServerConstants.attachmentDiffReport);
         _setCors(res);
         res.write(const JsonEncoder.withIndent('  ').convert(report));
       } else {
@@ -1783,7 +1589,7 @@ class _DriftDebugServerImpl {
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
       _setCors(res);
-      res.write(jsonEncode(<String, String>{_jsonKeyError: error.toString()}));
+      res.write(jsonEncode(<String, String>{ServerConstants.jsonKeyError: error.toString()}));
     } finally {
       await res.close();
     }
@@ -1803,7 +1609,7 @@ class _DriftDebugServerImpl {
       res.statusCode = HttpStatus.notImplemented;
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, String>{
-        _jsonKeyError: _errorMigrationRequiresCompare,
+        ServerConstants.jsonKeyError: ServerConstants.errorMigrationRequiresCompare,
       }));
       await res.close();
       return;
@@ -1815,165 +1621,11 @@ class _DriftDebugServerImpl {
       final tablesB = await _getTableNames(queryB);
       final migrations = <String>[];
 
-      // --- New tables (in B but not in A) ---
-      for (final table in tablesB) {
-        if (tablesA.contains(table)) continue;
-        final schemaRows = _normalizeRows(
-          await queryB(
-            "SELECT sql FROM sqlite_master "
-            "WHERE type='table' AND name='$table'",
-          ),
-        );
-        final createStmt = schemaRows.isNotEmpty
-            ? schemaRows.first['sql'] as String?
-            : null;
-        if (createStmt != null) {
-          migrations.add('-- NEW TABLE: $table');
-          migrations.add('$createStmt;');
-          migrations.add('');
-        }
-      }
-
-      // --- Dropped tables (in A but not in B) ---
-      for (final table in tablesA) {
-        if (tablesB.contains(table)) continue;
-        migrations.add('-- DROPPED TABLE: $table');
-        migrations.add('DROP TABLE IF EXISTS "$table";');
-        migrations.add('');
-      }
-
-      // --- Modified tables (in both) ---
-      for (final table in tablesA) {
-        if (!tablesB.contains(table)) continue;
-
-        final colsA = _normalizeRows(
-          await query('PRAGMA table_info("$table")'),
-        );
-        final colsB = _normalizeRows(
-          await queryB('PRAGMA table_info("$table")'),
-        );
-
-        final colMapA = <String, Map<String, dynamic>>{};
-        for (final c in colsA) {
-          colMapA[c['name'] as String? ?? ''] = c;
-        }
-        final colMapB = <String, Map<String, dynamic>>{};
-        for (final c in colsB) {
-          colMapB[c['name'] as String? ?? ''] = c;
-        }
-
-        final tableChanges = <String>[];
-
-        // New columns (in B, not in A)
-        for (final colName in colMapB.keys) {
-          if (colMapA.containsKey(colName)) continue;
-          final col = colMapB[colName]!;
-          final type = col['type'] ?? 'TEXT';
-          final notNull = col['notnull'] == 1;
-          final dfltValue = col['dflt_value'];
-
-          // SQLite requires DEFAULT for NOT NULL columns in ALTER TABLE ADD
-          final dflt = dfltValue != null
-              ? ' DEFAULT $dfltValue'
-              : (notNull ? " DEFAULT ''" : '');
-          final nn = notNull ? ' NOT NULL' : '';
-
-          tableChanges.add(
-            'ALTER TABLE "$table" ADD COLUMN "$colName" $type$nn$dflt;',
-          );
-        }
-
-        // Removed columns (in A, not in B)
-        for (final colName in colMapA.keys) {
-          if (colMapB.containsKey(colName)) continue;
-          tableChanges.add(
-            '-- WARNING: Column "$colName" removed from "$table".',
-          );
-          tableChanges.add(
-            '-- SQLite < 3.35.0: Use table recreation '
-            '(CREATE new, INSERT...SELECT, DROP old, ALTER...RENAME).',
-          );
-          tableChanges.add('-- SQLite >= 3.35.0:');
-          tableChanges.add(
-            'ALTER TABLE "$table" DROP COLUMN "$colName";',
-          );
-        }
-
-        // Changed column types (in both, but different type/nullability)
-        for (final colName in colMapA.keys) {
-          if (!colMapB.containsKey(colName)) continue;
-          final a = colMapA[colName]!;
-          final b = colMapB[colName]!;
-          final typeA = a['type']?.toString() ?? '';
-          final typeB = b['type']?.toString() ?? '';
-          final nnA = a['notnull'] == 1;
-          final nnB = b['notnull'] == 1;
-
-          if (typeA != typeB || nnA != nnB) {
-            tableChanges.add(
-              '-- WARNING: Column "$colName" in "$table" changed:',
-            );
-            if (typeA != typeB) {
-              tableChanges.add('--   Type: $typeA -> $typeB');
-            }
-            if (nnA != nnB) {
-              tableChanges.add(
-                "--   Nullable: ${nnA ? 'NOT NULL' : 'nullable'} "
-                "-> ${nnB ? 'NOT NULL' : 'nullable'}",
-              );
-            }
-            tableChanges.add(
-              '-- SQLite does not support ALTER COLUMN. '
-              'Use table recreation pattern.',
-            );
-          }
-        }
-
-        // Index changes
-        final idxA = _normalizeRows(
-          await query('PRAGMA index_list("$table")'),
-        );
-        final idxB = _normalizeRows(
-          await queryB('PRAGMA index_list("$table")'),
-        );
-        final idxNamesA = idxA
-            .map((r) => r['name']?.toString() ?? '')
-            .where((n) => n.isNotEmpty && !n.startsWith('sqlite_'))
-            .toSet();
-        final idxNamesB = idxB
-            .map((r) => r['name']?.toString() ?? '')
-            .where((n) => n.isNotEmpty && !n.startsWith('sqlite_'))
-            .toSet();
-
-        // New indexes
-        for (final idxName in idxNamesB) {
-          if (idxNamesA.contains(idxName)) continue;
-          final idxSqlRows = _normalizeRows(
-            await queryB(
-              "SELECT sql FROM sqlite_master "
-              "WHERE type='index' AND name='$idxName'",
-            ),
-          );
-          final idxSql = idxSqlRows.isNotEmpty
-              ? idxSqlRows.first['sql'] as String?
-              : null;
-          if (idxSql != null) {
-            tableChanges.add('$idxSql;');
-          }
-        }
-
-        // Dropped indexes
-        for (final idxName in idxNamesA) {
-          if (idxNamesB.contains(idxName)) continue;
-          tableChanges.add('DROP INDEX IF EXISTS "$idxName";');
-        }
-
-        if (tableChanges.isNotEmpty) {
-          migrations.add('-- MODIFIED TABLE: $table');
-          migrations.addAll(tableChanges);
-          migrations.add('');
-        }
-      }
+      await _migrationNewTables(migrations, tablesA, tablesB, queryB);
+      _migrationDroppedTables(migrations, tablesA, tablesB);
+      await _migrationModifiedTables(
+        migrations, tablesA, tablesB, query, queryB,
+      );
 
       final migrationSql = migrations.join('\n');
 
@@ -1984,7 +1636,7 @@ class _DriftDebugServerImpl {
             .where((l) => !l.startsWith('--') && l.trim().isNotEmpty)
             .length,
         'hasWarnings': migrations.any((l) => l.contains('WARNING')),
-        _jsonKeyGeneratedAt: DateTime.now().toUtc().toIso8601String(),
+        ServerConstants.jsonKeyGeneratedAt: DateTime.now().toUtc().toIso8601String(),
       }));
     } on Object catch (error, stack) {
       _logError(error, stack);
@@ -1994,12 +1646,230 @@ class _DriftDebugServerImpl {
     }
   }
 
-  // Patterns for index suggestion heuristics (hoisted to avoid per-column allocation).
-  static final RegExp _reIdSuffix = RegExp(r'_id$', caseSensitive: false);
-  static final RegExp _reDateTimeSuffix = RegExp(
-    r'(created|updated|deleted|date|time|_at)$',
-    caseSensitive: false,
-  );
+  /// Generates CREATE TABLE statements for tables in [tablesB] not in
+  /// [tablesA] (new tables in target schema).
+  Future<void> _migrationNewTables(
+    List<String> migrations,
+    List<String> tablesA,
+    List<String> tablesB,
+    DriftDebugQuery queryB,
+  ) async {
+    for (final table in tablesB) {
+      if (tablesA.contains(table)) continue;
+      final schemaRows = _normalizeRows(
+        await queryB(
+          "SELECT sql FROM sqlite_master "
+          "WHERE type='table' AND name='$table'",
+        ),
+      );
+      final createStmt = schemaRows.isNotEmpty
+          ? schemaRows.first['sql'] as String?
+          : null;
+      if (createStmt != null) {
+        migrations.add('-- NEW TABLE: $table');
+        migrations.add('$createStmt;');
+        migrations.add('');
+      }
+    }
+  }
+
+  /// Generates DROP TABLE statements for tables in [tablesA] not in
+  /// [tablesB] (removed tables in target schema).
+  static void _migrationDroppedTables(
+    List<String> migrations,
+    List<String> tablesA,
+    List<String> tablesB,
+  ) {
+    for (final table in tablesA) {
+      if (tablesB.contains(table)) continue;
+      migrations.add('-- DROPPED TABLE: $table');
+      migrations.add('DROP TABLE IF EXISTS "$table";');
+      migrations.add('');
+    }
+  }
+
+  /// Compares columns and indexes for tables present in both schemas,
+  /// generating ALTER TABLE ADD/DROP COLUMN and CREATE/DROP INDEX statements.
+  Future<void> _migrationModifiedTables(
+    List<String> migrations,
+    List<String> tablesA,
+    List<String> tablesB,
+    DriftDebugQuery queryA,
+    DriftDebugQuery queryB,
+  ) async {
+    for (final table in tablesA) {
+      if (!tablesB.contains(table)) continue;
+
+      final colMapA = await _migrationColumnMap(queryA, table);
+      final colMapB = await _migrationColumnMap(queryB, table);
+
+      final tableChanges = <String>[];
+
+      _migrationAddedColumns(tableChanges, table, colMapA, colMapB);
+      _migrationRemovedColumns(tableChanges, table, colMapA, colMapB);
+      _migrationChangedColumns(tableChanges, table, colMapA, colMapB);
+      await _migrationIndexChanges(
+        tableChanges, table, queryA, queryB,
+      );
+
+      if (tableChanges.isNotEmpty) {
+        migrations.add('-- MODIFIED TABLE: $table');
+        migrations.addAll(tableChanges);
+        migrations.add('');
+      }
+    }
+  }
+
+  /// Fetches PRAGMA table_info and returns a column-name-keyed map.
+  Future<Map<String, Map<String, dynamic>>> _migrationColumnMap(
+    DriftDebugQuery query,
+    String table,
+  ) async {
+    final cols = _normalizeRows(
+      await query('PRAGMA table_info("$table")'),
+    );
+    final map = <String, Map<String, dynamic>>{};
+    for (final c in cols) {
+      map[c['name'] as String? ?? ''] = c;
+    }
+    return map;
+  }
+
+  /// Generates ALTER TABLE ADD COLUMN for columns in [colMapB] not in
+  /// [colMapA].
+  static void _migrationAddedColumns(
+    List<String> changes,
+    String table,
+    Map<String, Map<String, dynamic>> colMapA,
+    Map<String, Map<String, dynamic>> colMapB,
+  ) {
+    for (final colName in colMapB.keys) {
+      if (colMapA.containsKey(colName)) continue;
+      final col = colMapB[colName]!;
+      final type = col['type'] ?? 'TEXT';
+      final notNull = col['notnull'] == 1;
+      final dfltValue = col['dflt_value'];
+
+      // SQLite requires DEFAULT for NOT NULL columns in ALTER TABLE ADD
+      final dflt = dfltValue != null
+          ? ' DEFAULT $dfltValue'
+          : (notNull ? " DEFAULT ''" : '');
+      final nn = notNull ? ' NOT NULL' : '';
+
+      changes.add(
+        'ALTER TABLE "$table" ADD COLUMN "$colName" $type$nn$dflt;',
+      );
+    }
+  }
+
+  /// Generates warning comments and DROP COLUMN for columns in [colMapA]
+  /// not in [colMapB].
+  static void _migrationRemovedColumns(
+    List<String> changes,
+    String table,
+    Map<String, Map<String, dynamic>> colMapA,
+    Map<String, Map<String, dynamic>> colMapB,
+  ) {
+    for (final colName in colMapA.keys) {
+      if (colMapB.containsKey(colName)) continue;
+      changes.add(
+        '-- WARNING: Column "$colName" removed from "$table".',
+      );
+      changes.add(
+        '-- SQLite < 3.35.0: Use table recreation '
+        '(CREATE new, INSERT...SELECT, DROP old, ALTER...RENAME).',
+      );
+      changes.add('-- SQLite >= 3.35.0:');
+      changes.add(
+        'ALTER TABLE "$table" DROP COLUMN "$colName";',
+      );
+    }
+  }
+
+  /// Generates warning comments for columns whose type or nullability
+  /// changed between schemas.
+  static void _migrationChangedColumns(
+    List<String> changes,
+    String table,
+    Map<String, Map<String, dynamic>> colMapA,
+    Map<String, Map<String, dynamic>> colMapB,
+  ) {
+    for (final colName in colMapA.keys) {
+      if (!colMapB.containsKey(colName)) continue;
+      final a = colMapA[colName]!;
+      final b = colMapB[colName]!;
+      final typeA = a['type']?.toString() ?? '';
+      final typeB = b['type']?.toString() ?? '';
+      final nnA = a['notnull'] == 1;
+      final nnB = b['notnull'] == 1;
+
+      if (typeA != typeB || nnA != nnB) {
+        changes.add(
+          '-- WARNING: Column "$colName" in "$table" changed:',
+        );
+        if (typeA != typeB) {
+          changes.add('--   Type: $typeA -> $typeB');
+        }
+        if (nnA != nnB) {
+          changes.add(
+            "--   Nullable: ${nnA ? 'NOT NULL' : 'nullable'} "
+            "-> ${nnB ? 'NOT NULL' : 'nullable'}",
+          );
+        }
+        changes.add(
+          '-- SQLite does not support ALTER COLUMN. '
+          'Use table recreation pattern.',
+        );
+      }
+    }
+  }
+
+  /// Generates CREATE INDEX / DROP INDEX for index differences between
+  /// [queryA] and [queryB] for [table]. Excludes sqlite_autoindex_* indexes.
+  Future<void> _migrationIndexChanges(
+    List<String> changes,
+    String table,
+    DriftDebugQuery queryA,
+    DriftDebugQuery queryB,
+  ) async {
+    final idxA = _normalizeRows(
+      await queryA('PRAGMA index_list("$table")'),
+    );
+    final idxB = _normalizeRows(
+      await queryB('PRAGMA index_list("$table")'),
+    );
+    final idxNamesA = idxA
+        .map((r) => r['name']?.toString() ?? '')
+        .where((n) => n.isNotEmpty && !n.startsWith('sqlite_'))
+        .toSet();
+    final idxNamesB = idxB
+        .map((r) => r['name']?.toString() ?? '')
+        .where((n) => n.isNotEmpty && !n.startsWith('sqlite_'))
+        .toSet();
+
+    // New indexes
+    for (final idxName in idxNamesB) {
+      if (idxNamesA.contains(idxName)) continue;
+      final idxSqlRows = _normalizeRows(
+        await queryB(
+          "SELECT sql FROM sqlite_master "
+          "WHERE type='index' AND name='$idxName'",
+        ),
+      );
+      final idxSql = idxSqlRows.isNotEmpty
+          ? idxSqlRows.first['sql'] as String?
+          : null;
+      if (idxSql != null) {
+        changes.add('$idxSql;');
+      }
+    }
+
+    // Dropped indexes
+    for (final idxName in idxNamesA) {
+      if (idxNamesB.contains(idxName)) continue;
+      changes.add('DROP INDEX IF EXISTS "$idxName";');
+    }
+  }
 
   /// Analyzes table schemas for missing indexes. Checks foreign key columns
   /// without indexes, columns with naming patterns suggesting frequent query
@@ -2067,7 +1937,7 @@ class _DriftDebugServerImpl {
 
           // Columns ending in _id likely used in JOINs/WHERE
           if (!alreadySuggested &&
-              _reIdSuffix.hasMatch(colName)) {
+              ServerConstants.reIdSuffix.hasMatch(colName)) {
             suggestions.add(<String, dynamic>{
               'table': tableName,
               'column': colName,
@@ -2081,7 +1951,7 @@ class _DriftDebugServerImpl {
 
           // Date/time columns often used in ORDER BY or range queries
           if (!alreadySuggested &&
-              _reDateTimeSuffix.hasMatch(colName)) {
+              ServerConstants.reDateTimeSuffix.hasMatch(colName)) {
             suggestions.add(<String, dynamic>{
               'table': tableName,
               'column': colName,
@@ -2116,24 +1986,13 @@ class _DriftDebugServerImpl {
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
       _setCors(res);
-      res.write(jsonEncode(<String, String>{_jsonKeyError: error.toString()}));
+      res.write(jsonEncode(<String, String>{ServerConstants.jsonKeyError: error.toString()}));
     } finally {
       await res.close();
     }
   }
 
-  // --- Collaborative session endpoints ---
-
-  /// Removes expired sessions from [_sharedSessions].
-  void _cleanExpiredSessions() {
-    final now = DateTime.now().toUtc();
-    _sharedSessions.removeWhere((_, v) {
-      final expiresAt = DateTime.tryParse(
-        v[_jsonKeyExpiresAt] as String? ?? '',
-      );
-      return expiresAt == null || now.isAfter(expiresAt);
-    });
-  }
+  // --- Collaborative session endpoints (delegates to [_sessionStore]) ---
 
   /// POST /api/session/share — create a shareable session with captured viewer state.
   Future<void> _handleSessionShare(HttpRequest request) async {
@@ -2145,32 +2004,10 @@ class _DriftDebugServerImpl {
       }
       final body = utf8.decode(builder.toBytes());
       final decoded = jsonDecode(body) as Map<String, dynamic>;
-
-      final id = DateTime.now()
-          .toUtc()
-          .millisecondsSinceEpoch
-          .toRadixString(_radixBase36);
-
-      _cleanExpiredSessions();
-
-      while (_sharedSessions.length >= _maxSessions) {
-        _sharedSessions.remove(_sharedSessions.keys.first);
-      }
-
-      final now = DateTime.now().toUtc();
-      _sharedSessions[id] = <String, dynamic>{
-        _jsonKeyState: decoded,
-        _jsonKeyCreatedAt: now.toIso8601String(),
-        _jsonKeyExpiresAt: now.add(_sessionExpiry).toIso8601String(),
-        _jsonKeyAnnotations: <Map<String, dynamic>>[],
-      };
+      final result = _sessionStore.create(decoded);
 
       _setJsonHeaders(res);
-      res.write(jsonEncode(<String, dynamic>{
-        _jsonKeyId: id,
-        _jsonKeyUrl: '/?session=$id',
-        _jsonKeyExpiresAt: now.add(_sessionExpiry).toIso8601String(),
-      }));
+      res.write(jsonEncode(result));
     } on Object catch (error, stack) {
       _logError(error, stack);
       await _sendErrorResponse(res, error);
@@ -2185,13 +2022,13 @@ class _DriftDebugServerImpl {
     String sessionId,
   ) async {
     final res = response;
-    _cleanExpiredSessions();
-    final session = _sharedSessions[sessionId];
+    final session = _sessionStore.get(sessionId);
+
     if (session == null) {
       res.statusCode = HttpStatus.notFound;
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, String>{
-        _jsonKeyError: _errorSessionNotFound,
+        ServerConstants.jsonKeyError: DriftDebugSessionStore.errorNotFound,
       }));
       await res.close();
       return;
@@ -2207,16 +2044,6 @@ class _DriftDebugServerImpl {
     String sessionId,
   ) async {
     final res = request.response;
-    final session = _sharedSessions[sessionId];
-    if (session == null) {
-      res.statusCode = HttpStatus.notFound;
-      _setJsonHeaders(res);
-      res.write(jsonEncode(<String, String>{
-        _jsonKeyError: _errorSessionNotFound,
-      }));
-      await res.close();
-      return;
-    }
 
     final builder = BytesBuilder();
     await for (final chunk in request) {
@@ -2225,16 +2052,27 @@ class _DriftDebugServerImpl {
     final body = jsonDecode(utf8.decode(builder.toBytes()))
         as Map<String, dynamic>;
 
-    final annotations =
-        session[_jsonKeyAnnotations] as List<Map<String, dynamic>>;
-    annotations.add(<String, dynamic>{
-      _jsonKeyText: body[_jsonKeyText] ?? '',
-      _jsonKeyAuthor: body[_jsonKeyAuthor] ?? 'anonymous',
-      _jsonKeyAt: DateTime.now().toUtc().toIso8601String(),
-    });
+    final added = _sessionStore.annotate(
+      sessionId,
+      text: (body[DriftDebugSessionStore.keyText] as String?) ?? '',
+      author: (body[DriftDebugSessionStore.keyAuthor] as String?) ??
+          'anonymous',
+    );
+
+    if (!added) {
+      res.statusCode = HttpStatus.notFound;
+      _setJsonHeaders(res);
+      res.write(jsonEncode(<String, String>{
+        ServerConstants.jsonKeyError: DriftDebugSessionStore.errorNotFound,
+      }));
+      await res.close();
+      return;
+    }
 
     _setJsonHeaders(res);
-    res.write(jsonEncode(<String, String>{_jsonKeyStatus: 'added'}));
+    res.write(jsonEncode(<String, String>{
+      DriftDebugSessionStore.keyStatus: 'added',
+    }));
     await res.close();
   }
 
@@ -2276,7 +2114,7 @@ class _DriftDebugServerImpl {
       for (final tableName in tableNames) {
         final countRows = _normalizeRows(
           await query(
-              'SELECT COUNT(*) AS $_jsonKeyCountColumn FROM "$tableName"'),
+              'SELECT COUNT(*) AS ${ServerConstants.jsonKeyCountColumn} FROM "$tableName"'),
         );
         final rowCount = _extractCountFromRows(countRows);
 
@@ -2288,13 +2126,13 @@ class _DriftDebugServerImpl {
           await query('PRAGMA index_list("$tableName")'),
         );
         final indexNames = indexRows
-            .map((r) => r[_jsonKeyName]?.toString() ?? '')
+            .map((r) => r[ServerConstants.jsonKeyName]?.toString() ?? '')
             .where((n) => n.isNotEmpty)
             .toList();
 
         tableStats.add(<String, dynamic>{
-          _jsonKeyTable: tableName,
-          _jsonKeyRowCount: rowCount,
+          ServerConstants.jsonKeyTable: tableName,
+          ServerConstants.jsonKeyRowCount: rowCount,
           'columnCount': colInfoRows.length,
           'indexCount': indexNames.length,
           'indexes': indexNames,
@@ -2303,7 +2141,7 @@ class _DriftDebugServerImpl {
 
       // Sort tables by row count descending
       tableStats.sort((a, b) =>
-          (b[_jsonKeyRowCount] as int).compareTo(a[_jsonKeyRowCount] as int));
+          (b[ServerConstants.jsonKeyRowCount] as int).compareTo(a[ServerConstants.jsonKeyRowCount] as int));
 
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, dynamic>{
@@ -2314,15 +2152,15 @@ class _DriftDebugServerImpl {
         'freeSpaceBytes': freeSpaceBytes,
         'usedSizeBytes': totalSizeBytes - freeSpaceBytes,
         'journalMode': journalMode,
-        _jsonKeyTableCount: tableNames.length,
-        _jsonKeyTables: tableStats,
+        ServerConstants.jsonKeyTableCount: tableNames.length,
+        ServerConstants.jsonKeyTables: tableStats,
       }));
     } on Object catch (error, stack) {
       _logError(error, stack);
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
       _setCors(res);
-      res.write(jsonEncode(<String, String>{_jsonKeyError: error.toString()}));
+      res.write(jsonEncode(<String, String>{ServerConstants.jsonKeyError: error.toString()}));
     } finally {
       await res.close();
     }
@@ -2331,11 +2169,13 @@ class _DriftDebugServerImpl {
   void _setAttachmentHeaders(HttpResponse response, String filename) {
     final res = response;
     res.headers.contentType =
-        ContentType(_contentTypeTextPlain, 'plain', charset: _charsetUtf8);
+        ContentType(ServerConstants.contentTypeTextPlain, 'plain', charset: ServerConstants.charsetUtf8);
     res.headers
-        .set(_headerContentDisposition, 'attachment; filename="$filename"');
+        .set(ServerConstants.headerContentDisposition, 'attachment; filename="$filename"');
     _setCors(res);
   }
+
+  // --- Anomaly detection ---
 
   /// Scans all tables for data quality anomalies: NULLs, empty strings,
   /// numeric outliers, orphaned foreign keys, and duplicate rows.
@@ -2353,6 +2193,12 @@ class _DriftDebugServerImpl {
           await query('PRAGMA table_info("$tableName")'),
         );
 
+        // Query total row count once per table (reused by null-check and
+        // duplicate-check to avoid redundant COUNT(*) queries).
+        final tableRowCount = _extractCountFromRows(_normalizeRows(
+          await query('SELECT COUNT(*) AS c FROM "$tableName"'),
+        ));
+
         for (final col in colInfoRows) {
           final colName = col['name'] as String?;
           final colType = (col['type'] as String?) ?? '';
@@ -2360,141 +2206,27 @@ class _DriftDebugServerImpl {
               col['notnull'] is int && (col['notnull'] as int) == 0;
           if (colName == null) continue;
 
-          // 1. NULL values in nullable columns
           if (isNullable) {
-            final nullCount = _extractCountFromRows(_normalizeRows(
-              await query(
-                'SELECT COUNT(*) AS c FROM "$tableName" WHERE "$colName" IS NULL',
-              ),
-            ));
-            if (nullCount > 0) {
-              final totalCount = _extractCountFromRows(_normalizeRows(
-                await query('SELECT COUNT(*) AS c FROM "$tableName"'),
-              ));
-              final pct =
-                  totalCount > 0 ? (nullCount / totalCount * 100) : 0;
-              anomalies.add(<String, dynamic>{
-                'table': tableName,
-                'column': colName,
-                'type': 'null_values',
-                'severity': pct > 50 ? 'warning' : 'info',
-                'count': nullCount,
-                'message':
-                    '$nullCount NULL value(s) in $tableName.$colName (${pct.toStringAsFixed(1)}%)',
-              });
-            }
+            await _detectNullValues(
+                query, tableName, colName, tableRowCount, anomalies);
           }
-
-          // 2. Empty strings in text columns
           if (_isTextType(colType)) {
-            final emptyCount = _extractCountFromRows(_normalizeRows(
-              await query(
-                "SELECT COUNT(*) AS c FROM \"$tableName\" WHERE \"$colName\" = ''",
-              ),
-            ));
-            if (emptyCount > 0) {
-              anomalies.add(<String, dynamic>{
-                'table': tableName,
-                'column': colName,
-                'type': 'empty_strings',
-                'severity': 'warning',
-                'count': emptyCount,
-                'message':
-                    '$emptyCount empty string(s) in $tableName.$colName',
-              });
-            }
+            await _detectEmptyStrings(
+                query, tableName, colName, anomalies);
           }
-
-          // 3. Numeric outliers (values where max > 10x avg)
           if (_isNumericType(colType)) {
-            final statsRows = _normalizeRows(await query(
-              'SELECT AVG("$colName") AS avg_val, '
-              'MIN("$colName") AS min_val, '
-              'MAX("$colName") AS max_val '
-              'FROM "$tableName" WHERE "$colName" IS NOT NULL',
-            ));
-            if (statsRows.isNotEmpty) {
-              final avg = _toDouble(statsRows.first['avg_val']);
-              final min = _toDouble(statsRows.first['min_val']);
-              final max = _toDouble(statsRows.first['max_val']);
-              if (avg != null && min != null && max != null && avg != 0) {
-                if (max.abs() > avg.abs() * 10 ||
-                    min.abs() > avg.abs() * 10) {
-                  anomalies.add(<String, dynamic>{
-                    'table': tableName,
-                    'column': colName,
-                    'type': 'potential_outlier',
-                    'severity': 'info',
-                    'message':
-                        'Potential outlier in $tableName.$colName: '
-                        'range [$min, $max], avg ${avg.toStringAsFixed(2)}',
-                  });
-                }
-              }
-            }
+            await _detectNumericOutliers(
+                query, tableName, colName, anomalies);
           }
         }
 
-        // 4. Orphaned foreign keys
-        final fkRows = _normalizeRows(
-          await query('PRAGMA foreign_key_list("$tableName")'),
-        );
-        for (final fk in fkRows) {
-          final fromCol = fk['from'] as String?;
-          final toTable = fk['table'] as String?;
-          final toCol = fk['to'] as String?;
-          if (fromCol == null || toTable == null || toCol == null) continue;
-          if (!tableNames.contains(toTable)) continue;
-
-          final orphanCount = _extractCountFromRows(_normalizeRows(
-            await query(
-              'SELECT COUNT(*) AS c FROM "$tableName" t '
-              'LEFT JOIN "$toTable" r ON t."$fromCol" = r."$toCol" '
-              'WHERE t."$fromCol" IS NOT NULL AND r."$toCol" IS NULL',
-            ),
-          ));
-          if (orphanCount > 0) {
-            anomalies.add(<String, dynamic>{
-              'table': tableName,
-              'column': fromCol,
-              'type': 'orphaned_fk',
-              'severity': 'error',
-              'count': orphanCount,
-              'message':
-                  '$orphanCount orphaned FK(s): $tableName.$fromCol -> $toTable.$toCol',
-            });
-          }
-        }
-
-        // 5. Duplicate rows
-        final totalCount = _extractCountFromRows(_normalizeRows(
-          await query('SELECT COUNT(*) AS c FROM "$tableName"'),
-        ));
-        final distinctCount = _extractCountFromRows(_normalizeRows(
-          await query(
-            'SELECT COUNT(*) AS c FROM (SELECT DISTINCT * FROM "$tableName")',
-          ),
-        ));
-        if (totalCount > distinctCount) {
-          anomalies.add(<String, dynamic>{
-            'table': tableName,
-            'type': 'duplicate_rows',
-            'severity': 'warning',
-            'count': totalCount - distinctCount,
-            'message':
-                '${totalCount - distinctCount} duplicate row(s) in $tableName',
-          });
-        }
+        await _detectOrphanedForeignKeys(
+            query, tableName, tableNames, anomalies);
+        await _detectDuplicateRows(
+            query, tableName, tableRowCount, anomalies);
       }
 
-      // Sort: errors first, then warnings, then info
-      const severityOrder = <String, int>{
-        'error': 0,
-        'warning': 1,
-        'info': 2,
-      };
-      anomalies.sort((a, b) => (severityOrder[a['severity']] ?? 3)
-          .compareTo(severityOrder[b['severity']] ?? 3));
+      _sortAnomaliesBySeverity(anomalies);
 
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, dynamic>{
@@ -2507,19 +2239,179 @@ class _DriftDebugServerImpl {
       res.statusCode = HttpStatus.internalServerError;
       res.headers.contentType = ContentType.json;
       _setCors(res);
-      res.write(jsonEncode(<String, String>{_jsonKeyError: error.toString()}));
+      res.write(jsonEncode(<String, String>{ServerConstants.jsonKeyError: error.toString()}));
     } finally {
       await res.close();
     }
   }
 
-  static bool _isTextType(String type) =>
-      RegExp(r'TEXT|VARCHAR|CHAR|CLOB|STRING', caseSensitive: false)
-          .hasMatch(type);
+  /// Check 1: NULL values in nullable columns. Severity is warning if >50%,
+  /// otherwise info. [tableRowCount] is pre-cached to avoid redundant queries.
+  Future<void> _detectNullValues(
+    DriftDebugQuery query,
+    String tableName,
+    String colName,
+    int tableRowCount,
+    List<Map<String, dynamic>> anomalies,
+  ) async {
+    final nullCount = _extractCountFromRows(_normalizeRows(
+      await query(
+        'SELECT COUNT(*) AS c FROM "$tableName" WHERE "$colName" IS NULL',
+      ),
+    ));
+    if (nullCount == 0) return;
 
-  static bool _isNumericType(String type) =>
-      RegExp(r'INT|REAL|NUM|FLOAT|DOUBLE|DECIMAL', caseSensitive: false)
-          .hasMatch(type);
+    final pct =
+        tableRowCount > 0 ? (nullCount / tableRowCount * 100) : 0;
+    anomalies.add(<String, dynamic>{
+      'table': tableName,
+      'column': colName,
+      'type': 'null_values',
+      'severity': pct > 50 ? 'warning' : 'info',
+      'count': nullCount,
+      'message':
+          '$nullCount NULL value(s) in $tableName.$colName (${pct.toStringAsFixed(1)}%)',
+    });
+  }
+
+  /// Check 2: Empty strings in text columns.
+  Future<void> _detectEmptyStrings(
+    DriftDebugQuery query,
+    String tableName,
+    String colName,
+    List<Map<String, dynamic>> anomalies,
+  ) async {
+    final emptyCount = _extractCountFromRows(_normalizeRows(
+      await query(
+        "SELECT COUNT(*) AS c FROM \"$tableName\" WHERE \"$colName\" = ''",
+      ),
+    ));
+    if (emptyCount == 0) return;
+
+    anomalies.add(<String, dynamic>{
+      'table': tableName,
+      'column': colName,
+      'type': 'empty_strings',
+      'severity': 'warning',
+      'count': emptyCount,
+      'message': '$emptyCount empty string(s) in $tableName.$colName',
+    });
+  }
+
+  /// Check 3: Numeric outliers where max or min > 10x average.
+  Future<void> _detectNumericOutliers(
+    DriftDebugQuery query,
+    String tableName,
+    String colName,
+    List<Map<String, dynamic>> anomalies,
+  ) async {
+    final statsRows = _normalizeRows(await query(
+      'SELECT AVG("$colName") AS avg_val, '
+      'MIN("$colName") AS min_val, '
+      'MAX("$colName") AS max_val '
+      'FROM "$tableName" WHERE "$colName" IS NOT NULL',
+    ));
+    if (statsRows.isEmpty) return;
+
+    final avg = _toDouble(statsRows.first['avg_val']);
+    final min = _toDouble(statsRows.first['min_val']);
+    final max = _toDouble(statsRows.first['max_val']);
+    if (avg == null || min == null || max == null || avg == 0) return;
+
+    if (max.abs() > avg.abs() * 10 || min.abs() > avg.abs() * 10) {
+      anomalies.add(<String, dynamic>{
+        'table': tableName,
+        'column': colName,
+        'type': 'potential_outlier',
+        'severity': 'info',
+        'message': 'Potential outlier in $tableName.$colName: '
+            'range [$min, $max], avg ${avg.toStringAsFixed(2)}',
+      });
+    }
+  }
+
+  /// Check 4: Orphaned foreign key references (FK points to non-existent parent).
+  Future<void> _detectOrphanedForeignKeys(
+    DriftDebugQuery query,
+    String tableName,
+    List<String> tableNames,
+    List<Map<String, dynamic>> anomalies,
+  ) async {
+    final fkRows = _normalizeRows(
+      await query('PRAGMA foreign_key_list("$tableName")'),
+    );
+    for (final fk in fkRows) {
+      final fromCol = fk['from'] as String?;
+      final toTable = fk['table'] as String?;
+      final toCol = fk['to'] as String?;
+      if (fromCol == null || toTable == null || toCol == null) continue;
+      if (!tableNames.contains(toTable)) continue;
+
+      final orphanCount = _extractCountFromRows(_normalizeRows(
+        await query(
+          'SELECT COUNT(*) AS c FROM "$tableName" t '
+          'LEFT JOIN "$toTable" r ON t."$fromCol" = r."$toCol" '
+          'WHERE t."$fromCol" IS NOT NULL AND r."$toCol" IS NULL',
+        ),
+      ));
+      if (orphanCount > 0) {
+        anomalies.add(<String, dynamic>{
+          'table': tableName,
+          'column': fromCol,
+          'type': 'orphaned_fk',
+          'severity': 'error',
+          'count': orphanCount,
+          'message':
+              '$orphanCount orphaned FK(s): $tableName.$fromCol -> $toTable.$toCol',
+        });
+      }
+    }
+  }
+
+  /// Check 5: Duplicate rows (total count vs distinct count).
+  Future<void> _detectDuplicateRows(
+    DriftDebugQuery query,
+    String tableName,
+    List<Map<String, dynamic>> anomalies,
+  ) async {
+    final totalCount = _extractCountFromRows(_normalizeRows(
+      await query('SELECT COUNT(*) AS c FROM "$tableName"'),
+    ));
+    final distinctCount = _extractCountFromRows(_normalizeRows(
+      await query(
+        'SELECT COUNT(*) AS c FROM (SELECT DISTINCT * FROM "$tableName")',
+      ),
+    ));
+    if (totalCount > distinctCount) {
+      anomalies.add(<String, dynamic>{
+        'table': tableName,
+        'type': 'duplicate_rows',
+        'severity': 'warning',
+        'count': totalCount - distinctCount,
+        'message':
+            '${totalCount - distinctCount} duplicate row(s) in $tableName',
+      });
+    }
+  }
+
+  /// Sorts anomalies in-place: errors first, then warnings, then info.
+  static void _sortAnomaliesBySeverity(List<Map<String, dynamic>> anomalies) {
+    const severityOrder = <String, int>{
+      'error': 0,
+      'warning': 1,
+      'info': 2,
+    };
+    anomalies.sort((a, b) => (severityOrder[a['severity']] ?? 3)
+        .compareTo(severityOrder[b['severity']] ?? 3));
+  }
+
+  static final RegExp _reTextType =
+      RegExp(r'TEXT|VARCHAR|CHAR|CLOB|STRING', caseSensitive: false);
+  static final RegExp _reNumericType =
+      RegExp(r'INT|REAL|NUM|FLOAT|DOUBLE|DECIMAL', caseSensitive: false);
+
+  static bool _isTextType(String type) => _reTextType.hasMatch(type);
+  static bool _isNumericType(String type) => _reNumericType.hasMatch(type);
 
   static double? _toDouble(dynamic value) {
     if (value is double) return value;
@@ -2554,7 +2446,7 @@ class _DriftDebugServerImpl {
       res.statusCode = HttpStatus.notImplemented;
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, String>{
-        _jsonKeyError:
+        ServerConstants.jsonKeyError:
             'Import not configured. Pass writeQuery to DriftDebugServer.start().',
       }));
       await res.close();
@@ -2576,7 +2468,7 @@ class _DriftDebugServerImpl {
         res.statusCode = HttpStatus.badRequest;
         _setJsonHeaders(res);
         res.write(jsonEncode(<String, String>{
-          _jsonKeyError: 'Missing required fields: format, data, table',
+          ServerConstants.jsonKeyError: 'Missing required fields: format, data, table',
         }));
         await res.close();
         return;
@@ -2588,7 +2480,7 @@ class _DriftDebugServerImpl {
         res.statusCode = HttpStatus.badRequest;
         _setJsonHeaders(res);
         res.write(jsonEncode(<String, String>{
-          _jsonKeyError: 'Table "$table" not found.',
+          ServerConstants.jsonKeyError: 'Table "$table" not found.',
         }));
         await res.close();
         return;
@@ -2621,7 +2513,7 @@ class _DriftDebugServerImpl {
           res.statusCode = HttpStatus.badRequest;
           _setJsonHeaders(res);
           res.write(jsonEncode(<String, String>{
-            _jsonKeyError:
+            ServerConstants.jsonKeyError:
                 'CSV must have a header row and at least one data row.',
           }));
           await res.close();
@@ -2659,7 +2551,7 @@ class _DriftDebugServerImpl {
         res.statusCode = HttpStatus.badRequest;
         _setJsonHeaders(res);
         res.write(jsonEncode(<String, String>{
-          _jsonKeyError: 'Unsupported format: $format. Use json, csv, or sql.',
+          ServerConstants.jsonKeyError: 'Unsupported format: $format. Use json, csv, or sql.',
         }));
         await res.close();
         return;
@@ -2680,7 +2572,7 @@ class _DriftDebugServerImpl {
       res.statusCode = HttpStatus.internalServerError;
       _setJsonHeaders(res);
       res.write(jsonEncode(<String, String>{
-        _jsonKeyError: error.toString(),
+        ServerConstants.jsonKeyError: error.toString(),
       }));
     } finally {
       await res.close();
@@ -2905,10 +2797,25 @@ class _DriftDebugServerImpl {
     <div id="index-results" style="display:none;"></div>
   </div>
   <div class="collapsible-header" id="size-toggle">▼ Database size analytics</div>
+  <div class="collapsible-header" id="perf-toggle">▼ Query performance</div>
+  <div id="perf-collapsible" class="collapsible-body collapsed">
+    <p class="meta">Track query execution times, identify slow queries, and view patterns.</p>
+    <div class="toolbar">
+      <button type="button" id="perf-refresh">Refresh</button>
+      <button type="button" id="perf-clear">Clear</button>
+    </div>
+    <div id="perf-results" style="display:none;"></div>
+  </div>
   <div id="size-collapsible" class="collapsible-body collapsed">
     <p class="meta">Analyze database storage: total size, page stats, and per-table breakdown.</p>
     <button type="button" id="size-analyze">Analyze</button>
     <div id="size-results" style="display:none;"></div>
+  </div>
+  <div class="collapsible-header" id="anomaly-toggle">▼ Data health</div>
+  <div id="anomaly-collapsible" class="collapsible-body collapsed">
+    <p class="meta">Scan all tables for data quality issues: NULLs, empty strings, orphaned FKs, duplicates, outliers.</p>
+    <button type="button" id="anomaly-analyze">Scan for anomalies</button>
+    <div id="anomaly-results" style="display:none;"></div>
   </div>
   <div class="collapsible-header" id="import-toggle">▼ Import data (debug only)</div>
   <div id="import-collapsible" class="collapsible-body collapsed">
@@ -3039,38 +2946,6 @@ class _DriftDebugServerImpl {
       result += esc(text.slice(lastEnd));
       return result;
     }
-    function loadFkMeta(tableName) {
-      if (fkMetaCache[tableName]) return Promise.resolve(fkMetaCache[tableName]);
-      return fetch('/api/table/' + encodeURIComponent(tableName) + '/fk-meta', authOpts())
-        .then(function(r) { return r.json(); })
-        .then(function(fks) { fkMetaCache[tableName] = fks; return fks; })
-        .catch(function() { return []; });
-    }
-    function renderBreadcrumb() {
-      var el = document.getElementById('nav-breadcrumb');
-      if (!el) {
-        el = document.createElement('div');
-        el.id = 'nav-breadcrumb';
-        el.style.cssText = 'font-size:11px;margin:0.3rem 0;color:var(--muted);';
-        document.getElementById('content').prepend(el);
-      }
-      if (navHistory.length === 0) { el.style.display = 'none'; return; }
-      var html = '<a href="#" id="nav-back" style="color:var(--link);">&#8592; Back</a> | Path: ';
-      html += navHistory.map(function(h) { return esc(h.table); }).join(' &#8594; ');
-      html += ' &#8594; <strong>' + esc(currentTableName || '') + '</strong>';
-      el.innerHTML = html;
-      el.style.display = 'block';
-      document.getElementById('nav-back').addEventListener('click', function(e) {
-        e.preventDefault();
-        var prev = navHistory.pop();
-        if (prev) {
-          offset = prev.offset || 0;
-          loadTable(prev.table);
-          if (prev.filter) document.getElementById('row-filter').value = prev.filter;
-          renderBreadcrumb();
-        }
-      });
-    }
     const THEME_KEY = 'drift-viewer-theme';
     // SQL runner query history: persist the last N successful SQL statements (not results)
     // so repeat checks are quick while keeping localStorage small.
@@ -3086,8 +2961,6 @@ class _DriftDebugServerImpl {
     let offset = 0;
     let tableCounts = {};
     let rowFilter = '';
-    const fkMetaCache = {};
-    const navHistory = [];
     let lastGeneration = 0;
     let refreshInFlight = false;
     let sqlHistory = [];
@@ -3616,6 +3489,60 @@ class _DriftDebugServerImpl {
       });
     })();
 
+    (function initAnomalyDetection() {
+      const toggle = document.getElementById('anomaly-toggle');
+      const collapsible = document.getElementById('anomaly-collapsible');
+      const btn = document.getElementById('anomaly-analyze');
+      const container = document.getElementById('anomaly-results');
+      if (toggle && collapsible) {
+        toggle.addEventListener('click', function() {
+          const isCollapsed = collapsible.classList.contains('collapsed');
+          collapsible.classList.toggle('collapsed', !isCollapsed);
+          this.textContent = isCollapsed ? '▲ Data health' : '▼ Data health';
+        });
+      }
+      if (btn) btn.addEventListener('click', function() {
+        btn.disabled = true;
+        btn.textContent = 'Scanning\u2026';
+        container.style.display = 'none';
+        fetch('/api/analytics/anomalies', authOpts())
+          .then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Request failed'); });
+            return r.json();
+          })
+          .then(function(data) {
+            var anomalies = data.anomalies || [];
+            if (anomalies.length === 0) {
+              container.innerHTML = '<p class="meta" style="color:#7cb342;">No anomalies detected across ' + data.tablesScanned + ' tables. Data looks clean!</p>';
+              container.style.display = 'block';
+              return;
+            }
+            var icons = { error: '!!', warning: '!', info: 'i' };
+            var colors = { error: '#e57373', warning: '#ffb74d', info: '#7cb342' };
+            var html = '<p class="meta">' + anomalies.length + ' finding(s) across ' + data.tablesScanned + ' tables:</p>';
+            anomalies.forEach(function(a) {
+              var color = colors[a.severity] || 'var(--fg)';
+              var icon = icons[a.severity] || '';
+              html += '<div style="padding:0.3rem 0.5rem;margin:0.2rem 0;border-left:3px solid ' + color + ';background:rgba(0,0,0,0.1);">';
+              html += '<span style="color:' + color + ';font-weight:bold;">[' + icon + '] ' + esc(a.severity).toUpperCase() + '</span> ';
+              html += esc(a.message);
+              if (a.count) html += ' <span class="meta">(' + a.count + ')</span>';
+              html += '</div>';
+            });
+            container.innerHTML = html;
+            container.style.display = 'block';
+          })
+          .catch(function(e) {
+            container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(e.message) + '</p>';
+            container.style.display = 'block';
+          })
+          .finally(function() {
+            btn.disabled = false;
+            btn.textContent = 'Scan for anomalies';
+          });
+      });
+    })();
+
     document.getElementById('export-csv').addEventListener('click', function(e) {
       e.preventDefault();
       if (!currentTableName || !currentTableJson || currentTableJson.length === 0) {
@@ -3661,17 +3588,21 @@ class _DriftDebugServerImpl {
       const term = getSearchTerm();
       const scope = getScope();
       const schemaPre = document.getElementById('schema-pre');
-      const dataPre = document.getElementById('data-pre');
       if (schemaPre && lastRenderedSchema !== null && (scope === 'schema' || scope === 'both')) {
         schemaPre.innerHTML = term ? highlightText(lastRenderedSchema, term) : esc(lastRenderedSchema);
       }
-      if (dataPre && lastRenderedData !== null && (scope === 'data' || scope === 'both')) {
-        dataPre.innerHTML = term ? highlightText(lastRenderedData, term) : esc(lastRenderedData);
+      var contentPre = document.getElementById('content-pre');
+      if (contentPre && lastRenderedSchema !== null && scope === 'schema') {
+        contentPre.innerHTML = term ? highlightText(lastRenderedSchema, term) : esc(lastRenderedSchema);
       }
-      const singlePre = document.getElementById('content-pre');
-      if (singlePre && (lastRenderedSchema !== null || lastRenderedData !== null)) {
-        const raw = lastRenderedData !== null ? lastRenderedData : lastRenderedSchema;
-        singlePre.innerHTML = term ? highlightText(raw, term) : esc(raw);
+      var dataTable = document.getElementById('data-table');
+      if (dataTable && term && (scope === 'data' || scope === 'both')) {
+        dataTable.querySelectorAll('td').forEach(function(td) {
+          if (!td.querySelector('.fk-link')) {
+            var text = td.textContent || '';
+            td.innerHTML = highlightText(text, term);
+          }
+        });
       }
     }
 
@@ -3791,7 +3722,10 @@ class _DriftDebugServerImpl {
           const jsonStr = JSON.stringify(filtered, null, 2);
           lastRenderedData = jsonStr;
           const metaText = rowCountText(currentTableName) + (getRowFilter() ? ' (filtered: ' + filtered.length + ' of ' + currentTableJson.length + ')' : '');
-          dataSection.innerHTML = '<h2>Table data: ' + esc(currentTableName) + '</h2><p class="meta">' + metaText + '</p><pre id="data-pre">' + esc(jsonStr) + '</pre>';
+          var fkMap = {};
+          var cachedFks = fkMetaCache[currentTableName] || [];
+          cachedFks.forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
+          dataSection.innerHTML = '<h2>Table data: ' + esc(currentTableName) + '</h2><p class="meta">' + metaText + '</p>' + buildDataTableHtml(filtered, fkMap);
         }
       } else {
         container.innerHTML = '<p class="meta">Schema</p><pre id="content-pre">' + esc(schema) + '</pre>';
@@ -3811,7 +3745,10 @@ class _DriftDebugServerImpl {
           const jsonStr = JSON.stringify(filtered, null, 2);
           lastRenderedData = jsonStr;
           const metaText = rowCountText(currentTableName) + (getRowFilter() ? ' (filtered: ' + filtered.length + ' of ' + currentTableJson.length + ')' : '');
-          dataHtml = '<p class="meta">' + metaText + '</p><pre id="data-pre">' + esc(jsonStr) + '</pre>';
+          var fkMap = {};
+          var cachedFks = fkMetaCache[currentTableName] || [];
+          cachedFks.forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
+          dataHtml = '<p class="meta">' + metaText + '</p>' + buildDataTableHtml(filtered, fkMap);
         } else {
           lastRenderedData = null;
           dataHtml = '<p class="meta">Select a table above to load data.</p>';
@@ -3821,13 +3758,93 @@ class _DriftDebugServerImpl {
       }).catch(e => { content.innerHTML = '<p class="meta">Error</p><pre>' + esc(String(e)) + '</pre>'; });
     }
 
-    function rowCountText(name) {
-      const total = tableCounts[name];
-      const len = (currentTableJson && currentTableJson.length) || 0;
-      if (total == null) return esc(name) + ' (up to ' + limit + ' rows)';
-      const rangeText = len > 0 ? ('showing ' + (offset + 1) + '–' + (offset + len)) : 'no rows in this range';
-      return esc(name) + ' (' + total + ' row' + (total !== 1 ? 's' : '') + '; ' + rangeText + ')';
+    // --- FK relationship explorer: data, navigation, breadcrumb ---
+    const fkMetaCache = {};
+    const navHistory = [];
+
+    function loadFkMeta(tableName) {
+      if (fkMetaCache[tableName]) return Promise.resolve(fkMetaCache[tableName]);
+      return fetch('/api/table/' + encodeURIComponent(tableName) + '/fk-meta', authOpts())
+        .then(function(r) { return r.json(); })
+        .then(function(fks) { fkMetaCache[tableName] = fks; return fks; })
+        .catch(function() { return []; });
     }
+
+    function buildFkSqlValue(value) {
+      var isNumeric = !isNaN(value) && value.trim() !== '';
+      return isNumeric ? value : "'" + value.replace(/'/g, "''") + "'";
+    }
+
+    function navigateToFk(table, column, value) {
+      navHistory.push({ table: currentTableName, offset: offset, filter: document.getElementById('row-filter').value });
+      var sqlInput = document.getElementById('sql-input');
+      sqlInput.value = 'SELECT * FROM "' + table + '" WHERE "' + column + '" = ' + buildFkSqlValue(value);
+      var toggle = document.getElementById('sql-runner-toggle');
+      var collapsible = document.getElementById('sql-runner-collapsible');
+      if (collapsible && collapsible.classList.contains('collapsed')) { toggle.click(); }
+      document.getElementById('sql-run').click();
+      currentTableName = table;
+      renderBreadcrumb();
+    }
+
+    function renderBreadcrumb() {
+      var el = document.getElementById('nav-breadcrumb');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'nav-breadcrumb';
+        el.style.cssText = 'font-size:11px;margin:0.3rem 0;color:var(--muted);';
+        document.getElementById('content').prepend(el);
+      }
+      if (navHistory.length === 0) { el.style.display = 'none'; return; }
+      var html = '<a href="#" id="nav-back" style="color:var(--link);">&#8592; Back</a> | Path: ';
+      html += navHistory.map(function(h) { return esc(h.table); }).join(' &#8594; ');
+      html += ' &#8594; <strong>' + esc(currentTableName || '') + '</strong>';
+      el.innerHTML = html;
+      el.style.display = 'block';
+      var backBtn = document.getElementById('nav-back');
+      if (backBtn) backBtn.onclick = function(e) {
+        e.preventDefault();
+        var prev = navHistory.pop();
+        if (prev) {
+          offset = prev.offset || 0;
+          loadTable(prev.table);
+          if (prev.filter) document.getElementById('row-filter').value = prev.filter;
+          renderBreadcrumb();
+        }
+      };
+    }
+
+    function buildDataTableHtml(filtered, fkMap) {
+      if (!filtered || filtered.length === 0) return '<p class="meta">No rows.</p>';
+      var keys = Object.keys(filtered[0]);
+      var html = '<table id="data-table"><thead><tr>';
+      keys.forEach(function(k) {
+        var fk = fkMap[k];
+        var fkLabel = fk ? ' <span style="color:var(--muted);font-size:10px;" title="FK to ' + esc(fk.toTable) + '.' + esc(fk.toColumn) + '">&#8599;</span>' : '';
+        html += '<th>' + esc(k) + fkLabel + '</th>';
+      });
+      html += '</tr></thead><tbody>';
+      filtered.forEach(function(row) {
+        html += '<tr>';
+        keys.forEach(function(k) {
+          var val = row[k];
+          var fk = fkMap[k];
+          if (fk && val != null) {
+            html += '<td><a href="#" class="fk-link" style="color:var(--link);text-decoration:underline;" ';
+            html += 'data-table="' + esc(fk.toTable) + '" ';
+            html += 'data-column="' + esc(fk.toColumn) + '" ';
+            html += 'data-value="' + esc(String(val)) + '">' ;
+            html += esc(String(val)) + ' &#8594;</a></td>';
+          } else {
+            html += '<td>' + esc(val != null ? String(val) : '') + '</td>';
+          }
+        });
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+      return html;
+    }
+
     function renderTableView(name, data) {
       const content = document.getElementById('content');
       const scope = getScope();
@@ -3835,27 +3852,57 @@ class _DriftDebugServerImpl {
       const jsonStr = JSON.stringify(filtered, null, 2);
       lastRenderedData = jsonStr;
       const metaText = rowCountText(name) + (getRowFilter() ? ' (filtered: ' + filtered.length + ' of ' + data.length + ')' : '');
-      if (scope === 'both') {
-        lastRenderedSchema = cachedSchema;
-        if (cachedSchema === null) {
-          fetch('/api/schema', authOpts()).then(r => r.text()).then(schema => {
-            cachedSchema = schema;
-            lastRenderedSchema = schema;
-            content.innerHTML = '<div class="search-section"><h2>Schema</h2><pre id="schema-pre">' + esc(schema) + '</pre></div><div class="search-section" id="both-data-section"><h2>Table data: ' + esc(name) + '</h2><p class="meta">' + metaText + '</p><pre id="data-pre">' + esc(jsonStr) + '</pre></div>';
-            applySearch();
-          });
-        } else {
-          const dataSection = document.getElementById('both-data-section');
-          if (dataSection) {
-            dataSection.innerHTML = '<h2>Table data: ' + esc(name) + '</h2><p class="meta">' + metaText + '</p><pre id="data-pre">' + esc(jsonStr) + '</pre>';
-          }
-          applySearch();
-        }
-      } else {
-        lastRenderedSchema = null;
-        content.innerHTML = '<p class="meta">' + metaText + '</p><pre id="content-pre">' + esc(jsonStr) + '</pre>';
-        applySearch();
+      // Show loading hint while FK metadata is being fetched for the first time
+      if (!fkMetaCache[name] && scope !== 'both') {
+        content.innerHTML = '<p class="meta">' + metaText + '</p><p class="meta">Loading\u2026</p>';
       }
+      function renderDataHtml(fkMap) {
+        var tableHtml = buildDataTableHtml(filtered, fkMap);
+        if (scope === 'both') {
+          lastRenderedSchema = cachedSchema;
+          if (cachedSchema === null) {
+            fetch('/api/schema', authOpts()).then(function(r) { return r.text(); }).then(function(schema) {
+              cachedSchema = schema;
+              lastRenderedSchema = schema;
+              content.innerHTML = '<div class="search-section"><h2>Schema</h2><pre id="schema-pre">' + esc(schema) + '</pre></div><div class="search-section" id="both-data-section"><h2>Table data: ' + esc(name) + '</h2><p class="meta">' + metaText + '</p>' + tableHtml + '</div>';
+              applySearch();
+              renderBreadcrumb();
+            });
+          } else {
+            var dataSection = document.getElementById('both-data-section');
+            if (dataSection) {
+              dataSection.innerHTML = '<h2>Table data: ' + esc(name) + '</h2><p class="meta">' + metaText + '</p>' + tableHtml;
+            }
+            applySearch();
+            renderBreadcrumb();
+          }
+        } else {
+          lastRenderedSchema = null;
+          content.innerHTML = '<p class="meta">' + metaText + '</p>' + tableHtml;
+          applySearch();
+          renderBreadcrumb();
+        }
+      }
+      loadFkMeta(name).then(function(fks) {
+        var fkMap = {};
+        (fks || []).forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
+        renderDataHtml(fkMap);
+      });
+    }
+
+    document.addEventListener('click', function(e) {
+      var link = e.target.closest('.fk-link');
+      if (!link) return;
+      e.preventDefault();
+      navigateToFk(link.dataset.table, link.dataset.column, link.dataset.value);
+    });
+
+    function rowCountText(name) {
+      const total = tableCounts[name];
+      const len = (currentTableJson && currentTableJson.length) || 0;
+      if (total == null) return esc(name) + ' (up to ' + limit + ' rows)';
+      const rangeText = len > 0 ? ('showing ' + (offset + 1) + '–' + (offset + len)) : 'no rows in this range';
+      return esc(name) + ' (' + total + ' row' + (total !== 1 ? 's' : '') + '; ' + rangeText + ')';
     }
 
     function loadTable(name) {
@@ -4529,6 +4576,128 @@ mixin DriftDebugServer {
     String? authToken,
     String? basicAuthUser,
     String? basicAuthPassword,
+
+    (function initPerformance() {
+      var toggle = document.getElementById('perf-toggle');
+      var collapsible = document.getElementById('perf-collapsible');
+      var refreshBtn = document.getElementById('perf-refresh');
+      var clearBtn = document.getElementById('perf-clear');
+      var container = document.getElementById('perf-results');
+
+      if (toggle && collapsible) {
+        toggle.addEventListener('click', function() {
+          var isCollapsed = collapsible.classList.contains('collapsed');
+          collapsible.classList.toggle('collapsed', !isCollapsed);
+          this.textContent = isCollapsed ? '▲ Query performance' : '▼ Query performance';
+        });
+      }
+
+      function renderPerformance(data) {
+        var html = '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin:0.3rem 0;">';
+        html += '<div class="meta">Total: ' + data.totalQueries + ' queries</div>';
+        html += '<div class="meta">Total time: ' + data.totalDurationMs + ' ms</div>';
+        html += '<div class="meta">Avg: ' + data.avgDurationMs + ' ms</div>';
+        html += '</div>';
+
+        if (data.slowQueries && data.slowQueries.length > 0) {
+          html += '<p class="meta" style="color:#e57373;font-weight:bold;">Slow queries (&gt;100ms):</p>';
+          html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
+          html += '<tr><th style="border:1px solid var(--border);padding:4px;">Duration</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">Rows</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">Time</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
+          data.slowQueries.forEach(function(q) {
+            html += '<tr>';
+            html += '<td style="border:1px solid var(--border);padding:4px;color:#e57373;font-weight:bold;">' + q.durationMs + ' ms</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;">' + q.rowCount + '</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;font-size:11px;">' + esc(q.at) + '</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(q.sql) + '">' + esc(q.sql.length > 80 ? q.sql.slice(0, 80) + '…' : q.sql) + '</td>';
+            html += '</tr>';
+          });
+          html += '</table>';
+        }
+
+        if (data.queryPatterns && data.queryPatterns.length > 0) {
+          html += '<p class="meta" style="margin-top:0.5rem;">Most time-consuming patterns:</p>';
+          html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
+          html += '<tr><th style="border:1px solid var(--border);padding:4px;">Total ms</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">Count</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">Avg ms</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">Max ms</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">Pattern</th></tr>';
+          data.queryPatterns.forEach(function(p) {
+            html += '<tr>';
+            html += '<td style="border:1px solid var(--border);padding:4px;">' + p.totalMs + '</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;">' + p.count + '</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;">' + p.avgMs + '</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;">' + p.maxMs + '</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;" title="' + esc(p.pattern) + '">' + esc(p.pattern.length > 60 ? p.pattern.slice(0, 60) + '…' : p.pattern) + '</td>';
+            html += '</tr>';
+          });
+          html += '</table>';
+        }
+
+        if (data.recentQueries && data.recentQueries.length > 0) {
+          html += '<p class="meta" style="margin-top:0.5rem;">Recent queries (newest first):</p>';
+          html += '<table style="border-collapse:collapse;width:100%;font-size:12px;">';
+          html += '<tr><th style="border:1px solid var(--border);padding:4px;">ms</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">Rows</th>';
+          html += '<th style="border:1px solid var(--border);padding:4px;">SQL</th></tr>';
+          data.recentQueries.forEach(function(q) {
+            var color = q.durationMs > 100 ? '#e57373' : (q.durationMs > 50 ? '#ffb74d' : 'var(--fg)');
+            html += '<tr>';
+            html += '<td style="border:1px solid var(--border);padding:4px;color:' + color + ';">' + q.durationMs + '</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;">' + q.rowCount + '</td>';
+            html += '<td style="border:1px solid var(--border);padding:4px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(q.sql) + '">' + esc(q.sql.length > 80 ? q.sql.slice(0, 80) + '…' : q.sql) + '</td>';
+            html += '</tr>';
+          });
+          html += '</table>';
+        }
+
+        return html;
+      }
+
+      if (refreshBtn) refreshBtn.addEventListener('click', function() {
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = 'Loading…';
+        container.style.display = 'none';
+        fetch('/api/analytics/performance', authOpts())
+          .then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Request failed'); });
+            return r.json();
+          })
+          .then(function(data) {
+            if (data.totalQueries === 0) {
+              container.innerHTML = '<p class="meta">No queries recorded yet. Browse some tables, then refresh.</p>';
+            } else {
+              container.innerHTML = renderPerformance(data);
+            }
+            container.style.display = 'block';
+          })
+          .catch(function(e) {
+            container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(e.message) + '</p>';
+            container.style.display = 'block';
+          })
+          .finally(function() {
+            refreshBtn.disabled = false;
+            refreshBtn.textContent = 'Refresh';
+          });
+      });
+
+      if (clearBtn) clearBtn.addEventListener('click', function() {
+        clearBtn.disabled = true;
+        fetch('/api/analytics/performance', authOpts({ method: 'DELETE' }))
+          .then(function() {
+            container.innerHTML = '<p class="meta">Cleared.</p>';
+            container.style.display = 'block';
+          })
+          .catch(function(e) {
+            container.innerHTML = '<p class="meta" style="color:#e57373;">Error: ' + esc(e.message) + '</p>';
+            container.style.display = 'block';
+          })
+          .finally(function() { clearBtn.disabled = false; });
+      });
+    })();
     DriftDebugGetDatabaseBytes? getDatabaseBytes,
     DriftDebugQuery? queryCompare,
     DriftDebugWriteQuery? writeQuery,

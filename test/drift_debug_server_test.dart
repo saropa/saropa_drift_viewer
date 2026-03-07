@@ -1468,4 +1468,127 @@ void main() {
       }
     });
   });
+
+  group('GET /api/table/{name}/fk-meta', () {
+    tearDown(() async {
+      await DriftDebugServer.stop();
+    });
+
+    test('returns FK metadata for table with foreign keys', () async {
+      await DriftDebugServer.start(
+        query: (String sql) async {
+          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+            return [
+              {'name': 'orders'},
+              {'name': 'users'},
+            ];
+          }
+          if (sql.contains('PRAGMA foreign_key_list("orders")')) {
+            return [
+              {
+                'id': 0,
+                'seq': 0,
+                'table': 'users',
+                'from': 'user_id',
+                'to': 'id',
+                'on_update': 'NO ACTION',
+                'on_delete': 'NO ACTION',
+                'match': 'NONE',
+              },
+            ];
+          }
+          return <Map<String, dynamic>>[];
+        },
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req =
+            await client.get('localhost', port!, '/api/table/orders/fk-meta');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as List<dynamic>;
+        expect(decoded, hasLength(1));
+
+        final fk = decoded[0] as Map<String, dynamic>;
+        expect(fk['fromColumn'], 'user_id');
+        expect(fk['toTable'], 'users');
+        expect(fk['toColumn'], 'id');
+      } finally {
+        client.close();
+      }
+    });
+
+    test('returns empty array for table without foreign keys', () async {
+      await DriftDebugServer.start(
+        query: (String sql) async {
+          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+            return [
+              {'name': 'items'},
+            ];
+          }
+          if (sql.contains('PRAGMA foreign_key_list')) {
+            return <Map<String, dynamic>>[];
+          }
+          return <Map<String, dynamic>>[];
+        },
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req =
+            await client.get('localhost', port!, '/api/table/items/fk-meta');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.ok);
+
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as List<dynamic>;
+        expect(decoded, isEmpty);
+      } finally {
+        client.close();
+      }
+    });
+
+    test('returns 400 for unknown table', () async {
+      await DriftDebugServer.start(
+        query: (String sql) async {
+          if (sql.contains("type='table'") && sql.contains('ORDER BY name')) {
+            return [
+              {'name': 'items'},
+            ];
+          }
+          return <Map<String, dynamic>>[];
+        },
+        enabled: true,
+        port: 0,
+      );
+      final port = DriftDebugServer.port;
+      expect(port, isNotNull);
+
+      final client = HttpClient();
+      try {
+        final req = await client.get(
+            'localhost', port!, '/api/table/nonexistent/fk-meta');
+        final resp = await req.close();
+        expect(resp.statusCode, HttpStatus.badRequest);
+
+        final body = await resp.transform(utf8.decoder).join();
+        final decoded = jsonDecode(body) as Map<String, dynamic>;
+        expect(decoded['error'], contains('Unknown table'));
+        expect(decoded['error'], contains('nonexistent'));
+      } finally {
+        client.close();
+      }
+    });
+  });
 }

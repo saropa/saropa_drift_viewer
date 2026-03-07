@@ -13,7 +13,7 @@
 | [05](05-smart-index-suggestions.md) | Smart Index Suggestions | M | 6 | — |
 | [06](06-data-bookmarks.md) | Data Bookmarks & Saved Queries | S | 2 | — | DONE |
 | [07](07-row-level-diff.md) | Row-Level Diff (Time Travel) | M | 8 | Existing snapshot |
-| [08](08-interactive-relationships.md) | Interactive Table Relationships | M | 5 | — |
+| [08](08-interactive-relationships.md) | Interactive Table Relationships | M | 5 | — | DONE |
 | [09](09-data-import.md) | Data Import (Debug Only) | L | 14 | New writeQuery API |
 | [10](10-database-size-analytics.md) | Database Size Analytics | S | 3 | — |
 | [11](11-anomaly-detection.md) | AI Data Anomaly Detection | L | 13 | — |
