@@ -17,6 +17,10 @@ typedef DriftDebugOnError = void Function(Object error, StackTrace stack);
 /// Optional callback that returns the raw SQLite database file bytes.
 typedef DriftDebugGetDatabaseBytes = Future<List<int>> Function();
 
+/// Optional callback for write queries (INSERT/UPDATE/DELETE).
+/// Debug-only: used exclusively by the import endpoint.
+typedef DriftDebugWriteQuery = Future<void> Function(String sql);
+
 /// Unsupported-error message when VM (dart:io) is not available.
 const String _kUnsupportedMessage =
     'Drift debug server requires dart:io (VM). Not available on web.';
@@ -44,6 +48,7 @@ mixin DriftDebugServer {
     String? basicAuthPassword,
     DriftDebugGetDatabaseBytes? getDatabaseBytes,
     DriftDebugQuery? queryCompare,
+    DriftDebugWriteQuery? writeQuery,
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
   }) {

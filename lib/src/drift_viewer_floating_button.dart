@@ -1,8 +1,13 @@
-// Flutter overlay: floating button that opens the Drift viewer in browser or WebView.
+// Flutter overlay: floating button that opens
+// the Drift viewer in browser or WebView.
 //
-// Apps that use this widget must configure url_launcher for their platform:
-// - Android: add <queries> with intent filters in AndroidManifest.xml (see url_launcher docs).
-// - iOS: add LSApplicationQueriesSchemes in Info.plist for the schemes you launch (e.g. http).
+// Apps that use this widget must configure
+// url_launcher for their platform:
+// - Android: add <queries> with intent filters
+//   in AndroidManifest.xml (see url_launcher docs).
+// - iOS: add LSApplicationQueriesSchemes in
+//   Info.plist for the schemes you launch
+//   (e.g. http).
 
 import 'dart:async';
 
@@ -50,47 +55,56 @@ String get _sOpenDriftViewer => Intl.message(
       name: 'sOpenDriftViewer',
       desc: 'Tooltip for the Drift Viewer overlay floating button',
     );
+
 String get _sOpenInBrowser => Intl.message(
       'Open in browser',
       name: 'sOpenInBrowser',
       desc: 'Menu item to open the viewer in the external browser',
     );
+
 String get _sOpenInWebView => Intl.message(
       'Open in WebView',
       name: 'sOpenInWebView',
       desc: 'Menu item to open the viewer in an in-app WebView',
     );
+
 String get _sBrowser => Intl.message(
       'Browser',
       name: 'sBrowser',
       desc: 'Semantic label for the open-in-browser icon',
     );
+
 String get _sWebView => Intl.message(
       'WebView',
       name: 'sWebView',
       desc: 'Semantic label for the open-in-WebView icon',
     );
+
 String get _sBack => Intl.message(
       'Back',
       name: 'sBack',
       desc: 'Back button tooltip and semantic label on WebView screen',
     );
+
 String get _sDriftViewer => Intl.message(
       'Drift Viewer',
       name: 'sDriftViewer',
       desc: 'Semantic label for the Drift Viewer floating button icon',
     );
+
 String _sCouldNotOpen(Uri uri) => Intl.message(
       'Could not open $uri',
       name: 'sCouldNotOpen',
       desc: 'SnackBar when url_launcher cannot open the viewer URL',
       args: [uri.toString()],
     );
+
 String get _sFailedToOpenViewer => Intl.message(
       'Failed to open viewer. Try opening the URL manually.',
       name: 'sFailedToOpenViewer',
       desc: 'SnackBar when launchUrl throws an exception',
     );
+
 String _sInvalidOrUnsupportedUrl(String urlSample) => Intl.message(
       'Invalid or unsupported URL: $urlSample',
       name: 'sInvalidOrUnsupportedUrl',
@@ -105,6 +119,7 @@ String _sInvalidOrUnsupportedUrl(String urlSample) => Intl.message(
 /// Builds the viewer URI for the current server port (localhost only).
 Uri? _viewerUri() {
   final port = DriftDebugServer.port;
+
   if (port == null) return null;
   return Uri(scheme: 'http', host: '127.0.0.1', port: port);
 }
@@ -132,7 +147,7 @@ final class DriftViewerFloatingButton extends StatelessWidget {
   /// Route name for the in-app WebView screen. Register in [MaterialApp.onGenerateRoute]
   /// or [MaterialApp.routes] so [openInWebView] can use named routes for deep linking.
   /// Example: `onGenerateRoute: (s) => s.name?.startsWith(DriftViewerFloatingButton.webViewRouteName) == true
-  ///   ? DriftViewerFloatingButton.buildWebViewRoute(s) : null`
+  ///   ? DriftViewerFloatingButton.buildWebViewRoute(s) : null`.
   static const String webViewRouteName = '/drift-viewer-webview';
 
   /// Builds the route for the in-app WebView. Use when registering [webViewRouteName].
@@ -147,6 +162,7 @@ final class DriftViewerFloatingButton extends StatelessWidget {
     final String uriString = _uriStringFromRouteSettings(settingsOrUriString);
     final uri = Uri.tryParse(uriString);
     final routeName = '$webViewRouteName?uri=${Uri.encodeComponent(uriString)}';
+
     if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
       return _buildWebViewErrorRoute(routeName, uriString);
     }
@@ -157,16 +173,20 @@ final class DriftViewerFloatingButton extends StatelessWidget {
   static String _uriStringFromRouteSettings(dynamic settingsOrUriString) {
     if (settingsOrUriString is RouteSettings) {
       final name = settingsOrUriString.name;
+
       if (name != null && name.contains('?uri=')) {
         final idx = name.indexOf('?');
+
         if (idx >= 0) {
           final query = name.substring(idx + 1);
           final params = Uri.splitQueryString(query);
           final uri = params['uri'];
+
           if (uri != null && uri.isNotEmpty) return uri;
         }
       }
       final args = settingsOrUriString.arguments;
+
       if (args is String && args.isNotEmpty) return args;
     }
     if (settingsOrUriString is String && settingsOrUriString.isNotEmpty) {
@@ -182,6 +202,7 @@ final class DriftViewerFloatingButton extends StatelessWidget {
     final urlSample = uriString.length > _kUriStringDisplayMaxLength
         ? '${uriString.substring(0, _kUriStringDisplayMaxLength)}...'
         : uriString;
+
     return MaterialPageRoute<void>(
       settings: RouteSettings(name: routeName, arguments: urlSample),
       builder: (BuildContext _) => _WebViewErrorScreen(urlSample: urlSample),
@@ -202,11 +223,10 @@ final class DriftViewerFloatingButton extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!isDriftViewerOverlayVisible) return const SizedBox.shrink();
     final uri = _viewerUri();
-    if (uri == null) return const SizedBox.shrink();
 
+    if (uri == null) return const SizedBox.shrink();
     final colorScheme = Theme.of(context).colorScheme;
     final transparentSurface = colorScheme.surface.withValues(alpha: 0);
-
     return Material(
       color: transparentSurface,
       child: PopupMenuButton<String>(
@@ -217,7 +237,8 @@ final class DriftViewerFloatingButton extends StatelessWidget {
             unawaited(
               _openInBrowser(context, uri).catchError(_logOpenInBrowserError),
             );
-          } else if (value == 'webview') {
+          }
+          if (value == 'webview') {
             _openInWebView(context, uri);
           }
         },
@@ -340,15 +361,18 @@ void _showFailedToOpenSnackBar(ScaffoldMessengerState messenger) {
 
 Future<void> _openInBrowser(BuildContext context, Uri uri) async {
   final messenger = ScaffoldMessenger.maybeOf(context);
-  if (messenger == null) return;
 
+  if (messenger == null) return;
   try {
-    // Call launchUrl directly; avoid canLaunchUrl so apps need not add
-    // <queries> (Android) / LSApplicationQueriesSchemes (iOS) for this debug-only flow.
+    // Call launchUrl directly; avoid canLaunchUrl so
+    // apps need not add <queries> (Android) /
+    // LSApplicationQueriesSchemes (iOS) for this
+    // debug-only flow.
     final launched = await launchUrl(
       uri,
       mode: LaunchMode.externalApplication,
     );
+
     if (!context.mounted) return;
     if (!launched) {
       _showCouldNotOpenSnackBar(messenger, uri);
@@ -381,6 +405,7 @@ void _openInWebView(BuildContext context, Uri uri) {
   final routeName =
       '${DriftViewerFloatingButton.webViewRouteName}?uri=${Uri.encodeComponent(uri.toString())}';
   final future = Navigator.of(context).pushNamed<void>(routeName);
+
   unawaited(future.catchError((Object e, StackTrace st) {
     if (kDebugMode) {
       debugPrint('DriftViewer pushNamed failed: $e');
@@ -393,19 +418,29 @@ void _openInWebView(BuildContext context, Uri uri) {
 // WebView navigation delegate (extracted per prefer_extracting_function_callbacks)
 // ---------------------------------------------------------------------------
 
+NavigationDecision _onNavigationRequest(
+  NavigationRequest request,
+  String allowedHost,
+  int allowedPort,
+) {
+  final requestUri = Uri.tryParse(request.url);
+
+  if (requestUri != null &&
+      requestUri.host == allowedHost &&
+      requestUri.port == allowedPort) {
+    return NavigationDecision.navigate;
+  }
+
+  return NavigationDecision.prevent;
+}
+
 NavigationDelegate _createWebViewNavigationDelegate(Uri allowedUri) {
   final allowedHost = allowedUri.host;
   final allowedPort = allowedUri.port;
+
   return NavigationDelegate(
-    onNavigationRequest: (NavigationRequest request) {
-      final requestUri = Uri.tryParse(request.url);
-      if (requestUri != null &&
-          requestUri.host == allowedHost &&
-          requestUri.port == allowedPort) {
-        return NavigationDecision.navigate;
-      }
-      return NavigationDecision.prevent;
-    },
+    onNavigationRequest: (NavigationRequest request) =>
+        _onNavigationRequest(request, allowedHost, allowedPort),
     onWebResourceError: (WebResourceError error) {
       if (kDebugMode) {
         debugPrint('DriftViewer WebView error: ${error.description}');
@@ -446,6 +481,7 @@ class _SkeletonBars extends StatelessWidget {
   @useResult
   Widget build(BuildContext context) {
     final color = Theme.of(context).colorScheme.surfaceContainerHighest;
+
     return _SkeletonBarsContent(color: color);
   }
 }
@@ -592,6 +628,7 @@ class _DriftViewerWebViewScreenState extends State<_DriftViewerWebViewScreen> {
     final controller = WebViewController()
       ..setNavigationDelegate(_createWebViewNavigationDelegate(uri));
     final platform = controller.platform;
+
     if (platform is AndroidWebViewController) {
       unawaited(
         platform.setAllowFileAccess(false).catchError(
@@ -617,6 +654,7 @@ class _DriftViewerWebViewScreenState extends State<_DriftViewerWebViewScreen> {
   @useResult
   Widget build(BuildContext context) {
     final controller = _controller;
+
     if (controller == null) {
       return Scaffold(
         appBar: AppBar(

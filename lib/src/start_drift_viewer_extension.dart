@@ -80,6 +80,7 @@ extension StartDriftViewerExtension on Object {
     String? basicAuthPassword,
     DriftDebugGetDatabaseBytes? getDatabaseBytes,
     Object? compareDatabase,
+    DriftDebugWriteQuery? writeQuery,
     DriftDebugOnLog? onLog,
     DriftDebugOnError? onError,
   }) async {
@@ -97,6 +98,7 @@ extension StartDriftViewerExtension on Object {
       queryCompare: compareDatabase == null
           ? null
           : (sql) => _runDriftQuery(compareDatabase, sql),
+      writeQuery: writeQuery,
       onLog: onLog,
       onError: onError,
     );

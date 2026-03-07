@@ -1,6 +1,7 @@
 import 'dart:developer' as developer;
 
-/// True when not a product build; used to avoid emitting stack traces in release (avoid_stack_trace_in_production).
+/// True when not a product build; used to avoid emitting stack traces in release
+///  (avoid_stack_trace_in_production).
 bool _isDebugEnvironment() =>
     !bool.fromEnvironment('dart.vm.product', defaultValue: false);
 

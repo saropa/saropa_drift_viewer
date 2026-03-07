@@ -1,6 +1,9 @@
-/// Flutter-specific API: overlay widget for opening the Drift viewer in debug builds.
+/// Flutter-specific API: overlay widget for opening
+/// the Drift viewer in debug builds.
 ///
-/// Import this file in Flutter apps to use [DriftViewerOverlay] or [DriftViewerFloatingButton]:
+/// Import this file in Flutter apps to use
+/// [DriftViewerOverlay] or
+/// [DriftViewerFloatingButton]:
 ///
 /// ```dart
 /// import 'package:saropa_drift_viewer/flutter.dart';
@@ -10,8 +13,9 @@
 /// ));
 /// ```
 ///
-/// For the server API ([DriftDebugServer], [startDriftViewer]), use either this import
-/// or [package:saropa_drift_viewer/saropa_drift_viewer.dart].
+/// For the server API ([DriftDebugServer],
+/// [startDriftViewer]), use either this import or
+/// [package:saropa_drift_viewer/saropa_drift_viewer.dart].
 library;
 
 export 'saropa_drift_viewer.dart';
