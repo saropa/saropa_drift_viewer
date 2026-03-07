@@ -1,0 +1,4 @@
+require:
+  - test/register-mock.js
+spec: out/test/**/*.test.js
+timeout: 5000

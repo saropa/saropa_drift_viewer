@@ -1,6 +1,9 @@
 .vscode/**
 src/**
+test/**
+out/test/**
 tsconfig.json
+.mocharc.yml
 node_modules/**
 .gitignore
 *.md

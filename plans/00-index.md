@@ -6,7 +6,7 @@
 
 | # | Feature | Effort | Priority | Deps |
 |---|---------|--------|----------|------|
-| [01](01-vscode-webview-panel.md) | VS Code Webview Panel | M | 4 | — |
+| [01](01-vscode-webview-panel.md) | VS Code Webview Panel | M | 4 | — | DONE |
 | [02](02-natural-language-to-sql.md) | Natural Language to SQL | M | 10 | #10 metadata endpoint |
 | [03](03-data-charts.md) | Data Charts & Visualizations | L | 12 | — | DONE |
 | [04](04-explain-plan-viewer.md) | Query EXPLAIN Plan Viewer | S | 1 | — |
