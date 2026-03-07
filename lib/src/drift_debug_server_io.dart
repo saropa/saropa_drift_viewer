@@ -751,8 +751,9 @@ class _DriftDebugServerImpl {
     final upper = withoutTrailingSemicolon.toUpperCase();
     const selectPrefix = 'SELECT ';
     const withPrefix = 'WITH ';
-    if (!upper.startsWith(selectPrefix) && !upper.startsWith(withPrefix))
+    if (!upper.startsWith(selectPrefix) && !upper.startsWith(withPrefix)) {
       return false;
+    }
     // Forbidden keywords (word boundary to avoid false positives in identifiers).
     const forbidden = <String>{
       'INSERT',
@@ -926,7 +927,7 @@ class _DriftDebugServerImpl {
     await res.close();
   }
 
-  /// Returns JSON list of column names for GET /api/table/<name>/columns (for SQL autofill).
+  /// Returns JSON list of column names for GET `/api/table/<name>/columns` (for SQL autofill).
   Future<void> _sendTableColumns(
     HttpResponse response,
     DriftDebugQuery query,
@@ -946,7 +947,7 @@ class _DriftDebugServerImpl {
     await res.close();
   }
 
-  /// Returns JSON {"count": N} for GET /api/table/<name>/count.
+  /// Returns JSON {"count": N} for GET `/api/table/<name>/count`.
   Future<void> _sendTableCount(
     HttpResponse response,
     DriftDebugQuery query,
@@ -963,7 +964,7 @@ class _DriftDebugServerImpl {
     await res.close();
   }
 
-  /// GET /api/table/<name>?limit=&offset= — returns JSON array of rows. Table name is allow-listed; limit/offset validated.
+  /// GET `/api/table/<name>?limit=&offset=` — returns JSON array of rows. Table name is allow-listed; limit/offset validated.
   Future<void> _sendTableData({
     required HttpResponse response,
     required DriftDebugQuery query,
@@ -1421,10 +1422,12 @@ class _DriftDebugServerImpl {
         int countA = 0;
         int countB = 0;
         int idx = 0;
-        if (tablesA.contains(table))
+        if (tablesA.contains(table)) {
           countA = _extractCountFromRows(results[idx++]);
-        if (tablesB.contains(table))
+        }
+        if (tablesB.contains(table)) {
           countB = _extractCountFromRows(results[idx++]);
+        }
         countDiffs.add(<String, dynamic>{
           _jsonKeyTable: table,
           _jsonKeyCountA: countA,

@@ -5,9 +5,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **pub.dev** — [saropa_drift_viewer](https://pub.dev/packages/saropa_drift_viewer)
 
-## [0.2.3] - 2026-03-07
+## [0.2.3]
 
 We're focusing on backend tooling and documentation in this release.
+
+### Fixed
+
+- CI workflow: trigger branch changed from `master` to `main` to match the repository default branch; PRs and pushes now correctly run CI.
 
 ### Changed
 
@@ -15,14 +19,15 @@ We're focusing on backend tooling and documentation in this release.
 - Publish tooling: `scripts/publish.py` now checks whether the package already exists on pub.dev before offering a local `dart pub publish` for first-time publishes.
 - CI workflow: removed the one-time \"Add uploader\" workflow and inline step; maintainers can use `dart pub uploader` or the pub.dev UI directly when needed.
 - Tooling docs: clarified in `analysis_options.yaml` comments that saropa_lints 6.x does not provide `analysis_options.yaml` as an include target.
+- Upgraded `saropa_lints` from 6.2.2 to 8.0.7 (professional tier: 1649 → 1666 rules enabled).
 
-## [0.2.2] - 2026-03-05
+## [0.2.2]
 
 ### Changed
 
 - Bump for release.
 
-## [0.2.1] - 2026-03-05
+## [0.2.1]
 
 In this release we only updated the CHANGELOG link to point at the repo until the package was live on pub.dev.
 
@@ -30,7 +35,7 @@ In this release we only updated the CHANGELOG link to point at the repo until th
 
 - CHANGELOG: link to GitHub until package was on pub.dev.
 
-## [0.2.0] - 2026-03-05
+## [0.2.0]
 
 In this release we focused on making the viewer more useful day to day: the table view now refreshes when data changes, you can run read-only SQL from the browser, and you can protect the viewer with a token or Basic auth when using a dev tunnel. We added a schema diagram, CSV export, snapshot/time travel, and a Flutter overlay so you can open the viewer from your app.
 
@@ -80,7 +85,7 @@ In this release we focused on making the viewer more useful day to day: the tabl
 
 - **Flutter widget overlay** — In debug builds, a floating button to open the viewer in the browser or in an in-app WebView. Import `package:saropa_drift_viewer/flutter.dart` and wrap your app with `DriftViewerOverlay(child: MaterialApp(...))`, or place `DriftViewerFloatingButton()` in your own `Stack`. Button only visible when `kDebugMode` is true and the server is running. Popup menu: "Open in browser" (url_launcher) or "Open in WebView" (full-screen WebView). Example app updated to use the overlay.
 
-## [0.1.0] - 2026-03-02
+## [0.1.0]
 
 In this release we shipped the first version: a debug-only HTTP server that exposes your SQLite or Drift tables as JSON and a small web UI. It works with any SQLite executor, so you don’t need Drift as a dependency.
 

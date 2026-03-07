@@ -4,14 +4,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Trigger on default branch (master); aligned with repo default per roadmap P0.
+# Trigger on default branch (main).
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
     branches:
-      - master
+      - main
 
 jobs:
   build:
