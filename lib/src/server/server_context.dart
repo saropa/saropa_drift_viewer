@@ -519,6 +519,17 @@ final class ServerContext {
     return jsonEncode(sorted);
   }
 
+  /// Builds a composite primary key string for [row]
+  /// by joining values of [pkColumns] with `|`.
+  ///
+  /// Returns a pipe-delimited string of PK column values
+  /// used to match rows across snapshots by identity.
+  static String compositePkKey(
+    List<String> pkColumns,
+    Map<String, dynamic> row,
+  ) =>
+      pkColumns.map((c) => '${row[c]}').join('|');
+
   /// Fetches schema (CREATE statements) from
   /// sqlite_master, no data.
   ///
@@ -550,6 +561,23 @@ final class ServerContext {
     }
 
     return buffer.toString();
+  }
+
+  /// Decodes a JSON string and returns it as a map,
+  /// or null if the input is not a valid JSON object.
+  static Map<String, dynamic>? parseJsonMap(String body) {
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(body);
+    } on FormatException catch (e) {
+      developer.log(
+        'parseJsonMap: $e',
+        name: 'DriftDebugServer',
+      );
+      return null;
+    }
+
+    return decoded is Map<String, dynamic> ? decoded : null;
   }
 
   static final RegExp _reTextType = RegExp(

@@ -31,7 +31,18 @@ final class SessionHandler {
       }
 
       final body = utf8.decode(builder.toBytes());
-      final decoded = jsonDecode(body) as Map<String, dynamic>;
+      final decoded = ServerContext.parseJsonMap(body);
+
+      if (decoded == null) {
+        res.statusCode = HttpStatus.badRequest;
+        _ctx.setJsonHeaders(res);
+        res.write(jsonEncode(<String, String>{
+          ServerConstants.jsonKeyError: 'Invalid JSON body',
+        }));
+        await res.close();
+        return;
+      }
+
       final result = _sessionStore.create(decoded);
 
       _ctx.setJsonHeaders(res);
@@ -81,8 +92,10 @@ final class SessionHandler {
         builder.add(chunk);
       }
 
-      final body = jsonDecode(utf8.decode(builder.toBytes()))
-          as Map<String, dynamic>;
+      final body =
+          ServerContext.parseJsonMap(
+              utf8.decode(builder.toBytes())) ??
+          <String, dynamic>{};
 
       final added = _sessionStore.annotate(
         sessionId,

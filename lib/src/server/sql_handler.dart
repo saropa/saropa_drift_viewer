@@ -17,7 +17,7 @@ final class SqlHandler {
   final ServerContext _ctx;
 
   /// Handles POST /api/sql: body {"sql": "SELECT ..."}.
-  /// Validates read-only via [isReadOnlySql]; returns {"rows": [...]}.
+  /// Validates read-only; returns {"rows": [...]}.
   Future<void> handleRunSql(
       HttpRequest request, DriftDebugQuery query) async {
     final sql = await _readAndValidateSqlBody(request);

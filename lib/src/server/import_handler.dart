@@ -42,8 +42,9 @@ final class ImportHandler {
       }
 
       final body = utf8.decode(builder.toBytes());
-      final decodedRaw = jsonDecode(body);
-      if (decodedRaw is! Map<String, dynamic>) {
+      final decoded = ServerContext.parseJsonMap(body);
+
+      if (decoded == null) {
         res.statusCode = HttpStatus.badRequest;
         _ctx.setJsonHeaders(res);
         res.write(jsonEncode(<String, String>{
@@ -52,7 +53,7 @@ final class ImportHandler {
         await res.close();
         return;
       }
-      final decoded = decodedRaw;
+
       final format = decoded['format'] as String?;
       final data = decoded['data'] as String?;
       final table = decoded['table'] as String?;
