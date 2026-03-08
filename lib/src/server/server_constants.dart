@@ -65,8 +65,7 @@ abstract final class ServerConstants {
   static const String pathApiAnalyticsPerformanceAlt =
       'api/analytics/performance';
   static const String pathApiAnalyticsAnomalies = '/api/analytics/anomalies';
-  static const String pathApiAnalyticsAnomaliesAlt =
-      'api/analytics/anomalies';
+  static const String pathApiAnalyticsAnomaliesAlt = 'api/analytics/anomalies';
   static const String pathApiAnalyticsSize = '/api/analytics/size';
   static const String pathApiAnalyticsSizeAlt = 'api/analytics/size';
   static const String pathApiSessionShare = '/api/session/share';
@@ -185,8 +184,10 @@ abstract final class ServerConstants {
   static const String jsonKeyB = 'b';
   static const int indexAfterSemicolon = 1;
   static const int minLimit = 1;
+
   /// Number of hex digits per byte in SQL X'...' literal (no_magic_number).
   static const int hexBytePadding = 2;
+
   /// Radix for hex in SQL X'...' literal (no_magic_number).
   static const int hexRadix = 16;
   static const String attachmentSchemaSql = 'schema.sql';

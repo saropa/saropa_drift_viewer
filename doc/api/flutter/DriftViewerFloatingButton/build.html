@@ -113,11 +113,10 @@ and</li>
 Widget build(BuildContext context) {
   if (!isDriftViewerOverlayVisible) return const SizedBox.shrink();
   final uri = _viewerUri();
-  if (uri == null) return const SizedBox.shrink();
 
+  if (uri == null) return const SizedBox.shrink();
   final colorScheme = Theme.of(context).colorScheme;
   final transparentSurface = colorScheme.surface.withValues(alpha: 0);
-
   return Material(
     color: transparentSurface,
     child: PopupMenuButton&lt;String&gt;(
@@ -128,7 +127,8 @@ Widget build(BuildContext context) {
           unawaited(
             _openInBrowser(context, uri).catchError(_logOpenInBrowserError),
           );
-        } else if (value == &#39;webview&#39;) {
+        }
+        if (value == &#39;webview&#39;) {
           _openInWebView(context, uri);
         }
       },
@@ -186,7 +186,7 @@ Widget build(BuildContext context) {
 <footer>
   <span class="no-break">
     saropa_drift_viewer
-      0.2.3
+      0.2.4
   </span>
   
 </footer>

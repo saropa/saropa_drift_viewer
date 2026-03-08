@@ -60,16 +60,20 @@
 
     
 <section class="desc markdown">
-  <p>Flutter-specific API: overlay widget for opening the Drift viewer in debug builds.</p>
-<p>Import this file in Flutter apps to use <a href="../flutter/DriftViewerOverlay-class.html">DriftViewerOverlay</a> or <a href="../flutter/DriftViewerFloatingButton-class.html">DriftViewerFloatingButton</a>:</p>
+  <p>Flutter-specific API: overlay widget for opening
+the Drift viewer in debug builds.</p>
+<p>Import this file in Flutter apps to use
+<a href="../flutter/DriftViewerOverlay-class.html">DriftViewerOverlay</a> or
+<a href="../flutter/DriftViewerFloatingButton-class.html">DriftViewerFloatingButton</a>:</p>
 <pre class="language-dart"><code class="language-dart">import 'package:saropa_drift_viewer/flutter.dart';
 
 runApp(DriftViewerOverlay(
   child: MaterialApp(home: MyHomePage()),
 ));
 </code></pre>
-<p>For the server API (<a href="../saropa_drift_viewer/DriftDebugServer-mixin.html">DriftDebugServer</a>, <code>startDriftViewer</code>), use either this import
-or <code>package:saropa_drift_viewer/saropa_drift_viewer.dart</code>.</p>
+<p>For the server API (<a href="../saropa_drift_viewer/DriftDebugServer-mixin.html">DriftDebugServer</a>,
+<code>startDriftViewer</code>), use either this import or
+<code>package:saropa_drift_viewer/saropa_drift_viewer.dart</code>.</p>
 </section>
 
 
@@ -97,8 +101,9 @@ or <code>package:saropa_drift_viewer/saropa_drift_viewer.dart</code>.</p>
 
 </dt>
 <dd>
-  Wraps <a href="../flutter/DriftViewerOverlay/child.html">child</a> in a <a href="https://api.flutter.dev/flutter/widgets/Stack-class.html">Stack</a> and overlays a floating button in debug builds
-that opens the Drift viewer in the browser or WebView.
+  Wraps <a href="../flutter/DriftViewerOverlay/child.html">child</a> in a <a href="https://api.flutter.dev/flutter/widgets/Stack-class.html">Stack</a> and overlays a
+floating button in debug builds that opens the
+Drift viewer in the browser or WebView.
 </dd>
 
       </dl>
@@ -230,6 +235,21 @@ that opens the Drift viewer in the browser or WebView.
 
   </dd>
 
+          
+  <dt id="DriftDebugWriteQuery" class="callable">
+    <span class="name"><a href="../saropa_drift_viewer/DriftDebugWriteQuery.html">DriftDebugWriteQuery</a></span><span class="signature">
+      <span class="returntype parameter">= <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span> Function<span class="signature">(<span class="parameter" id="param-sql"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">sql</span></span>)</span></span>
+    </span>
+    
+
+  </dt>
+  <dd>
+    Optional callback for write queries (INSERT/UPDATE/DELETE).
+Debug-only: used exclusively by the import endpoint.
+    
+
+  </dd>
+
       </dl>
     </section>
 
@@ -261,7 +281,7 @@ that opens the Drift viewer in the browser or WebView.
 <footer>
   <span class="no-break">
     saropa_drift_viewer
-      0.2.3
+      0.2.4
   </span>
   
 </footer>

@@ -255,6 +255,7 @@ abstract final class HtmlContent {
         var singular = name.endsWith('s') ? name.slice(0, -1) : name;
         if (q.includes(name) || q.includes(singular)) { target = t; break; }
       }
+
       if (!target && tables.length === 1) target = tables[0];
       if (!target) return { sql: null, error: 'Could not identify a table from your question.' };
       var mentioned = target.columns.filter(function (c) {
@@ -351,7 +352,8 @@ abstract final class HtmlContent {
         if (!t.hasPk) {
           html += '<p class="meta" style="color:var(--muted);">No primary key \u2014 showing counts only.</p>';
           html += '<p class="meta">Added: ' + t.added + ' | Removed: ' + t.removed + ' | Unchanged: ' + t.unchanged + '</p>';
-          return;
+       
+   return;
         }
         if (t.addedRows && t.addedRows.length > 0) {
           html += '<p class="meta" style="color:#7cb342;">+ ' + t.addedRows.length + ' added:</p>';
@@ -607,7 +609,8 @@ abstract final class HtmlContent {
         const fks = data.foreignKeys || [];
         if (tables.length === 0) {
           container.innerHTML = '<p class="meta">No tables.</p>';
-          return;
+       
+   return;
         }
         const rows = Math.ceil(tables.length / COLS);
         const width = COLS * (BOX_W + PAD) + PAD;
@@ -706,6 +709,7 @@ abstract final class HtmlContent {
           updateSnapshotUI(!!snap, snap ? snap.createdAt : null);
         }).catch(function() { updateSnapshotUI(false); });
       }
+
       if (toggle && collapsible) {
         toggle.addEventListener('click', function() {
           const isCollapsed = collapsible.classList.contains('collapsed');
@@ -714,6 +718,7 @@ abstract final class HtmlContent {
           if (isCollapsed) refreshSnapshotStatus();
         });
       }
+
       if (takeBtn) takeBtn.addEventListener('click', function() {
         takeBtn.disabled = true;
         statusEl.textContent = 'Capturing…';
@@ -771,6 +776,7 @@ abstract final class HtmlContent {
       if (DRIFT_VIEWER_AUTH_TOKEN && exportLink) {
         exportLink.href = '/api/compare/report?format=download';
       }
+
       if (toggle && collapsible) {
         toggle.addEventListener('click', function() {
           const isCollapsed = collapsible.classList.contains('collapsed');
@@ -778,6 +784,7 @@ abstract final class HtmlContent {
           this.textContent = isCollapsed ? '▲ Database diff' : '▼ Database diff';
         });
       }
+
       if (viewBtn) viewBtn.addEventListener('click', function() {
         viewBtn.disabled = true;
         resultPre.style.display = 'none';
@@ -815,11 +822,13 @@ abstract final class HtmlContent {
           .then(function(o) {
             if (o.status === 501) {
               statusEl.textContent = 'Migration preview requires queryCompare. Pass queryCompare to DriftDebugServer.start().';
-              return;
+           
+   return;
             }
             if (o.status >= 400) {
               statusEl.textContent = o.data.error || 'Request failed';
-              return;
+           
+   return;
             }
             var sql = o.data.migrationSql || '-- No changes detected.';
             var html = '<p class="meta">' + o.data.changeCount + ' statement(s) generated';
@@ -856,6 +865,7 @@ abstract final class HtmlContent {
           this.textContent = isCollapsed ? '▲ Index suggestions' : '▼ Index suggestions';
         });
       }
+
       if (btn) btn.addEventListener('click', function() {
         btn.disabled = true;
         btn.textContent = 'Analyzing…';
@@ -870,7 +880,8 @@ abstract final class HtmlContent {
             if (suggestions.length === 0) {
               container.innerHTML = '<p class="meta" style="color:#7cb342;">No index suggestions — schema looks good!</p>';
               container.style.display = 'block';
-              return;
+           
+   return;
             }
             var priorityColors = { high: '#e57373', medium: '#ffb74d', low: '#7cb342' };
             var html = '<p class="meta">' + suggestions.length + ' suggestion(s) across ' + data.tablesAnalyzed + ' tables:</p>';
@@ -910,6 +921,7 @@ abstract final class HtmlContent {
         if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
         return (bytes / 1048576).toFixed(2) + ' MB';
       }
+
       if (toggle && collapsible) {
         toggle.addEventListener('click', function() {
           const isCollapsed = collapsible.classList.contains('collapsed');
@@ -917,6 +929,7 @@ abstract final class HtmlContent {
           this.textContent = isCollapsed ? '▲ Database size analytics' : '▼ Database size analytics';
         });
       }
+
       if (btn) btn.addEventListener('click', function() {
         btn.disabled = true;
         btn.textContent = 'Analyzing…';
@@ -990,6 +1003,7 @@ abstract final class HtmlContent {
           this.textContent = isCollapsed ? '▲ Data health' : '▼ Data health';
         });
       }
+
       if (btn) btn.addEventListener('click', function() {
         btn.disabled = true;
         btn.textContent = 'Scanning\u2026';
@@ -1004,7 +1018,8 @@ abstract final class HtmlContent {
             if (anomalies.length === 0) {
               container.innerHTML = '<p class="meta" style="color:#7cb342;">No anomalies detected across ' + data.tablesScanned + ' tables. Data looks clean!</p>';
               container.style.display = 'block';
-              return;
+           
+   return;
             }
             var icons = { error: '!!', warning: '!', info: 'i' };
             var colors = { error: '#e57373', warning: '#ffb74d', info: '#7cb342' };
@@ -1036,7 +1051,8 @@ abstract final class HtmlContent {
       e.preventDefault();
       if (!currentTableName || !currentTableJson || currentTableJson.length === 0) {
         document.getElementById('export-csv-status').textContent = ' Select a table with data first.';
-        return;
+     
+   return;
       }
       const statusEl = document.getElementById('export-csv-status');
       statusEl.textContent = ' Preparing…';
@@ -1058,7 +1074,8 @@ abstract final class HtmlContent {
         URL.revokeObjectURL(url);
       } catch (err) {
         statusEl.textContent = ' Failed: ' + err.message;
-        return;
+     
+   return;
       }
       statusEl.textContent = '';
     });
@@ -1187,7 +1204,8 @@ abstract final class HtmlContent {
       if (cachedSchema !== null) {
         renderSchemaContent(content, cachedSchema);
         applySearch();
-        return;
+     
+   return;
       }
       fetch('/api/schema', authOpts())
         .then(r => r.text())
@@ -1284,6 +1302,7 @@ abstract final class HtmlContent {
         el.style.cssText = 'font-size:11px;margin:0.3rem 0;color:var(--muted);';
         document.getElementById('content').prepend(el);
       }
+
       if (navHistory.length === 0) { el.style.display = 'none'; return; }
       var html = '<a href="#" id="nav-back" style="color:var(--link);">&#8592; Back</a> | Path: ';
       html += navHistory.map(function(h) { return esc(h.table); }).join(' &#8594; ');
@@ -1583,6 +1602,7 @@ abstract final class HtmlContent {
         var nth = Math.ceil(rows.length / 500);
         chartData = rows.filter(function(_, i) { return i % nth === 0; });
       }
+
       if (type === 'bar') renderBarChart(container, chartData, xKey, yKey);
       else if (type === 'pie') renderPieChart(container, chartData, xKey, yKey);
       else if (type === 'line') renderLineChart(container, chartData, xKey, yKey);
@@ -1701,7 +1721,8 @@ abstract final class HtmlContent {
           if (!sql) {
             errorEl.textContent = 'Enter a SELECT query.';
             errorEl.style.display = 'block';
-            return;
+         
+   return;
           }
           const runBtnOrigText = runBtn.textContent;
           runBtn.textContent = 'Running\u2026';
@@ -1716,7 +1737,8 @@ abstract final class HtmlContent {
               if (!ok) {
                 errorEl.textContent = data.error || 'Request failed';
                 errorEl.style.display = 'block';
-                return;
+             
+   return;
               }
               const rows = data.rows || [];
               const asTable = formatSel && formatSel.value === 'table';
@@ -1759,6 +1781,7 @@ abstract final class HtmlContent {
             });
         });
       }
+
       if (explainBtn && inputEl && errorEl && resultEl) {
         explainBtn.addEventListener('click', function() {
           const sql = inputEl.value.trim();
@@ -1766,7 +1789,8 @@ abstract final class HtmlContent {
           if (!sql) {
             errorEl.textContent = 'Enter a SELECT query.';
             errorEl.style.display = 'block';
-            return;
+         
+   return;
           }
           const explainOrigText = explainBtn.textContent;
           explainBtn.textContent = 'Explaining\u2026';
@@ -1781,7 +1805,8 @@ abstract final class HtmlContent {
               if (!ok) {
                 errorEl.textContent = data.error || 'Request failed';
                 errorEl.style.display = 'block';
-                return;
+             
+   return;
               }
               const rows = data.rows || [];
               // Build parent-to-depth map for tree indentation
@@ -1991,12 +2016,15 @@ abstract final class HtmlContent {
       if (state.currentTable) {
         setTimeout(function () { loadTable(state.currentTable); }, 500);
       }
+
       if (state.sqlInput) {
         document.getElementById('sql-input').value = state.sqlInput;
       }
+
       if (state.searchTerm && document.getElementById('search-input')) {
         document.getElementById('search-input').value = state.searchTerm;
       }
+
       if (state.limit) limit = state.limit;
       if (state.offset) offset = state.offset;
     }

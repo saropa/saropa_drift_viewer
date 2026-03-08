@@ -53,7 +53,8 @@ final class AuthHandler {
           final colon = decoded.indexOf(':');
           if (colon >= 0 && colon < decoded.length) {
             final userPart = ServerContext.safeSubstring(decoded, 0, colon);
-            final passwordPart = ServerContext.safeSubstring(decoded, colon + 1);
+            final passwordPart =
+                ServerContext.safeSubstring(decoded, colon + 1);
             if (_secureCompare(userPart, user) &&
                 _secureCompare(passwordPart, password)) {
               return true;

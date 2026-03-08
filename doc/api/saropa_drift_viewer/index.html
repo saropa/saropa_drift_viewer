@@ -60,31 +60,52 @@
 
     
 <section class="desc markdown">
-  <p>Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minimal web viewer.</p>
-<p><strong>Architecture:</strong> The package is dependency-injection friendly: it does not depend on <code>drift</code>.
-You supply a <a href="../saropa_drift_viewer/DriftDebugQuery.html">DriftDebugQuery</a> that runs SQL; the server uses it for table listing, table data,
-schema, and optional read-only SQL runner. One server per process; <a href="../saropa_drift_viewer/DriftDebugServer/stop.html">DriftDebugServer.stop</a>
-clears state so <a href="../saropa_drift_viewer/DriftDebugServer/start.html">DriftDebugServer.start</a> can be called again (e.g. in tests).</p>
-<p>Use from any Flutter or Dart app that has a SQLite (or Drift) database. Add the package
-(from pub.dev or a path dependency), then start the server with <a href="../saropa_drift_viewer/DriftDebugServer/start.html">DriftDebugServer.start</a>,
-passing a <a href="../saropa_drift_viewer/DriftDebugQuery.html">DriftDebugQuery</a> callback that runs SQL and returns rows as maps.</p>
+  <p>Debug-only HTTP server that exposes SQLite/Drift
+table data as JSON and a minimal web viewer.</p>
+<p><strong>Architecture:</strong> The package is
+dependency-injection friendly: it does not depend
+on <code>drift</code>. You supply a <a href="../saropa_drift_viewer/DriftDebugQuery.html">DriftDebugQuery</a> that
+runs SQL; the server uses it for table listing,
+table data, schema, and optional read-only SQL
+runner. One server per process;
+<a href="../saropa_drift_viewer/DriftDebugServer/stop.html">DriftDebugServer.stop</a> clears state so
+<a href="../saropa_drift_viewer/DriftDebugServer/start.html">DriftDebugServer.start</a> can be called again
+(e.g. in tests).</p>
+<p>Use from any Flutter or Dart app that has a
+SQLite (or Drift) database. Add the package
+(from pub.dev or a path dependency), then start
+the server with <a href="../saropa_drift_viewer/DriftDebugServer/start.html">DriftDebugServer.start</a>, passing
+a <a href="../saropa_drift_viewer/DriftDebugQuery.html">DriftDebugQuery</a> callback that runs SQL and
+returns rows as maps.</p>
 <h2 id="public-api">Public API</h2>
 <ul>
-<li><strong><a href="../saropa_drift_viewer/DriftDebugServer-mixin.html">DriftDebugServer</a></strong> — Static API: <a href="../saropa_drift_viewer/DriftDebugServer/start.html">DriftDebugServer.start</a> to run the server,
-<a href="../saropa_drift_viewer/DriftDebugServer/stop.html">DriftDebugServer.stop</a> to shut it down, <a href="../saropa_drift_viewer/DriftDebugServer/port.html">DriftDebugServer.port</a> to read the bound port.</li>
-<li><strong><a href="../saropa_drift_viewer/DriftDebugQuery.html">DriftDebugQuery</a></strong> — Callback that executes a SQL string and returns rows as
-<code>List&lt;Map&lt;String, dynamic&gt;&gt;</code>. Pass as the <code>query</code> argument to <a href="../saropa_drift_viewer/DriftDebugServer/start.html">DriftDebugServer.start</a>.</li>
-<li><strong><a href="../saropa_drift_viewer/DriftDebugOnLog.html">DriftDebugOnLog</a></strong> — Optional callback for log messages (e.g. startup banner).
-Pass as <code>onLog</code> to <a href="../saropa_drift_viewer/DriftDebugServer/start.html">DriftDebugServer.start</a>.</li>
-<li><strong><a href="../saropa_drift_viewer/DriftDebugOnError.html">DriftDebugOnError</a></strong> — Optional callback for errors and stack traces. Pass as
-<code>onError</code> to <a href="../saropa_drift_viewer/DriftDebugServer/start.html">DriftDebugServer.start</a>.</li>
-<li><strong><a href="../saropa_drift_viewer/DriftDebugGetDatabaseBytes.html">DriftDebugGetDatabaseBytes</a></strong> — Optional callback that returns the raw SQLite file
-bytes. Pass as <code>getDatabaseBytes</code> to enable "Download database" in the UI.</li>
-<li><strong><a href="../saropa_drift_viewer/DriftDebugErrorLogger-class.html">DriftDebugErrorLogger</a></strong> — Helpers for <a href="../saropa_drift_viewer/DriftDebugOnLog.html">DriftDebugOnLog</a> and <a href="../saropa_drift_viewer/DriftDebugOnError.html">DriftDebugOnError</a>:
-<a href="../saropa_drift_viewer/DriftDebugErrorLogger/logCallback.html">DriftDebugErrorLogger.logCallback</a>, <a href="../saropa_drift_viewer/DriftDebugErrorLogger/errorCallback.html">DriftDebugErrorLogger.errorCallback</a>, and
-<a href="../saropa_drift_viewer/DriftDebugErrorLogger/callbacks.html">DriftDebugErrorLogger.callbacks</a> for a single prefix.</li>
+<li><strong><a href="../saropa_drift_viewer/DriftDebugServer-mixin.html">DriftDebugServer</a></strong> — Static API:
+<a href="../saropa_drift_viewer/DriftDebugServer/start.html">DriftDebugServer.start</a> to run the server,
+<a href="../saropa_drift_viewer/DriftDebugServer/stop.html">DriftDebugServer.stop</a> to shut it down,
+<a href="../saropa_drift_viewer/DriftDebugServer/port.html">DriftDebugServer.port</a> to read the bound port.</li>
+<li><strong><a href="../saropa_drift_viewer/DriftDebugQuery.html">DriftDebugQuery</a></strong> — Callback that executes
+a SQL string and returns rows as
+<code>List&lt;Map&lt;String, dynamic&gt;&gt;</code>. Pass as the
+<code>query</code> argument to <a href="../saropa_drift_viewer/DriftDebugServer/start.html">DriftDebugServer.start</a>.</li>
+<li><strong><a href="../saropa_drift_viewer/DriftDebugOnLog.html">DriftDebugOnLog</a></strong> — Optional callback for
+log messages (e.g. startup banner). Pass as
+<code>onLog</code> to <a href="../saropa_drift_viewer/DriftDebugServer/start.html">DriftDebugServer.start</a>.</li>
+<li><strong><a href="../saropa_drift_viewer/DriftDebugOnError.html">DriftDebugOnError</a></strong> — Optional callback for
+errors and stack traces. Pass as <code>onError</code> to
+<a href="../saropa_drift_viewer/DriftDebugServer/start.html">DriftDebugServer.start</a>.</li>
+<li><strong><a href="../saropa_drift_viewer/DriftDebugGetDatabaseBytes.html">DriftDebugGetDatabaseBytes</a></strong> — Optional
+callback that returns the raw SQLite file bytes.
+Pass as <code>getDatabaseBytes</code> to enable
+"Download database" in the UI.</li>
+<li><strong><a href="../saropa_drift_viewer/DriftDebugErrorLogger-class.html">DriftDebugErrorLogger</a></strong> — Helpers for
+<a href="../saropa_drift_viewer/DriftDebugOnLog.html">DriftDebugOnLog</a> and <a href="../saropa_drift_viewer/DriftDebugOnError.html">DriftDebugOnError</a>:
+<a href="../saropa_drift_viewer/DriftDebugErrorLogger/logCallback.html">DriftDebugErrorLogger.logCallback</a>,
+<a href="../saropa_drift_viewer/DriftDebugErrorLogger/errorCallback.html">DriftDebugErrorLogger.errorCallback</a>, and
+<a href="../saropa_drift_viewer/DriftDebugErrorLogger/callbacks.html">DriftDebugErrorLogger.callbacks</a> for a single
+prefix.</li>
 </ul>
-<p>See the package README for HTTP endpoints, UI features, and optional auth for dev tunnels.</p>
+<p>See the package README for HTTP endpoints, UI
+features, and optional auth for dev tunnels.</p>
 </section>
 
 
@@ -211,6 +232,21 @@ bytes. Pass as <code>getDatabaseBytes</code> to enable "Download database" in th
 
   </dd>
 
+          
+  <dt id="DriftDebugWriteQuery" class="callable">
+    <span class="name"><a href="../saropa_drift_viewer/DriftDebugWriteQuery.html">DriftDebugWriteQuery</a></span><span class="signature">
+      <span class="returntype parameter">= <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span> Function<span class="signature">(<span class="parameter" id="param-sql"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">sql</span></span>)</span></span>
+    </span>
+    
+
+  </dt>
+  <dd>
+    Optional callback for write queries (INSERT/UPDATE/DELETE).
+Debug-only: used exclusively by the import endpoint.
+    
+
+  </dd>
+
       </dl>
     </section>
 
@@ -242,7 +278,7 @@ bytes. Pass as <code>getDatabaseBytes</code> to enable "Download database" in th
 <footer>
   <span class="no-break">
     saropa_drift_viewer
-      0.2.3
+      0.2.4
   </span>
   
 </footer>

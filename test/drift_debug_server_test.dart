@@ -413,7 +413,8 @@ void main() {
       }
     });
 
-    test('GET /api/schema/metadata returns tables with columns, types, pk, and rowCount',
+    test(
+        'GET /api/schema/metadata returns tables with columns, types, pk, and rowCount',
         () async {
       await DriftDebugServer.start(
         query: mockQuery,
@@ -1314,23 +1315,69 @@ void main() {
           }
           if (sql.contains('PRAGMA table_info("users")')) {
             return [
-              {'cid': 0, 'name': 'id', 'type': 'INTEGER', 'notnull': 1, 'dflt_value': null, 'pk': 1},
-              {'cid': 1, 'name': 'email', 'type': 'TEXT', 'notnull': 0, 'dflt_value': null, 'pk': 0},
-              {'cid': 2, 'name': 'created_at', 'type': 'TEXT', 'notnull': 0, 'dflt_value': null, 'pk': 0},
+              {
+                'cid': 0,
+                'name': 'id',
+                'type': 'INTEGER',
+                'notnull': 1,
+                'dflt_value': null,
+                'pk': 1
+              },
+              {
+                'cid': 1,
+                'name': 'email',
+                'type': 'TEXT',
+                'notnull': 0,
+                'dflt_value': null,
+                'pk': 0
+              },
+              {
+                'cid': 2,
+                'name': 'created_at',
+                'type': 'TEXT',
+                'notnull': 0,
+                'dflt_value': null,
+                'pk': 0
+              },
             ];
           }
           if (sql.contains('PRAGMA table_info("orders")')) {
             return [
-              {'cid': 0, 'name': 'id', 'type': 'INTEGER', 'notnull': 1, 'dflt_value': null, 'pk': 1},
-              {'cid': 1, 'name': 'user_id', 'type': 'INTEGER', 'notnull': 1, 'dflt_value': null, 'pk': 0},
-              {'cid': 2, 'name': 'total', 'type': 'REAL', 'notnull': 0, 'dflt_value': null, 'pk': 0},
+              {
+                'cid': 0,
+                'name': 'id',
+                'type': 'INTEGER',
+                'notnull': 1,
+                'dflt_value': null,
+                'pk': 1
+              },
+              {
+                'cid': 1,
+                'name': 'user_id',
+                'type': 'INTEGER',
+                'notnull': 1,
+                'dflt_value': null,
+                'pk': 0
+              },
+              {
+                'cid': 2,
+                'name': 'total',
+                'type': 'REAL',
+                'notnull': 0,
+                'dflt_value': null,
+                'pk': 0
+              },
             ];
           }
           if (sql.contains('COUNT(*)') && sql.contains('"users"')) {
-            return [{'c': 42}];
+            return [
+              {'c': 42}
+            ];
           }
           if (sql.contains('COUNT(*)') && sql.contains('"orders"')) {
-            return [{'c': 7}];
+            return [
+              {'c': 7}
+            ];
           }
           return <Map<String, dynamic>>[];
         },
@@ -1415,11 +1462,20 @@ void main() {
           }
           if (sql.contains('PRAGMA table_info')) {
             return [
-              {'cid': 0, 'name': 'id', 'type': 'INTEGER', 'notnull': 1, 'dflt_value': null, 'pk': 1},
+              {
+                'cid': 0,
+                'name': 'id',
+                'type': 'INTEGER',
+                'notnull': 1,
+                'dflt_value': null,
+                'pk': 1
+              },
             ];
           }
           if (sql.contains('COUNT(*)')) {
-            return [{'c': 5}];
+            return [
+              {'c': 5}
+            ];
           }
           return <Map<String, dynamic>>[];
         },

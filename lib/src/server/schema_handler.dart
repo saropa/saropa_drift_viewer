@@ -19,6 +19,7 @@ final class SchemaHandler {
       HttpResponse response, DriftDebugQuery query) async {
     final res = response;
     final String schema = await ServerContext.getSchemaSql(query);
+
     res.statusCode = HttpStatus.ok;
     _ctx.setAttachmentHeaders(res, ServerConstants.attachmentSchemaSql);
     res.write(schema);
@@ -26,10 +27,8 @@ final class SchemaHandler {
   }
 
   /// Returns diagram data: tables with columns and foreign keys.
-  Future<Map<String, dynamic>> getDiagramData(
-      DriftDebugQuery query) async {
-    final List<String> tableNames =
-        await ServerContext.getTableNames(query);
+  Future<Map<String, dynamic>> getDiagramData(DriftDebugQuery query) async {
+    final List<String> tableNames = await ServerContext.getTableNames(query);
     final List<Map<String, dynamic>> tables = [];
     final List<Map<String, dynamic>> foreignKeys = [];
 
@@ -40,11 +39,10 @@ final class SchemaHandler {
         final name = r['name'];
         final type = r['type'];
         final pk = r['pk'];
+
         return <String, dynamic>{
-          ServerConstants.jsonKeyName:
-              name is String? ? name ?? '' : '',
-          ServerConstants.jsonKeyType:
-              type is String? ? type ?? '' : '',
+          ServerConstants.jsonKeyName: name is String? ? name ?? '' : '',
+          ServerConstants.jsonKeyType: type is String? ? type ?? '' : '',
           ServerConstants.jsonKeyPk: pk is int ? pk != 0 : false,
         };
       }).toList();
@@ -59,10 +57,12 @@ final class SchemaHandler {
             await query('PRAGMA foreign_key_list("$tableName")');
         final List<Map<String, dynamic>> fkRows =
             ServerContext.normalizeRows(rawFk);
+
         for (final r in fkRows) {
           final toTable = r[ServerConstants.jsonKeyTable] as String?;
           final fromCol = r[ServerConstants.pragmaFrom] as String?;
           final toCol = r[ServerConstants.pragmaTo] as String?;
+
           if (toTable != null &&
               toTable.isNotEmpty &&
               fromCol != null &&
@@ -90,8 +90,10 @@ final class SchemaHandler {
   Future<void> sendSchemaDiagram(
       HttpResponse response, DriftDebugQuery query) async {
     final res = response;
+
     try {
       final Map<String, dynamic> data = await getDiagramData(query);
+
       _ctx.setJsonHeaders(res);
       res.write(const JsonEncoder.withIndent('  ').convert(data));
     } on Object catch (error, stack) {
@@ -112,9 +114,11 @@ final class SchemaHandler {
     DriftDebugQuery query,
   ) async {
     final res = response;
+
     try {
       final tableNames = await ServerContext.getTableNames(query);
       final tables = <Map<String, dynamic>>[];
+
       for (final tableName in tableNames) {
         final infoRows = ServerContext.normalizeRows(
           await query('PRAGMA table_info("$tableName")'),
@@ -133,18 +137,23 @@ final class SchemaHandler {
             .toList();
         final countRows = ServerContext.normalizeRows(
           await query(
-              'SELECT COUNT(*) AS ${ServerConstants.jsonKeyCountColumn} FROM "$tableName"'),
+            'SELECT COUNT(*) AS '
+            '${ServerConstants.jsonKeyCountColumn} '
+            'FROM "$tableName"',
+          ),
         );
         final count = ServerContext.extractCountFromRows(countRows);
+
         tables.add(<String, dynamic>{
           ServerConstants.jsonKeyName: tableName,
           ServerConstants.jsonKeyColumns: columns,
           ServerConstants.jsonKeyRowCount: count,
         });
       }
+
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(
-          <String, dynamic>{ServerConstants.jsonKeyTables: tables}));
+      res.write(
+          jsonEncode(<String, dynamic>{ServerConstants.jsonKeyTables: tables}));
       await res.close();
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
@@ -156,26 +165,41 @@ final class SchemaHandler {
   Future<String> getFullDumpSql(DriftDebugQuery query) async {
     final buffer = StringBuffer();
     final schema = await ServerContext.getSchemaSql(query);
+
     buffer.writeln(schema);
     buffer.writeln('-- Data dump');
     final tables = await ServerContext.getTableNames(query);
+
     for (final table in tables) {
       final dynamic raw = await query('SELECT * FROM "$table"');
-      final List<Map<String, dynamic>> rows =
-          ServerContext.normalizeRows(raw);
-      if (rows.isEmpty) continue;
-      final firstRow = rows.firstOrNull;
-      if (firstRow == null) continue;
-      final keys = firstRow.keys.toList();
-      if (keys.isEmpty) continue;
-      final colList = keys.map((k) => '"$k"').join(', ');
-      for (final row in rows) {
-        final values =
-            keys.map((k) => ServerContext.sqlLiteral(row[k])).join(', ');
-        buffer
-            .writeln('INSERT INTO "$table" ($colList) VALUES ($values);');
+      final List<Map<String, dynamic>> rows = ServerContext.normalizeRows(raw);
+
+      if (rows.isNotEmpty) {
+        final firstRow = rows.firstOrNull;
+
+        if (firstRow != null) {
+          final keys = firstRow.keys.toList();
+
+          if (keys.isNotEmpty) {
+            final colList = keys.map((k) => '"$k"').join(', ');
+
+            for (final row in rows) {
+              final values = keys
+                  .map(
+                    (k) => ServerContext.sqlLiteral(row[k]),
+                  )
+                  .join(', ');
+
+              buffer.writeln(
+                'INSERT INTO "$table" '
+                '($colList) VALUES ($values);',
+              );
+            }
+          }
+        }
       }
     }
+
     return buffer.toString();
   }
 
@@ -184,6 +208,7 @@ final class SchemaHandler {
       HttpResponse response, DriftDebugQuery query) async {
     final res = response;
     final String dump = await getFullDumpSql(query);
+
     res.statusCode = HttpStatus.ok;
     _ctx.setAttachmentHeaders(res, ServerConstants.attachmentDumpSql);
     res.write(dump);
@@ -195,6 +220,7 @@ final class SchemaHandler {
   Future<void> sendDatabaseFile(HttpResponse response) async {
     final res = response;
     final getBytes = _ctx.getDatabaseBytes;
+
     if (getBytes == null) {
       res.statusCode = HttpStatus.notImplemented;
       _ctx.setJsonHeaders(res);
@@ -203,10 +229,12 @@ final class SchemaHandler {
             ServerConstants.errorDatabaseDownloadNotConfigured,
       }));
       await res.close();
+
       return;
     }
     try {
       final bytes = await getBytes();
+
       res.statusCode = HttpStatus.ok;
       res.headers.contentType = ContentType(
           ServerConstants.contentTypeApplicationOctetStream,

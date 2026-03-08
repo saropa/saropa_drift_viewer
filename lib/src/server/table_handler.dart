@@ -34,8 +34,7 @@ final class TableHandler {
   ) async {
     final res = response;
     if (!await _ctx.requireKnownTable(res, query, tableName)) return;
-    final dynamic rawInfo =
-        await query('PRAGMA table_info("$tableName")');
+    final dynamic rawInfo = await query('PRAGMA table_info("$tableName")');
     final List<Map<String, dynamic>> rows =
         ServerContext.normalizeRows(rawInfo);
     final List<String> columns = rows
@@ -56,8 +55,7 @@ final class TableHandler {
     final res = response;
     if (!await _ctx.requireKnownTable(res, query, tableName)) return;
     try {
-      final List<Map<String, dynamic>> fkRows =
-          ServerContext.normalizeRows(
+      final List<Map<String, dynamic>> fkRows = ServerContext.normalizeRows(
         await query('PRAGMA foreign_key_list("$tableName")'),
       );
       final List<Map<String, dynamic>> fks = fkRows
@@ -99,8 +97,7 @@ final class TableHandler {
         ServerContext.normalizeRows(rawCount);
     final int count = ServerContext.extractCountFromRows(rows);
     _ctx.setJsonHeaders(res);
-    res.write(
-        jsonEncode(<String, int>{ServerConstants.jsonKeyCount: count}));
+    res.write(jsonEncode(<String, int>{ServerConstants.jsonKeyCount: count}));
     await res.close();
   }
 
@@ -114,10 +111,9 @@ final class TableHandler {
   }) async {
     final res = response;
     if (!await _ctx.requireKnownTable(res, query, tableName)) return;
-    final dynamic raw = await query(
-        'SELECT * FROM "$tableName" LIMIT $limit OFFSET $offset');
-    final List<Map<String, dynamic>> data =
-        ServerContext.normalizeRows(raw);
+    final dynamic raw =
+        await query('SELECT * FROM "$tableName" LIMIT $limit OFFSET $offset');
+    final List<Map<String, dynamic>> data = ServerContext.normalizeRows(raw);
     _ctx.setJsonHeaders(res);
     res.write(const JsonEncoder.withIndent('  ').convert(data));
     await res.close();

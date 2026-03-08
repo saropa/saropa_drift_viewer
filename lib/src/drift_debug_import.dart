@@ -23,6 +23,9 @@ final class DriftDebugImportProcessor {
   /// Raw SQL format identifier.
   static const String formatSql = 'sql';
 
+  /// BOM (Byte Order Mark) code unit for UTF-8.
+  static const int _bomCodeUnit = 0xFEFF;
+
   /// Imports [data] in the given [format] into [table].
   ///
   /// [writeQuery] executes a single SQL write statement.
@@ -32,12 +35,15 @@ final class DriftDebugImportProcessor {
   /// Throws [FormatException] for unsupported formats or
   /// malformed CSV. Per-row failures are collected in
   /// [DriftDebugImportResult.errors].
+  ///
+  /// Returns a [DriftDebugImportResult] with the count of
+  /// imported rows and any per-row error messages.
   Future<DriftDebugImportResult> processImport({
     required String format,
     required String data,
     required String table,
     required Future<void> Function(String sql) writeQuery,
-    required String Function(Object? value) sqlLiteral,
+    required String Function(dynamic value) sqlLiteral,
   }) async {
     switch (format) {
       case formatJson:
@@ -47,6 +53,7 @@ final class DriftDebugImportProcessor {
           writeQuery: writeQuery,
           sqlLiteral: sqlLiteral,
         );
+
       case formatCsv:
         return await _importCsv(
           data: data,
@@ -54,27 +61,33 @@ final class DriftDebugImportProcessor {
           writeQuery: writeQuery,
           sqlLiteral: sqlLiteral,
         );
+
       case formatSql:
         return await _importSql(
           data: data,
           table: table,
           writeQuery: writeQuery,
         );
+
       default:
         throw FormatException(
-          'Unsupported format: $format. '
-          'Use json, csv, or sql.',
+          'Unsupported format: $format. Use json, csv, or sql.',
         );
     }
   }
 
+  /// Parses a JSON array of objects and inserts each as a table
+  /// row via [writeQuery]. Validates that the top-level value
+  /// is a list and that each element is a map.
   Future<DriftDebugImportResult> _importJson({
     required String data,
     required String table,
     required Future<void> Function(String sql) writeQuery,
-    required String Function(Object? value) sqlLiteral,
+    required String Function(dynamic value) sqlLiteral,
   }) async {
-    final Object? decoded;
+    // Decode the raw JSON string into a Dart object.
+    final dynamic decoded;
+
     try {
       decoded = jsonDecode(data);
     } on FormatException catch (e, st) {
@@ -92,24 +105,23 @@ final class DriftDebugImportProcessor {
     int imported = 0;
     final errors = <String>[];
 
-    for (int i = 0; i < decoded.length; i++) {
-      final row = decoded[i];
-      if (row is! Map) {
+    // Iterate rows, building an INSERT for each map entry.
+    for (final (i, row) in decoded.indexed) {
+      if (row is Map) {
+        try {
+          final keys = row.keys.toList();
+          final cols = keys.map(_escapeIdentifier).join(', ');
+          final vals = keys.map((k) => sqlLiteral(row[k])).join(', ');
+
+          await writeQuery(
+            'INSERT INTO "$table" ($cols) VALUES ($vals)',
+          );
+          imported++;
+        } on Object catch (e) {
+          errors.add('Row $i: $e');
+        }
+      } else {
         errors.add('Row $i: not an object');
-        continue;
-      }
-      try {
-        final keys = row.keys.toList();
-        final cols =
-            keys.map(_escapeIdentifier).join(', ');
-        final vals =
-            keys.map((k) => sqlLiteral(row[k])).join(', ');
-        await writeQuery(
-          'INSERT INTO "$table" ($cols) VALUES ($vals)',
-        );
-        imported++;
-      } on Object catch (e) {
-        errors.add('Row $i: $e');
       }
     }
 
@@ -125,9 +137,10 @@ final class DriftDebugImportProcessor {
     required String data,
     required String table,
     required Future<void> Function(String sql) writeQuery,
-    required String Function(Object? value) sqlLiteral,
+    required String Function(dynamic value) sqlLiteral,
   }) async {
     final lines = parseCsvLines(data);
+
     if (lines.length < 2) {
       throw const FormatException(
         'CSV must have a header row and at least one data row.',
@@ -141,21 +154,23 @@ final class DriftDebugImportProcessor {
     for (int i = 1; i < lines.length; i++) {
       try {
         final values = lines[i];
-        if (values.length != headers.length) {
-          errors.add(
-            'Row $i: column count mismatch '
-            '(${values.length} vs ${headers.length})',
+
+        if (values.length == headers.length) {
+          final cols = headers.map(_escapeIdentifier).join(', ');
+          final vals = values.map((v) => sqlLiteral(v)).join(', ');
+
+          await writeQuery(
+            'INSERT INTO "$table" ($cols) VALUES ($vals)',
           );
-          continue;
+          imported++;
+        } else {
+          final colCount = values.length;
+          final headerCount = headers.length;
+
+          errors.add(
+            'Row $i: column count mismatch ($colCount vs $headerCount)',
+          );
         }
-        final cols =
-            headers.map(_escapeIdentifier).join(', ');
-        final vals =
-            values.map((v) => sqlLiteral(v)).join(', ');
-        await writeQuery(
-          'INSERT INTO "$table" ($cols) VALUES ($vals)',
-        );
-        imported++;
       } on Object catch (e) {
         errors.add('Row $i: $e');
       }
@@ -174,10 +189,8 @@ final class DriftDebugImportProcessor {
     required String table,
     required Future<void> Function(String sql) writeQuery,
   }) async {
-    final statements = data
-        .split(';')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty);
+    final statements =
+        data.split(';').map((s) => s.trim()).where((s) => s.isNotEmpty);
     int imported = 0;
     final errors = <String>[];
 
@@ -200,10 +213,10 @@ final class DriftDebugImportProcessor {
 
   /// Wraps a SQL identifier in double quotes, escaping any
   /// embedded double-quote characters by doubling them.
-  static String _escapeIdentifier(Object? name) {
-    final s = name.toString().replaceAll('"', '""');
+  static String _escapeIdentifier(dynamic name) {
+    final escaped = name.toString().replaceAll('"', '""');
 
-    return '"$s"';
+    return '"$escaped"';
   }
 
   /// Parses CSV text into rows (each a list of field strings).
@@ -215,53 +228,56 @@ final class DriftDebugImportProcessor {
   /// Returns a list of rows where each row is a list of
   /// trimmed field values.
   static List<List<String>> parseCsvLines(String csv) {
-    // Strip BOM and normalise line endings.
-    var normalised = csv;
-    if (normalised.isNotEmpty &&
-        normalised.codeUnitAt(0) == 0xFEFF) {
-      normalised = normalised.substring(1);
+    // Strip BOM and normalize line endings.
+    String normalized = csv;
+
+    if (normalized.isNotEmpty && normalized.codeUnitAt(0) == _bomCodeUnit) {
+      normalized = normalized.substring(1);
     }
-    normalised = normalised
-        .replaceAll('\r\n', '\n')
-        .replaceAll('\r', '\n');
+    normalized = normalized.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
 
     final result = <List<String>>[];
-    final lines = normalised.split('\n');
+    final lines = normalized.split('\n');
+    final current = StringBuffer();
 
     for (final line in lines) {
-      if (line.trim().isEmpty) continue;
+      if (line.trim().isNotEmpty) {
+        final fields = <String>[];
+        bool isInQuotes = false;
 
-      final fields = <String>[];
-      var inQuotes = false;
-      final current = StringBuffer();
+        current.clear();
 
-      for (int i = 0; i < line.length; i++) {
-        final c = line[i];
-        if (c == '"') {
-          if (inQuotes &&
-              i + 1 < line.length &&
-              line[i + 1] == '"') {
-            current.write('"');
-            i++;
+        int charIndex = 0;
+
+        while (charIndex < line.length) {
+          final c = line[charIndex];
+
+          if (c == '"') {
+            if (isInQuotes &&
+                charIndex + 1 < line.length &&
+                line[charIndex + 1] == '"') {
+              current.write('"');
+              charIndex++;
+            } else {
+              isInQuotes = !isInQuotes;
+            }
+          } else if (c == ',' && !isInQuotes) {
+            fields.add(current.toString().trim());
+            current.clear();
           } else {
-            inQuotes = !inQuotes;
+            current.write(c);
           }
-        } else if (c == ',' && !inQuotes) {
-          fields.add(current.toString().trim());
-          current.clear();
-        } else {
-          current.write(c);
+          charIndex++;
         }
-      }
 
-      fields.add(current.toString().trim());
-      result.add(fields);
+        fields.add(current.toString().trim());
+        result.add(fields);
+      }
     }
 
     return result;
   }
 
   @override
-  String toString() =>
-      'DriftDebugImportProcessor()';
+  String toString() => 'DriftDebugImportProcessor()';
 }

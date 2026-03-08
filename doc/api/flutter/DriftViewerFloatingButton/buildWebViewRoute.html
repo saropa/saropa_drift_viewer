@@ -84,6 +84,7 @@ static Route&lt;void&gt; buildWebViewRoute(dynamic settingsOrUriString) {
   final String uriString = _uriStringFromRouteSettings(settingsOrUriString);
   final uri = Uri.tryParse(uriString);
   final routeName = &#39;$webViewRouteName?uri=${Uri.encodeComponent(uriString)}&#39;;
+
   if (uri == null || (uri.scheme != &#39;http&#39; &amp;&amp; uri.scheme != &#39;https&#39;)) {
     return _buildWebViewErrorRoute(routeName, uriString);
   }
@@ -116,7 +117,7 @@ static Route&lt;void&gt; buildWebViewRoute(dynamic settingsOrUriString) {
 <footer>
   <span class="no-break">
     saropa_drift_viewer
-      0.2.3
+      0.2.4
   </span>
   
 </footer>

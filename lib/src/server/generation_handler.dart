@@ -18,9 +18,9 @@ final class GenerationHandler {
   /// GET /api/health — returns {"ok": true}.
   Future<void> sendHealth(HttpResponse response) async {
     final res = response;
+
     _ctx.setJsonHeaders(res);
-    res.write(
-        jsonEncode(<String, dynamic>{ServerConstants.jsonKeyOk: true}));
+    res.write(jsonEncode(<String, dynamic>{ServerConstants.jsonKeyOk: true}));
     await res.close();
   }
 
@@ -30,13 +30,15 @@ final class GenerationHandler {
   Future<void> handleGeneration(HttpRequest request) async {
     final req = request;
     final res = req.response;
+
     await _ctx.checkDataChange();
-    final sinceRaw =
-        req.uri.queryParameters[ServerConstants.queryParamSince];
+    final sinceRaw = req.uri.queryParameters[ServerConstants.queryParamSince];
     final int? since = sinceRaw != null ? int.tryParse(sinceRaw) : null;
+
     if (since != null && since >= 0) {
       final deadline =
           DateTime.now().toUtc().add(ServerConstants.longPollTimeout);
+
       while (DateTime.now().toUtc().isBefore(deadline) &&
           _ctx.generation <= since) {
         await Future<void>.delayed(ServerConstants.longPollCheckInterval);
@@ -50,9 +52,9 @@ final class GenerationHandler {
   }
 
   /// Serves the single-page viewer UI.
-  Future<void> sendHtml(
-      HttpResponse response, HttpRequest request) async {
+  Future<void> sendHtml(HttpResponse response, HttpRequest _) async {
     final res = response;
+
     res.headers.contentType = ContentType.html;
     res.write(HtmlContent.indexHtml);
     await res.close();

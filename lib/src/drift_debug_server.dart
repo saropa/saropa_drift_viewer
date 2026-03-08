@@ -1,10 +1,9 @@
-// Platform selection: VM (dart:io) gets the real
-// HTTP server in drift_debug_server_io.dart;
-// web (no dart:io) gets the stub so the same import
-// works and [DriftDebugServer.start] throws
-// [UnsupportedError] instead of failing at compile
-// time. The barrel re-export keeps a single entry
-// point for the package (avoid_barrel_files is
-// accepted for this API/platform pattern).
+// Platform selection: VM (dart:io) uses the real
+// HTTP server from drift_debug_server_io.dart.
+// Web (no dart:io) gets a stub so the same import
+// API works; [DriftDebugServer.start] throws
+// [UnsupportedError] instead of a compile error.
+// Barrel re-export keeps one entry point
+// (avoid_barrel_files accepted for this pattern).
 export 'drift_debug_server_stub.dart'
     if (dart.library.io) 'drift_debug_server_io.dart';

@@ -18,18 +18,16 @@ final class SqlHandler {
 
   /// Handles POST /api/sql: body {"sql": "SELECT ..."}.
   /// Validates read-only; returns {"rows": [...]}.
-  Future<void> handleRunSql(
-      HttpRequest request, DriftDebugQuery query) async {
+  Future<void> handleRunSql(HttpRequest request, DriftDebugQuery query) async {
     final sql = await _readAndValidateSqlBody(request);
     if (sql == null) return;
     final res = request.response;
     try {
       final dynamic raw = await query(sql);
-      final List<Map<String, dynamic>> rows =
-          ServerContext.normalizeRows(raw);
+      final List<Map<String, dynamic>> rows = ServerContext.normalizeRows(raw);
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(
-          <String, dynamic>{ServerConstants.jsonKeyRows: rows}));
+      res.write(
+          jsonEncode(<String, dynamic>{ServerConstants.jsonKeyRows: rows}));
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
       res.statusCode = HttpStatus.internalServerError;
@@ -73,14 +71,13 @@ final class SqlHandler {
   bool isReadOnlySql(String sql) {
     final trimmed = sql.trim();
     if (trimmed.isEmpty) return false;
-    final noLineComments =
-        trimmed.replaceAll(RegExp(r'--[^\n]*'), ' ');
+    final noLineComments = trimmed.replaceAll(RegExp(r'--[^\n]*'), ' ');
     final noBlockComments =
         noLineComments.replaceAll(RegExp(r'/\*[\s\S]*?\*/'), ' ');
-    final noSingleQuotes = noBlockComments.replaceAllMapped(
-        RegExp(r"'(?:[^']|'')*'"), (_) => '?');
-    final noStrings = noSingleQuotes.replaceAllMapped(
-        RegExp(r'"(?:[^"]|"")*"'), (_) => '?');
+    final noSingleQuotes =
+        noBlockComments.replaceAllMapped(RegExp(r"'(?:[^']|'')*'"), (_) => '?');
+    final noStrings =
+        noSingleQuotes.replaceAllMapped(RegExp(r'"(?:[^"]|"")*"'), (_) => '?');
     final sqlNoStrings = noStrings.trim();
     final firstSemicolon = sqlNoStrings.indexOf(';');
     if (firstSemicolon >= 0 &&
@@ -88,8 +85,7 @@ final class SqlHandler {
             sqlNoStrings.length &&
         firstSemicolon <
             sqlNoStrings.length - ServerConstants.indexAfterSemicolon) {
-      final after = ServerContext.safeSubstring(
-              sqlNoStrings,
+      final after = ServerContext.safeSubstring(sqlNoStrings,
               firstSemicolon + ServerConstants.indexAfterSemicolon)
           .trim();
       if (after.isNotEmpty) return false;
@@ -102,8 +98,7 @@ final class SqlHandler {
     final upper = withoutTrailingSemicolon.toUpperCase();
     const selectPrefix = 'SELECT ';
     const withPrefix = 'WITH ';
-    if (!upper.startsWith(selectPrefix) &&
-        !upper.startsWith(withPrefix)) {
+    if (!upper.startsWith(selectPrefix) && !upper.startsWith(withPrefix)) {
       return false;
     }
     const forbidden = <String>{
@@ -176,8 +171,7 @@ final class SqlHandler {
       res.statusCode = HttpStatus.badRequest;
       _ctx.setJsonHeaders(res);
       res.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError:
-            ServerConstants.errorInvalidRequestBody,
+        ServerConstants.jsonKeyError: ServerConstants.errorInvalidRequestBody,
       }));
       await res.close();
       return null;
@@ -206,5 +200,4 @@ final class SqlHandler {
     }
     return sql;
   }
-
 }

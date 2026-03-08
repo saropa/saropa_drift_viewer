@@ -15,8 +15,7 @@ import 'server_types.dart';
 
 /// Callback that runs a single SQL query and returns
 /// rows as list of maps.
-typedef DriftDebugQuery
-    = Future<List<Map<String, dynamic>>> Function(
+typedef DriftDebugQuery = Future<List<Map<String, dynamic>>> Function(
   String sql,
 );
 
@@ -32,13 +31,11 @@ typedef DriftDebugOnError = void Function(
 
 /// Optional callback that returns the raw SQLite
 /// database file bytes.
-typedef DriftDebugGetDatabaseBytes
-    = Future<List<int>> Function();
+typedef DriftDebugGetDatabaseBytes = Future<List<int>> Function();
 
 /// Optional callback for write queries
 /// (INSERT/UPDATE/DELETE).
-typedef DriftDebugWriteQuery
-    = Future<void> Function(String sql);
+typedef DriftDebugWriteQuery = Future<void> Function(String sql);
 
 /// Shared state and utility methods for the Drift
 /// Debug Server.
@@ -209,8 +206,7 @@ final class ServerContext {
       at: DateTime.now().toUtc(),
     ));
 
-    if (queryTimings.length >
-        ServerConstants.maxQueryTimings) {
+    if (queryTimings.length > ServerConstants.maxQueryTimings) {
       queryTimings.removeAt(0);
     }
   }
@@ -221,8 +217,7 @@ final class ServerContext {
     final origin = corsOrigin;
 
     if (origin != null) {
-      response.headers
-          .set('Access-Control-Allow-Origin', origin);
+      response.headers.set('Access-Control-Allow-Origin', origin);
     }
   }
 
@@ -272,8 +267,7 @@ final class ServerContext {
     if (changeCheckInProgress) return;
     changeCheckInProgress = true;
     try {
-      final tables =
-          await getTableNames(instrumentedQuery);
+      final tables = await getTableNames(instrumentedQuery);
       final parts = <String>[];
 
       for (final t in tables) {
@@ -288,8 +282,7 @@ final class ServerContext {
 
       final signature = parts.join(',');
 
-      if (lastDataSignature != null &&
-          lastDataSignature != signature) {
+      if (lastDataSignature != null && lastDataSignature != signature) {
         generation++;
       }
       lastDataSignature = signature;
@@ -308,8 +301,7 @@ final class ServerContext {
     DriftDebugQuery queryFn,
     String tableName,
   ) async {
-    final List<String> allowed =
-        await getTableNames(queryFn);
+    final List<String> allowed = await getTableNames(queryFn);
 
     if (!allowed.contains(tableName)) {
       response.statusCode = HttpStatus.badRequest;
@@ -362,13 +354,11 @@ final class ServerContext {
     final firstRow = rows.firstOrNull;
 
     if (firstRow == null ||
-        firstRow[ServerConstants.jsonKeyCountColumn] ==
-            null) {
+        firstRow[ServerConstants.jsonKeyCountColumn] == null) {
       return 0;
     }
 
-    final countValue =
-        firstRow[ServerConstants.jsonKeyCountColumn];
+    final countValue = firstRow[ServerConstants.jsonKeyCountColumn];
 
     return countValue is int
         ? countValue
@@ -383,18 +373,13 @@ final class ServerContext {
   static Future<List<String>> getTableNames(
     DriftDebugQuery queryFn,
   ) async {
-    final dynamic raw =
-        await queryFn(ServerConstants.sqlTableNames);
+    final dynamic raw = await queryFn(ServerConstants.sqlTableNames);
 
-    final List<Map<String, dynamic>> rows =
-        normalizeRows(raw);
+    final List<Map<String, dynamic>> rows = normalizeRows(raw);
 
     return rows
         .map(
-          (row) =>
-              row[ServerConstants.jsonKeyName]
-                  as String? ??
-              '',
+          (row) => row[ServerConstants.jsonKeyName] as String? ?? '',
         )
         .where((nameStr) => nameStr.isNotEmpty)
         .toList();
@@ -431,9 +416,7 @@ final class ServerContext {
 
     if (n == null || n < 0) return 0;
 
-    return n > ServerConstants.maxOffset
-        ? ServerConstants.maxOffset
-        : n;
+    return n > ServerConstants.maxOffset ? ServerConstants.maxOffset : n;
   }
 
   /// Escapes a value for use in a SQL INSERT literal.
@@ -447,9 +430,7 @@ final class ServerContext {
     if (value is bool) return value ? '1' : '0';
 
     if (value is String) {
-      final escaped = value
-          .replaceAll(r'\', r'\\')
-          .replaceAll("'", "''");
+      final escaped = value.replaceAll(r'\', r'\\').replaceAll("'", "''");
 
       return "'$escaped'";
     }
@@ -457,9 +438,7 @@ final class ServerContext {
     if (value is List<int>) {
       final hex = value
           .map(
-            (b) => b
-                .toRadixString(ServerConstants.hexRadix)
-                .padLeft(
+            (b) => b.toRadixString(ServerConstants.hexRadix).padLeft(
                   ServerConstants.hexBytePadding,
                   '0',
                 ),
@@ -469,10 +448,8 @@ final class ServerContext {
       return "X'$hex'";
     }
 
-    final escaped = value
-        .toString()
-        .replaceAll(r'\', r'\\')
-        .replaceAll("'", "''");
+    final escaped =
+        value.toString().replaceAll(r'\', r'\\').replaceAll("'", "''");
 
     return "'$escaped'";
   }
@@ -492,14 +469,11 @@ final class ServerContext {
 
     if (endIndex <= start) return '';
 
-    final safeEnd =
-        endIndex > s.length ? s.length : endIndex;
+    final safeEnd = endIndex > s.length ? s.length : endIndex;
 
     if (start >= safeEnd) return '';
 
-    return s
-        .replaceRange(safeEnd, s.length, '')
-        .replaceRange(0, start, '');
+    return s.replaceRange(safeEnd, s.length, '').replaceRange(0, start, '');
   }
 
   /// Stable JSON string representation of a row for
@@ -539,17 +513,14 @@ final class ServerContext {
   static Future<String> getSchemaSql(
     DriftDebugQuery queryFn,
   ) async {
-    final dynamic raw =
-        await queryFn(ServerConstants.sqlSchemaMaster);
+    final dynamic raw = await queryFn(ServerConstants.sqlSchemaMaster);
 
-    final List<Map<String, dynamic>> rows =
-        normalizeRows(raw);
+    final List<Map<String, dynamic>> rows = normalizeRows(raw);
 
     final buffer = StringBuffer();
 
     for (final row in rows) {
-      final stmt =
-          row[ServerConstants.jsonKeySql] as String?;
+      final stmt = row[ServerConstants.jsonKeySql] as String?;
 
       if (stmt != null && stmt.isNotEmpty) {
         buffer.writeln(stmt);
@@ -591,12 +562,10 @@ final class ServerContext {
   );
 
   /// Returns true if [type] is a SQLite TEXT type.
-  static bool isTextType(String type) =>
-      _reTextType.hasMatch(type);
+  static bool isTextType(String type) => _reTextType.hasMatch(type);
 
   /// Returns true if [type] is a SQLite numeric type.
-  static bool isNumericType(String type) =>
-      _reNumericType.hasMatch(type);
+  static bool isNumericType(String type) => _reNumericType.hasMatch(type);
 
   /// Safe double conversion from dynamic [value].
   ///
@@ -633,24 +602,16 @@ final class ServerContext {
         final c = line[i];
 
         if (c == '"') {
-          if (inQuotes &&
-              i + 1 < line.length &&
-              line[i + 1] == '"') {
+          if (inQuotes && i + 1 < line.length && line[i + 1] == '"') {
             current.write('"');
             i++;
-          }
-
-          else {
+          } else {
             inQuotes = !inQuotes;
           }
-        }
-
-        else if (c == ',' && !inQuotes) {
+        } else if (c == ',' && !inQuotes) {
           fields.add(current.toString().trim());
           current.clear();
-        }
-
-        else {
+        } else {
           current.write(c);
         }
       }
@@ -678,16 +639,12 @@ final class ServerContext {
 
     anomalies.sort(
       (a, b) =>
-          (severityOrder[a['severity']] ??
-                  _unknownSeverityOrder)
-              .compareTo(
-        severityOrder[b['severity']] ??
-            _unknownSeverityOrder,
+          (severityOrder[a['severity']] ?? _unknownSeverityOrder).compareTo(
+        severityOrder[b['severity']] ?? _unknownSeverityOrder,
       ),
     );
   }
 
   @override
-  String toString() =>
-      'ServerContext(generation: $generation)';
+  String toString() => 'ServerContext(generation: $generation)';
 }

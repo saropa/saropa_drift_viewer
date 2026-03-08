@@ -40,6 +40,7 @@ final class SessionHandler {
           ServerConstants.jsonKeyError: 'Invalid JSON body',
         }));
         await res.close();
+
         return;
       }
 
@@ -66,10 +67,10 @@ final class SessionHandler {
       res.statusCode = HttpStatus.notFound;
       _ctx.setJsonHeaders(res);
       res.write(jsonEncode(<String, String>{
-        ServerConstants.jsonKeyError:
-            DriftDebugSessionStore.errorNotFound,
+        ServerConstants.jsonKeyError: DriftDebugSessionStore.errorNotFound,
       }));
       await res.close();
+
       return;
     }
 
@@ -92,29 +93,24 @@ final class SessionHandler {
         builder.add(chunk);
       }
 
-      final body =
-          ServerContext.parseJsonMap(
-              utf8.decode(builder.toBytes())) ??
+      final body = ServerContext.parseJsonMap(utf8.decode(builder.toBytes())) ??
           <String, dynamic>{};
 
       final added = _sessionStore.annotate(
         sessionId,
-        text:
-            (body[DriftDebugSessionStore.keyText] as String?) ??
-                '',
+        text: (body[DriftDebugSessionStore.keyText] as String?) ?? '',
         author:
-            (body[DriftDebugSessionStore.keyAuthor] as String?) ??
-                'anonymous',
+            (body[DriftDebugSessionStore.keyAuthor] as String?) ?? 'anonymous',
       );
 
       if (!added) {
         res.statusCode = HttpStatus.notFound;
         _ctx.setJsonHeaders(res);
         res.write(jsonEncode(<String, String>{
-          ServerConstants.jsonKeyError:
-              DriftDebugSessionStore.errorNotFound,
+          ServerConstants.jsonKeyError: DriftDebugSessionStore.errorNotFound,
         }));
         await res.close();
+
         return;
       }
 

@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs cat)",
+      "Bash(wc -l /d/src/saropa_drift_viewer/test/*.dart /d/src/saropa_drift_viewer/example/test/*.dart)",
+      "Read(//d/.claude/projects/d--src-saropa-drift-viewer/12b5a25d-92a1-444c-82af-61636021f006/tool-results/**)",
+      "Bash(npm run compile)",
+      "Bash(dart compile kernel lib/src/drift_debug_server_io.dart)",
+      "Bash(npm install --save-dev mocha @types/mocha @types/sinon sinon)",
+      "Bash(npm test)",
+      "Bash(git -C \"d:\\\\src\\\\saropa_drift_viewer\" log --oneline -20)",
+      "Bash(echo \"EXIT CODE: $?\")",
+      "Bash(wc -l d:/src/saropa_drift_viewer/scripts/modules/*.py d:/src/saropa_drift_viewer/scripts/publish_extension.py)",
+      "Bash(git checkout -- lib/src/drift_debug_server_io.dart)",
+      "Read(//d/src/saropa_drift_viewer/**)",
+      "Bash(git stash)",
+      "Bash(git stash pop)",
+      "Bash(git restore lib/src/drift_debug_server_io.dart)",
+      "Bash(git stash -- lib/src/drift_debug_server_io.dart lib/src/drift_debug_server_stub.dart lib/src/start_drift_viewer_extension.dart)",
+      "Bash(wc -l /d/src/saropa_drift_viewer/lib/*.dart)",
+      "Bash(git checkout HEAD -- lib/src/drift_debug_server_io.dart)",
+      "Bash(for f in lib/flutter.dart lib/saropa_drift_viewer.dart lib/src/drift_debug_server.dart lib/src/drift_debug_server_stub.dart lib/src/drift_viewer_floating_button.dart lib/src/drift_viewer_overlay.dart lib/src/error_logger.dart lib/src/start_drift_viewer_extension.dart)",
+      "Bash(do echo \"=== $f ===\")",
+      "Bash(done)",
+      "Bash(wc -l lib/src/drift_debug_server_io.dart lib/src/server/*.dart)"
+    ],
+    "additionalDirectories": [
+      "d:\\src\\saropa_lints\\bugs",
+      "d:\\src\\saropa_drift_viewer\\extension"
+    ]
+  }
+}

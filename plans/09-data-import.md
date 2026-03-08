@@ -11,16 +11,21 @@ Allow importing CSV, JSON, or SQL files into the database during debug sessions.
 ## Architecture
 
 ### Server-side (Dart)
+
 Add `POST /api/import` endpoint. Requires a new optional `DriftDebugWriteQuery` callback parameter in `DriftDebugServer.start()` that is only used by import. If not provided, import returns 501 Not Implemented.
 
 ### Client-side (JS)
+
 Add import UI with file picker, format selector, table target, preview, and confirmation.
 
 ### VS Code Extension / Flutter
+
 No changes.
 
 ### New Files
+
 None, but requires changes to the public API surface:
+
 - `lib/src/drift_debug_server_io.dart` — New handler + writeQuery field
 - `lib/src/drift_debug_server_stub.dart` — Add writeQuery parameter (stub throws)
 - `lib/src/start_drift_viewer_extension.dart` — Add optional writeQuery parameter
@@ -39,11 +44,13 @@ typedef DriftDebugWriteQuery = Future<void> Function(String sql);
 ### New Parameter in `start()`
 
 Add to `_DriftDebugServerImpl`:
+
 ```dart
 DriftDebugWriteQuery? _writeQuery;
 ```
 
 Add to `start()` signature:
+
 ```dart
 static Future<void> start({
   required DriftDebugQuery query,
@@ -74,7 +81,8 @@ Future<void> _handleImport(HttpRequest request) async {
           'Import not configured. Pass writeQuery to DriftDebugServer.start().',
     }));
     await res.close();
-    return;
+
+   return;
   }
 
   try {
@@ -95,7 +103,8 @@ Future<void> _handleImport(HttpRequest request) async {
         _jsonKeyError: 'Missing required fields: format, data, table',
       }));
       await res.close();
-      return;
+
+   return;
     }
 
     // Validate table exists
@@ -107,7 +116,8 @@ Future<void> _handleImport(HttpRequest request) async {
         _jsonKeyError: 'Table "$table" not found.',
       }));
       await res.close();
-      return;
+
+   return;
     }
 
     int imported = 0;
@@ -140,7 +150,8 @@ Future<void> _handleImport(HttpRequest request) async {
           _jsonKeyError: 'CSV must have a header row and at least one data row.',
         }));
         await res.close();
-        return;
+
+   return;
       }
       final headers = lines[0];
       for (int i = 1; i < lines.length; i++) {
@@ -178,7 +189,8 @@ Future<void> _handleImport(HttpRequest request) async {
         _jsonKeyError: 'Unsupported format: $format. Use json, csv, or sql.',
       }));
       await res.close();
-      return;
+
+   return;
     }
 
     _setJsonHeaders(res);
@@ -250,7 +262,9 @@ static List<List<String>> _parseCsvLines(String csv) {
 ### Client-side UI
 
 ```html
-<div class="collapsible-header" id="import-toggle">Import data (debug only)</div>
+<div class="collapsible-header" id="import-toggle">
+  Import data (debug only)
+</div>
 <div id="import-collapsible" class="collapsible-body collapsed">
   <p class="meta" style="color:#e57373;font-weight:bold;">
     Warning: This modifies the database. Debug use only.
@@ -269,7 +283,11 @@ static List<List<String>> _parseCsvLines(String csv) {
     <input type="file" id="import-file" accept=".json,.csv,.sql" />
     <button type="button" id="import-run" disabled>Import</button>
   </div>
-  <pre id="import-preview" class="meta" style="display:none;max-height:15vh;overflow:auto;font-size:11px;"></pre>
+  <pre
+    id="import-preview"
+    class="meta"
+    style="display:none;max-height:15vh;overflow:auto;font-size:11px;"
+  ></pre>
   <p id="import-status" class="meta"></p>
 </div>
 ```
@@ -279,28 +297,41 @@ static List<List<String>> _parseCsvLines(String csv) {
 ```javascript
 // Populate table selector from existing table list
 function populateImportTables() {
-  const sel = document.getElementById('import-table');
+  const sel = document.getElementById("import-table");
   if (!sel) return;
-  sel.innerHTML = tableCounts.map(function (t) {
-    return '<option value="' + esc(t.name) + '">' + esc(t.name) + ' (' + t.count + ' rows)</option>';
-  }).join('');
+  sel.innerHTML = tableCounts
+    .map(function (t) {
+      return (
+        '<option value="' +
+        esc(t.name) +
+        '">' +
+        esc(t.name) +
+        " (" +
+        t.count +
+        " rows)</option>"
+      );
+    })
+    .join("");
 }
 
 // File selection with preview
-document.getElementById('import-file').addEventListener('change', function () {
+document.getElementById("import-file").addEventListener("change", function () {
   const file = this.files[0];
-  const preview = document.getElementById('import-preview');
-  const importBtn = document.getElementById('import-run');
+  const preview = document.getElementById("import-preview");
+  const importBtn = document.getElementById("import-run");
   if (!file) {
-    preview.style.display = 'none';
+    preview.style.display = "none";
     importBtn.disabled = true;
+
     return;
   }
   const reader = new FileReader();
   reader.onload = function () {
     const text = reader.result;
-    preview.textContent = text.slice(0, 2000) + (text.length > 2000 ? '\n... (' + text.length + ' chars total)' : '');
-    preview.style.display = 'block';
+    preview.textContent =
+      text.slice(0, 2000) +
+      (text.length > 2000 ? "\n... (" + text.length + " chars total)" : "");
+    preview.style.display = "block";
     importBtn.disabled = false;
     window._importData = text;
   };
@@ -308,47 +339,65 @@ document.getElementById('import-file').addEventListener('change', function () {
 });
 
 // Import execution
-document.getElementById('import-run').addEventListener('click', function () {
-  const table = document.getElementById('import-table').value;
-  const format = document.getElementById('import-format').value;
+document.getElementById("import-run").addEventListener("click", function () {
+  const table = document.getElementById("import-table").value;
+  const format = document.getElementById("import-format").value;
   const data = window._importData;
   if (!data || !table) return;
 
-  if (!confirm('Import ' + format.toUpperCase() + ' data into "' + table + '"?\nThis will INSERT rows into the table.')) return;
+  if (
+    !confirm(
+      "Import " +
+        format.toUpperCase() +
+        ' data into "' +
+        table +
+        '"?\nThis will INSERT rows into the table.',
+    )
+  )
+    return;
 
   const btn = this;
-  const status = document.getElementById('import-status');
+  const status = document.getElementById("import-status");
   btn.disabled = true;
-  btn.textContent = 'Importing...';
-  status.textContent = '';
+  btn.textContent = "Importing...";
+  status.textContent = "";
 
-  fetch('/api/import', authOpts({
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ table: table, format: format, data: data }),
-  }))
-    .then(function (r) { return r.json(); })
+  fetch(
+    "/api/import",
+    authOpts({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ table: table, format: format, data: data }),
+    }),
+  )
+    .then(function (r) {
+      return r.json();
+    })
     .then(function (result) {
       if (result.error) {
-        status.textContent = 'Error: ' + result.error;
-        status.style.color = '#e57373';
+        status.textContent = "Error: " + result.error;
+        status.style.color = "#e57373";
       } else {
-        status.textContent = 'Imported ' + result.imported + ' row(s).' +
+        status.textContent =
+          "Imported " +
+          result.imported +
+          " row(s)." +
           (result.errors && result.errors.length > 0
-            ? ' Errors: ' + result.errors.length
-            : '');
-        status.style.color = result.errors && result.errors.length > 0 ? '#ffb74d' : '#7cb342';
+            ? " Errors: " + result.errors.length
+            : "");
+        status.style.color =
+          result.errors && result.errors.length > 0 ? "#ffb74d" : "#7cb342";
         // Refresh table data
         if (currentTableName === table) loadTable(table);
       }
     })
     .catch(function (e) {
-      status.textContent = 'Error: ' + e.message;
-      status.style.color = '#e57373';
+      status.textContent = "Error: " + e.message;
+      status.style.color = "#e57373";
     })
     .finally(function () {
       btn.disabled = false;
-      btn.textContent = 'Import';
+      btn.textContent = "Import";
     });
 });
 ```
@@ -356,6 +405,7 @@ document.getElementById('import-run').addEventListener('click', function () {
 ## Effort Estimate
 
 **L (Large)**
+
 - Server: ~120 lines (handler + CSV parser + SQL literal helper)
 - Client: ~80 lines JS, ~20 lines HTML
 - Public API change: new `writeQuery` parameter in `start()`

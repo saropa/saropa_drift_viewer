@@ -85,7 +85,9 @@ mainly for debugging or logging.</p>
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
   <pre class="language-dart"><code class="language-dart">@override
-String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =&gt;
+String toString({
+  DiagnosticLevel minLevel = DiagnosticLevel.info,
+}) =&gt;
     &#39;DriftViewerOverlay(alignment: $alignment, margin: $margin)&#39;;</code></pre>
 </section>
 
@@ -114,7 +116,7 @@ String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =&gt;
 <footer>
   <span class="no-break">
     saropa_drift_viewer
-      0.2.3
+      0.2.4
   </span>
   
 </footer>

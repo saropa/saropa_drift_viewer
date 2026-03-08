@@ -57,6 +57,9 @@
 <li><strong>Collapsible schema</strong> panel; export table as CSV</li>
 <li><strong>Light/dark theme</strong> (saved in localStorage)</li>
 <li><strong>Read-only SQL runner</strong> with table/column autofill, templates, and query history (localStorage)</li>
+<li><strong>EXPLAIN QUERY PLAN</strong> — one-click query plan viewer highlights full table scans (red) and index lookups (green)</li>
+<li><strong>Data charts</strong> — Bar, pie, line/time-series, and histogram from SQL results (inline SVG, no dependencies)</li>
+<li><strong>Data anomaly detection</strong> — one-click scan for NULLs, empty strings, orphaned FKs, duplicates, and numeric outliers with severity-coded results</li>
 <li><strong>Export</strong> schema-only (<code>schema.sql</code>), full dump (schema + data), or raw SQLite file (when <code>getDatabaseBytes</code> is set)</li>
 <li><strong>Live refresh</strong> via long-poll when data changes</li>
 <li><strong>Snapshot / time travel</strong> — in-memory snapshot, compare to now, export diff</li>
@@ -190,7 +193,7 @@ void main() {
 <p><strong>Debug only.</strong> Do not enable in production.</p>
 <ul>
 <li>Default bind: <code>0.0.0.0</code>; use <strong><code>loopbackOnly: true</code></strong> to bind to <code>127.0.0.1</code> only.</li>
-<li>Read-only: table listing and table data; SQL runner accepts <strong>read-only</strong> SQL (<code>SELECT</code> / <code>WITH ... SELECT</code> only); writes and DDL are rejected. Table/column endpoints use allow-lists; table names and limit/offset are validated.</li>
+<li>Read-only: table listing and table data; SQL runner and EXPLAIN accept <strong>read-only</strong> SQL (<code>SELECT</code> / <code>WITH ... SELECT</code> only); writes and DDL are rejected. Table/column endpoints use allow-lists; table names and limit/offset are validated.</li>
 </ul>
 <p><strong>Secure dev tunnel (ngrok, port forwarding):</strong> use <strong><code>authToken</code></strong> or <strong><code>basicAuthUser</code></strong> / <strong><code>basicAuthPassword</code></strong>:</p>
 <pre class="language-dart"><code class="language-dart">await DriftDebugServer.start(
@@ -220,14 +223,16 @@ void main() {
   <span class="name"><a href="flutter/">flutter</a></span> 
 
 </dt>
-<dd>Flutter-specific API: overlay widget for opening the Drift viewer in debug builds.
+<dd>Flutter-specific API: overlay widget for opening
+the Drift viewer in debug builds.
 </dd>
 
           <dt id="saropa_drift_viewer">
   <span class="name"><a href="saropa_drift_viewer/">saropa_drift_viewer</a></span> 
 
 </dt>
-<dd>Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minimal web viewer.
+<dd>Debug-only HTTP server that exposes SQLite/Drift
+table data as JSON and a minimal web viewer.
 </dd>
 
         </dl>
@@ -258,7 +263,7 @@ void main() {
 <footer>
   <span class="no-break">
     saropa_drift_viewer
-      0.2.3
+      0.2.4
   </span>
   
 </footer>

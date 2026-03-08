@@ -116,6 +116,5 @@ final class DriftDebugSessionStore {
   }
 
   @override
-  String toString() =>
-      'DriftDebugSessionStore(sessions: ${_sessions.length})';
+  String toString() => 'DriftDebugSessionStore(sessions: ${_sessions.length})';
 }

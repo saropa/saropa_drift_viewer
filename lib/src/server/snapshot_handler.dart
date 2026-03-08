@@ -28,13 +28,11 @@ final class SnapshotHandler {
       for (final table in tables) {
         final List<Map<String, dynamic>> rows =
             await query('SELECT * FROM "$table"');
-        data[table] =
-            rows.map((r) => Map<String, dynamic>.from(r)).toList();
+        data[table] = rows.map((r) => Map<String, dynamic>.from(r)).toList();
       }
       final id = DateTime.now().toUtc().toIso8601String();
       final createdAt = DateTime.now().toUtc();
-      final created =
-          Snapshot(id: id, createdAt: createdAt, tables: data);
+      final created = Snapshot(id: id, createdAt: createdAt, tables: data);
       _ctx.snapshot = created;
       _ctx.setJsonHeaders(res);
       res.write(jsonEncode(<String, dynamic>{
@@ -63,9 +61,10 @@ final class SnapshotHandler {
     if (snap == null) {
       res.statusCode = HttpStatus.ok;
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(
-          <String, dynamic>{ServerConstants.jsonKeySnapshot: null}));
+      res.write(
+          jsonEncode(<String, dynamic>{ServerConstants.jsonKeySnapshot: null}));
       await res.close();
+
       return;
     }
     final tableCounts = <String, int>{};
@@ -101,6 +100,7 @@ final class SnapshotHandler {
         ServerConstants.jsonKeyError: ServerConstants.errorNoSnapshot,
       }));
       await res.close();
+
       return;
     }
     try {
@@ -113,13 +113,10 @@ final class SnapshotHandler {
       for (final table in allTables.toList()..sort()) {
         final rowsThen = snap.tables[table] ?? [];
         final rowsNowList = tablesNow.contains(table)
-            ? ServerContext.normalizeRows(
-                await query('SELECT * FROM "$table"'))
+            ? ServerContext.normalizeRows(await query('SELECT * FROM "$table"'))
             : <Map<String, dynamic>>[];
-        final setThen =
-            rowsThen.map(ServerContext.rowSignature).toSet();
-        final setNow =
-            rowsNowList.map(ServerContext.rowSignature).toSet();
+        final setThen = rowsThen.map(ServerContext.rowSignature).toSet();
+        final setNow = rowsNowList.map(ServerContext.rowSignature).toSet();
         final added = setNow.difference(setThen).length;
         final removed = setThen.difference(setNow).length;
         final inBoth = setThen.intersection(setNow).length;
@@ -203,12 +200,9 @@ final class SnapshotHandler {
 
     if (pkColumns.isEmpty) {
       tableDiff[ServerConstants.jsonKeyHasPk] = false;
-      tableDiff[ServerConstants.jsonKeyAddedRows] =
-          <Map<String, dynamic>>[];
-      tableDiff[ServerConstants.jsonKeyRemovedRows] =
-          <Map<String, dynamic>>[];
-      tableDiff[ServerConstants.jsonKeyChangedRows] =
-          <Map<String, dynamic>>[];
+      tableDiff[ServerConstants.jsonKeyAddedRows] = <Map<String, dynamic>>[];
+      tableDiff[ServerConstants.jsonKeyRemovedRows] = <Map<String, dynamic>>[];
+      tableDiff[ServerConstants.jsonKeyChangedRows] = <Map<String, dynamic>>[];
 
       return;
     }

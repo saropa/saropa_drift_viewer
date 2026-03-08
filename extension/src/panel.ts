@@ -10,7 +10,8 @@ export class DriftViewerPanel {
     const column = vscode.ViewColumn.Beside;
     if (DriftViewerPanel.currentPanel) {
       DriftViewerPanel.currentPanel._panel.reveal(column);
-      return;
+   
+   return;
     }
     const panel = vscode.window.createWebviewPanel(
       'driftViewer',

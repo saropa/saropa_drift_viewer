@@ -55,11 +55,14 @@
 
     
 <section class="desc markdown">
-  <p>Wraps <a href="../flutter/DriftViewerOverlay/child.html">child</a> in a <a href="https://api.flutter.dev/flutter/widgets/Stack-class.html">Stack</a> and overlays a floating button in debug builds
-that opens the Drift viewer in the browser or WebView.</p>
-<p>When <a href="https://api.flutter.dev/flutter/foundation/kDebugMode-constant.html">kDebugMode</a> is false or <a href="../saropa_drift_viewer/DriftDebugServer/port.html">DriftDebugServer.port</a> is null, only <a href="../flutter/DriftViewerOverlay/child.html">child</a>
-is shown. Otherwise a <a href="../flutter/DriftViewerFloatingButton-class.html">DriftViewerFloatingButton</a> is stacked at <a href="../flutter/DriftViewerOverlay/alignment.html">alignment</a>
-with optional <a href="../flutter/DriftViewerOverlay/margin.html">margin</a>.</p>
+  <p>Wraps <a href="../flutter/DriftViewerOverlay/child.html">child</a> in a <a href="https://api.flutter.dev/flutter/widgets/Stack-class.html">Stack</a> and overlays a
+floating button in debug builds that opens the
+Drift viewer in the browser or WebView.</p>
+<p>When <a href="https://api.flutter.dev/flutter/foundation/kDebugMode-constant.html">kDebugMode</a> is false or
+<a href="../saropa_drift_viewer/DriftDebugServer/port.html">DriftDebugServer.port</a> is null, only <a href="../flutter/DriftViewerOverlay/child.html">child</a>
+is shown. Otherwise a
+<a href="../flutter/DriftViewerFloatingButton-class.html">DriftViewerFloatingButton</a> is stacked at
+<a href="../flutter/DriftViewerOverlay/alignment.html">alignment</a> with optional <a href="../flutter/DriftViewerOverlay/margin.html">margin</a>.</p>
 <p>Example:</p>
 <pre class="language-dart"><code class="language-dart">runApp(DriftViewerOverlay(
   child: MaterialApp(home: MyHomePage()),
@@ -101,7 +104,8 @@ with optional <a href="../flutter/DriftViewerOverlay/margin.html">margin</a>.</p
           <span class="name"><a href="../flutter/DriftViewerOverlay/DriftViewerOverlay.html">DriftViewerOverlay</a></span><span class="signature">({<span class="parameter" id="-param-key"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/foundation/Key-class.html">Key</a>?</span> <span class="parameter-name">key</span>, </span><span class="parameter" id="-param-child"><span>required</span> <span class="type-annotation"><a href="https://api.flutter.dev/flutter/widgets/Widget-class.html">Widget</a></span> <span class="parameter-name">child</span>, </span><span class="parameter" id="-param-alignment"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/painting/AlignmentGeometry-class.html">AlignmentGeometry</a></span> <span class="parameter-name">alignment</span> = <span class="default-value">AlignmentDirectional.bottomEnd</span>, </span><span class="parameter" id="-param-margin"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/painting/EdgeInsetsGeometry-class.html">EdgeInsetsGeometry</a>?</span> <span class="parameter-name">margin</span></span>})</span>
         </dt>
         <dd>
-          Creates an overlay that wraps <code>child</code> and shows a viewer button when applicable.
+          Creates an overlay that wraps <code>child</code> and
+shows a viewer button when applicable.
             <div class="constructor-modifier features">const</div>
         </dd>
     </dl>
@@ -119,7 +123,8 @@ with optional <a href="../flutter/DriftViewerOverlay/margin.html">margin</a>.</p
 
 </dt>
 <dd>
-  Alignment of the floating button. Defaults to <a href="https://api.flutter.dev/flutter/painting/AlignmentDirectional/bottomEnd-constant.html">AlignmentDirectional.bottomEnd</a>.
+  Alignment of the floating button. Defaults to
+<a href="https://api.flutter.dev/flutter/painting/AlignmentDirectional/bottomEnd-constant.html">AlignmentDirectional.bottomEnd</a>.
   <div class="features"><span class="feature">final</span></div>
 
 </dd>
@@ -131,7 +136,8 @@ with optional <a href="../flutter/DriftViewerOverlay/margin.html">margin</a>.</p
 
 </dt>
 <dd>
-  The widget below the overlay (e.g. your <a href="https://api.flutter.dev/flutter/material/MaterialApp-class.html">MaterialApp</a>).
+  The widget below the overlay
+(e.g. your <a href="https://api.flutter.dev/flutter/material/MaterialApp-class.html">MaterialApp</a>).
   <div class="features"><span class="feature">final</span></div>
 
 </dd>
@@ -167,7 +173,8 @@ with optional <a href="../flutter/DriftViewerOverlay/margin.html">margin</a>.</p
 
 </dt>
 <dd>
-  Margin around the floating button. Defaults to 16 logical pixels on all sides.
+  Margin around the floating button. Defaults to
+16 logical pixels on all sides.
   <div class="features"><span class="feature">final</span></div>
 
 </dd>
@@ -375,7 +382,7 @@ tools and by <a href="https://api.flutter.dev/flutter/foundation/DiagnosticsNode
 <footer>
   <span class="no-break">
     saropa_drift_viewer
-      0.2.3
+      0.2.4
   </span>
   
 </footer>

@@ -136,9 +136,8 @@ class _DriftDebugServerImpl {
     _router = Router(ctx, _sessionStore);
 
     try {
-      final address = loopbackOnly
-          ? InternetAddress.loopbackIPv4
-          : InternetAddress.anyIPv4;
+      final address =
+          loopbackOnly ? InternetAddress.loopbackIPv4 : InternetAddress.anyIPv4;
 
       _server = await HttpServer.bind(address, port);
       final server = _server;
@@ -173,8 +172,7 @@ class _DriftDebugServerImpl {
   }
 
   @override
-  String toString() =>
-      '_DriftDebugServerImpl(port: ${_server?.port}, '
+  String toString() => '_DriftDebugServerImpl(port: ${_server?.port}, '
       'running: ${_server != null})';
 }
 

@@ -57,11 +57,9 @@ final class AnalyticsHandler {
             suggestions.add(<String, dynamic>{
               'table': tableName,
               'column': fromCol,
-              'reason':
-                  'Foreign key without index '
+              'reason': 'Foreign key without index '
                   '(references ${fk['table']}.${fk['to']})',
-              'sql':
-                  'CREATE INDEX idx_${tableName}_$fromCol '
+              'sql': 'CREATE INDEX idx_${tableName}_$fromCol '
                   'ON "$tableName"("$fromCol");',
               'priority': 'high',
             });
@@ -81,8 +79,7 @@ final class AnalyticsHandler {
           if (indexedColumns.contains(colName)) continue;
 
           final alreadySuggested = suggestions.any(
-            (s) =>
-                s['table'] == tableName && s['column'] == colName,
+            (s) => s['table'] == tableName && s['column'] == colName,
           );
 
           if (!alreadySuggested &&
@@ -90,11 +87,9 @@ final class AnalyticsHandler {
             suggestions.add(<String, dynamic>{
               'table': tableName,
               'column': colName,
-              'reason':
-                  'Column ending in _id \u2014 likely used in '
+              'reason': 'Column ending in _id \u2014 likely used in '
                   'JOINs/WHERE',
-              'sql':
-                  'CREATE INDEX idx_${tableName}_$colName '
+              'sql': 'CREATE INDEX idx_${tableName}_$colName '
                   'ON "$tableName"("$colName");',
               'priority': 'medium',
             });
@@ -105,11 +100,9 @@ final class AnalyticsHandler {
             suggestions.add(<String, dynamic>{
               'table': tableName,
               'column': colName,
-              'reason':
-                  'Date/time column \u2014 often used in '
+              'reason': 'Date/time column \u2014 often used in '
                   'ORDER BY or range queries',
-              'sql':
-                  'CREATE INDEX idx_${tableName}_$colName '
+              'sql': 'CREATE INDEX idx_${tableName}_$colName '
                   'ON "$tableName"("$colName");',
               'priority': 'low',
             });
@@ -164,25 +157,20 @@ final class AnalyticsHandler {
       }
 
       final pageSize = pragmaInt(
-        ServerContext.normalizeRows(
-            await query('PRAGMA page_size')),
+        ServerContext.normalizeRows(await query('PRAGMA page_size')),
       );
       final pageCount = pragmaInt(
-        ServerContext.normalizeRows(
-            await query('PRAGMA page_count')),
+        ServerContext.normalizeRows(await query('PRAGMA page_count')),
       );
       final freelistCount = pragmaInt(
-        ServerContext.normalizeRows(
-            await query('PRAGMA freelist_count')),
+        ServerContext.normalizeRows(await query('PRAGMA freelist_count')),
       );
 
       final journalModeRows = ServerContext.normalizeRows(
         await query('PRAGMA journal_mode'),
       );
       final journalMode = journalModeRows.isNotEmpty
-          ? (journalModeRows.first.values.firstOrNull
-                  ?.toString() ??
-              'unknown')
+          ? (journalModeRows.first.values.firstOrNull?.toString() ?? 'unknown')
           : 'unknown';
 
       final totalSizeBytes = pageSize * pageCount;
@@ -193,13 +181,11 @@ final class AnalyticsHandler {
 
       for (final tableName in tableNames) {
         final countRows = ServerContext.normalizeRows(
-          await query(
-              'SELECT COUNT(*) AS '
+          await query('SELECT COUNT(*) AS '
               '${ServerConstants.jsonKeyCountColumn} '
               'FROM "$tableName"'),
         );
-        final rowCount =
-            ServerContext.extractCountFromRows(countRows);
+        final rowCount = ServerContext.extractCountFromRows(countRows);
 
         final colInfoRows = ServerContext.normalizeRows(
           await query('PRAGMA table_info("$tableName")'),
@@ -209,8 +195,7 @@ final class AnalyticsHandler {
           await query('PRAGMA index_list("$tableName")'),
         );
         final indexNames = indexRows
-            .map((r) =>
-                r[ServerConstants.jsonKeyName]?.toString() ?? '')
+            .map((r) => r[ServerConstants.jsonKeyName]?.toString() ?? '')
             .where((n) => n.isNotEmpty)
             .toList();
 
@@ -225,9 +210,7 @@ final class AnalyticsHandler {
 
       tableStats.sort((a, b) =>
           ((b[ServerConstants.jsonKeyRowCount] as int?) ?? 0)
-              .compareTo(
-                  (a[ServerConstants.jsonKeyRowCount] as int?) ??
-                      0));
+              .compareTo((a[ServerConstants.jsonKeyRowCount] as int?) ?? 0));
 
       _ctx.setJsonHeaders(res);
       res.write(jsonEncode(<String, dynamic>{
@@ -270,11 +253,9 @@ final class AnalyticsHandler {
           await query('PRAGMA table_info("$tableName")'),
         );
 
-        final tableRowCount =
-            ServerContext.extractCountFromRows(
+        final tableRowCount = ServerContext.extractCountFromRows(
           ServerContext.normalizeRows(
-            await query(
-                'SELECT COUNT(*) AS c FROM "$tableName"'),
+            await query('SELECT COUNT(*) AS c FROM "$tableName"'),
           ),
         );
 
@@ -286,23 +267,19 @@ final class AnalyticsHandler {
 
           if (isNullable) {
             await _detectNullValues(
-                query, tableName, colName, tableRowCount,
-                anomalies);
+                query, tableName, colName, tableRowCount, anomalies);
           }
           if (ServerContext.isTextType(colType)) {
-            await _detectEmptyStrings(
-                query, tableName, colName, anomalies);
+            await _detectEmptyStrings(query, tableName, colName, anomalies);
           }
           if (ServerContext.isNumericType(colType)) {
-            await _detectNumericOutliers(
-                query, tableName, colName, anomalies);
+            await _detectNumericOutliers(query, tableName, colName, anomalies);
           }
         }
 
         await _detectOrphanedForeignKeys(
             query, tableName, tableNames, anomalies);
-        await _detectDuplicateRows(
-            query, tableName, tableRowCount, anomalies);
+        await _detectDuplicateRows(query, tableName, tableRowCount, anomalies);
       }
 
       ServerContext.sortAnomaliesBySeverity(anomalies);
@@ -311,8 +288,7 @@ final class AnalyticsHandler {
       res.write(jsonEncode(<String, dynamic>{
         'anomalies': anomalies,
         'tablesScanned': tableNames.length,
-        'analyzedAt':
-            DateTime.now().toUtc().toIso8601String(),
+        'analyzedAt': DateTime.now().toUtc().toIso8601String(),
       }));
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
@@ -344,9 +320,7 @@ final class AnalyticsHandler {
     );
     if (nullCount == 0) return;
 
-    final pct = tableRowCount > 0
-        ? (nullCount / tableRowCount * 100)
-        : 0;
+    final pct = tableRowCount > 0 ? (nullCount / tableRowCount * 100) : 0;
 
     anomalies.add(<String, dynamic>{
       'table': tableName,
@@ -354,8 +328,7 @@ final class AnalyticsHandler {
       'type': 'null_values',
       'severity': pct > 50 ? 'warning' : 'info',
       'count': nullCount,
-      'message':
-          '$nullCount NULL value(s) in $tableName.$colName '
+      'message': '$nullCount NULL value(s) in $tableName.$colName '
           '(${pct.toStringAsFixed(1)}%)',
     });
   }
@@ -382,8 +355,7 @@ final class AnalyticsHandler {
       'type': 'empty_strings',
       'severity': 'warning',
       'count': emptyCount,
-      'message':
-          '$emptyCount empty string(s) in $tableName.$colName',
+      'message': '$emptyCount empty string(s) in $tableName.$colName',
     });
   }
 
@@ -401,18 +373,14 @@ final class AnalyticsHandler {
     ));
     if (statsRows.isEmpty) return;
 
-    final avg =
-        ServerContext.toDouble(statsRows.first['avg_val']);
-    final min =
-        ServerContext.toDouble(statsRows.first['min_val']);
-    final max =
-        ServerContext.toDouble(statsRows.first['max_val']);
+    final avg = ServerContext.toDouble(statsRows.first['avg_val']);
+    final min = ServerContext.toDouble(statsRows.first['min_val']);
+    final max = ServerContext.toDouble(statsRows.first['max_val']);
     if (avg == null || min == null || max == null || avg == 0) {
       return;
     }
 
-    if (max.abs() > avg.abs() * 10 ||
-        min.abs() > avg.abs() * 10) {
+    if (max.abs() > avg.abs() * 10 || min.abs() > avg.abs() * 10) {
       anomalies.add(<String, dynamic>{
         'table': tableName,
         'column': colName,
@@ -442,6 +410,7 @@ final class AnalyticsHandler {
       if (fromCol == null || toTable == null || toCol == null) {
         continue;
       }
+
       if (!tableNames.contains(toTable)) continue;
 
       final orphanCount = ServerContext.extractCountFromRows(
@@ -463,8 +432,7 @@ final class AnalyticsHandler {
           'type': 'orphaned_fk',
           'severity': 'error',
           'count': orphanCount,
-          'message':
-              '$orphanCount orphaned FK(s): '
+          'message': '$orphanCount orphaned FK(s): '
               '$tableName.$fromCol -> $toTable.$toCol',
         });
       }
@@ -492,8 +460,7 @@ final class AnalyticsHandler {
         'type': 'duplicate_rows',
         'severity': 'warning',
         'count': tableRowCount - distinctCount,
-        'message':
-            '${tableRowCount - distinctCount} duplicate '
+        'message': '${tableRowCount - distinctCount} duplicate '
             'row(s) in $tableName',
       });
     }

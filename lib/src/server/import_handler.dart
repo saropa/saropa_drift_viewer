@@ -11,12 +11,13 @@ import 'server_constants.dart';
 import 'server_context.dart';
 
 /// Handles data import API endpoint.
-final class ImportHandler {
-  /// Creates an [ImportHandler] with the given [ServerContext].
-  ImportHandler(this._ctx);
-
-  final ServerContext _ctx;
-
+///
+/// Example:
+/// ```dart
+/// final handler = ImportHandler(ctx);
+/// await handler.handleImport(request);
+/// ```
+extension type ImportHandler(ServerContext _ctx) implements Object {
   /// Handles POST /api/import: imports CSV, JSON, or SQL data.
   Future<void> handleImport(HttpRequest request) async {
     final res = request.response;
@@ -27,10 +28,10 @@ final class ImportHandler {
       _ctx.setJsonHeaders(res);
       res.write(jsonEncode(<String, String>{
         ServerConstants.jsonKeyError:
-            'Import not configured. Pass writeQuery to '
-                'DriftDebugServer.start().',
+            'Import not configured. Pass writeQuery to DriftDebugServer.start().',
       }));
       await res.close();
+
       return;
     }
 
@@ -51,6 +52,7 @@ final class ImportHandler {
           ServerConstants.jsonKeyError: 'Invalid JSON body',
         }));
         await res.close();
+
         return;
       }
 
@@ -66,21 +68,22 @@ final class ImportHandler {
               'Missing required fields: format, data, table',
         }));
         await res.close();
+
         return;
       }
 
       // Validate table exists
-      final tableNames = await ServerContext.getTableNames(
-          _ctx.instrumentedQuery);
+      final tableNames =
+          await ServerContext.getTableNames(_ctx.instrumentedQuery);
 
       if (!tableNames.contains(table)) {
         res.statusCode = HttpStatus.badRequest;
         _ctx.setJsonHeaders(res);
         res.write(jsonEncode(<String, String>{
-          ServerConstants.jsonKeyError:
-              'Table "$table" not found.',
+          ServerConstants.jsonKeyError: 'Table "$table" not found.',
         }));
         await res.close();
+
         return;
       }
 

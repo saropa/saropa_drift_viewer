@@ -16,8 +16,7 @@ final class PerformanceHandler {
 
   /// GET /api/analytics/performance — returns query timing stats,
   /// slow queries, and patterns.
-  Future<void> handlePerformanceAnalytics(
-      HttpResponse response) async {
+  Future<void> handlePerformanceAnalytics(HttpResponse response) async {
     final res = response;
 
     try {
@@ -27,14 +26,11 @@ final class PerformanceHandler {
         0,
         (sum, t) => sum + t.durationMs,
       );
-      final avgDuration = totalQueries > 0
-          ? (totalDuration / totalQueries).round()
-          : 0;
+      final avgDuration =
+          totalQueries > 0 ? (totalDuration / totalQueries).round() : 0;
 
       // Slow queries (> 100ms), sorted by duration desc.
-      final slowQueries = timings
-          .where((t) => t.durationMs > 100)
-          .toList()
+      final slowQueries = timings.where((t) => t.durationMs > 100).toList()
         ..sort((a, b) => b.durationMs.compareTo(a.durationMs));
 
       // Group by SQL pattern (first 60 chars) for frequency.
@@ -49,8 +45,7 @@ final class PerformanceHandler {
       }
 
       final patterns = queryGroups.entries.map((e) {
-        final durations =
-            e.value.map((t) => t.durationMs).toList();
+        final durations = e.value.map((t) => t.durationMs).toList();
         final total = durations.fold<int>(0, (a, b) => a + b);
         final avg = total / durations.length;
         final max = durations.fold<int>(0, (a, b) => a > b ? a : b);
@@ -63,28 +58,23 @@ final class PerformanceHandler {
           'totalMs': total,
         };
       }).toList()
-        ..sort((a, b) =>
-            ((b['totalMs'] as int?) ?? 0)
-                .compareTo((a['totalMs'] as int?) ?? 0));
+        ..sort((a, b) => ((b['totalMs'] as int?) ?? 0)
+            .compareTo((a['totalMs'] as int?) ?? 0));
 
       _ctx.setJsonHeaders(res);
       res.write(jsonEncode(<String, dynamic>{
         'totalQueries': totalQueries,
         'totalDurationMs': totalDuration,
         'avgDurationMs': avgDuration,
-        'slowQueries': slowQueries
-            .take(20)
-            .map((t) => t.toJson())
-            .toList(),
+        'slowQueries': slowQueries.take(20).map((t) => t.toJson()).toList(),
         'queryPatterns': patterns.take(20).toList(),
-        'recentQueries': timings.reversed
-            .take(50)
-            .map((t) => t.toJson())
-            .toList(),
+        'recentQueries':
+            timings.reversed.take(50).map((t) => t.toJson()).toList(),
       }));
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
       await _ctx.sendErrorResponse(res, error);
+
       return;
     }
 
@@ -103,6 +93,7 @@ final class PerformanceHandler {
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
       await _ctx.sendErrorResponse(res, error);
+
       return;
     }
 
