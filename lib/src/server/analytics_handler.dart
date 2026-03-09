@@ -33,15 +33,15 @@ final class AnalyticsHandler {
 
         for (final idx in existingIndexRows) {
           final idxName = idx['name'] as String?;
-          if (idxName == null) continue;
+          if (idxName != null) {
+            final idxInfoRows = ServerContext.normalizeRows(
+              await query('PRAGMA index_info("$idxName")'),
+            );
 
-          final idxInfoRows = ServerContext.normalizeRows(
-            await query('PRAGMA index_info("$idxName")'),
-          );
-
-          for (final col in idxInfoRows) {
-            final colName = col['name'] as String?;
-            if (colName != null) indexedColumns.add(colName);
+            for (final col in idxInfoRows) {
+              final colName = col['name'] as String?;
+              if (colName != null) indexedColumns.add(colName);
+            }
           }
         }
 
@@ -74,38 +74,38 @@ final class AnalyticsHandler {
         for (final col in colInfoRows) {
           final colName = col['name'] as String?;
           final pk = col['pk'];
-          if (colName == null) continue;
-          if (pk is int && pk > 0) continue;
-          if (indexedColumns.contains(colName)) continue;
+          if (colName != null &&
+              !(pk is int && pk > 0) &&
+              !indexedColumns.contains(colName)) {
+            final alreadySuggested = suggestions.any(
+              (s) => s['table'] == tableName && s['column'] == colName,
+            );
 
-          final alreadySuggested = suggestions.any(
-            (s) => s['table'] == tableName && s['column'] == colName,
-          );
+            if (!alreadySuggested &&
+                ServerConstants.reIdSuffix.hasMatch(colName)) {
+              suggestions.add(<String, dynamic>{
+                'table': tableName,
+                'column': colName,
+                'reason': 'Column ending in _id \u2014 likely used in '
+                    'JOINs/WHERE',
+                'sql': 'CREATE INDEX idx_${tableName}_$colName '
+                    'ON "$tableName"("$colName");',
+                'priority': 'medium',
+              });
+            }
 
-          if (!alreadySuggested &&
-              ServerConstants.reIdSuffix.hasMatch(colName)) {
-            suggestions.add(<String, dynamic>{
-              'table': tableName,
-              'column': colName,
-              'reason': 'Column ending in _id \u2014 likely used in '
-                  'JOINs/WHERE',
-              'sql': 'CREATE INDEX idx_${tableName}_$colName '
-                  'ON "$tableName"("$colName");',
-              'priority': 'medium',
-            });
-          }
-
-          if (!alreadySuggested &&
-              ServerConstants.reDateTimeSuffix.hasMatch(colName)) {
-            suggestions.add(<String, dynamic>{
-              'table': tableName,
-              'column': colName,
-              'reason': 'Date/time column \u2014 often used in '
-                  'ORDER BY or range queries',
-              'sql': 'CREATE INDEX idx_${tableName}_$colName '
-                  'ON "$tableName"("$colName");',
-              'priority': 'low',
-            });
+            if (!alreadySuggested &&
+                ServerConstants.reDateTimeSuffix.hasMatch(colName)) {
+              suggestions.add(<String, dynamic>{
+                'table': tableName,
+                'column': colName,
+                'reason': 'Date/time column \u2014 often used in '
+                    'ORDER BY or range queries',
+                'sql': 'CREATE INDEX idx_${tableName}_$colName '
+                    'ON "$tableName"("$colName");',
+                'priority': 'low',
+              });
+            }
           }
         }
       }
@@ -263,23 +263,23 @@ final class AnalyticsHandler {
           final colName = col['name'] as String?;
           final colType = (col['type'] as String?) ?? '';
           final isNullable = col['notnull'] == 0;
-          if (colName == null) continue;
-
-          if (isNullable) {
-            await _detectNullValues(
-                query, tableName, colName, tableRowCount, anomalies);
-          }
-          if (ServerContext.isTextType(colType)) {
-            await _detectEmptyStrings(query, tableName, colName, anomalies);
-          }
-          if (ServerContext.isNumericType(colType)) {
-            await _detectNumericOutliers(query, tableName, colName, anomalies);
+          if (colName != null) {
+            if (isNullable) {
+              await _detectNullValues(
+                  query: query, tableName: tableName, colName: colName, tableRowCount: tableRowCount, anomalies: anomalies);
+            }
+            if (ServerContext.isTextType(colType)) {
+              await _detectEmptyStrings(query: query, tableName: tableName, colName: colName, anomalies: anomalies);
+            }
+            if (ServerContext.isNumericType(colType)) {
+              await _detectNumericOutliers(query: query, tableName: tableName, colName: colName, anomalies: anomalies);
+            }
           }
         }
 
         await _detectOrphanedForeignKeys(
-            query, tableName, tableNames, anomalies);
-        await _detectDuplicateRows(query, tableName, tableRowCount, anomalies);
+            query: query, tableName: tableName, tableNames: tableNames, anomalies: anomalies);
+        await _detectDuplicateRows(query: query, tableName: tableName, tableRowCount: tableRowCount, anomalies: anomalies);
       }
 
       ServerContext.sortAnomaliesBySeverity(anomalies);
@@ -303,13 +303,13 @@ final class AnalyticsHandler {
     }
   }
 
-  Future<void> _detectNullValues(
-    DriftDebugQuery query,
-    String tableName,
-    String colName,
-    int tableRowCount,
-    List<Map<String, dynamic>> anomalies,
-  ) async {
+  Future<void> _detectNullValues({
+    required DriftDebugQuery query,
+    required String tableName,
+    required String colName,
+    required int tableRowCount,
+    required List<Map<String, dynamic>> anomalies,
+  }) async {
     final nullCount = ServerContext.extractCountFromRows(
       ServerContext.normalizeRows(
         await query(
@@ -333,12 +333,12 @@ final class AnalyticsHandler {
     });
   }
 
-  Future<void> _detectEmptyStrings(
-    DriftDebugQuery query,
-    String tableName,
-    String colName,
-    List<Map<String, dynamic>> anomalies,
-  ) async {
+  Future<void> _detectEmptyStrings({
+    required DriftDebugQuery query,
+    required String tableName,
+    required String colName,
+    required List<Map<String, dynamic>> anomalies,
+  }) async {
     final emptyCount = ServerContext.extractCountFromRows(
       ServerContext.normalizeRows(
         await query(
@@ -359,12 +359,12 @@ final class AnalyticsHandler {
     });
   }
 
-  Future<void> _detectNumericOutliers(
-    DriftDebugQuery query,
-    String tableName,
-    String colName,
-    List<Map<String, dynamic>> anomalies,
-  ) async {
+  Future<void> _detectNumericOutliers({
+    required DriftDebugQuery query,
+    required String tableName,
+    required String colName,
+    required List<Map<String, dynamic>> anomalies,
+  }) async {
     final statsRows = ServerContext.normalizeRows(await query(
       'SELECT AVG("$colName") AS avg_val, '
       'MIN("$colName") AS min_val, '
@@ -393,12 +393,12 @@ final class AnalyticsHandler {
     }
   }
 
-  Future<void> _detectOrphanedForeignKeys(
-    DriftDebugQuery query,
-    String tableName,
-    List<String> tableNames,
-    List<Map<String, dynamic>> anomalies,
-  ) async {
+  Future<void> _detectOrphanedForeignKeys({
+    required DriftDebugQuery query,
+    required String tableName,
+    required List<String> tableNames,
+    required List<Map<String, dynamic>> anomalies,
+  }) async {
     final fkRows = ServerContext.normalizeRows(
       await query('PRAGMA foreign_key_list("$tableName")'),
     );
@@ -407,44 +407,43 @@ final class AnalyticsHandler {
       final fromCol = fk['from'] as String?;
       final toTable = fk['table'] as String?;
       final toCol = fk['to'] as String?;
-      if (fromCol == null || toTable == null || toCol == null) {
-        continue;
-      }
-
-      if (!tableNames.contains(toTable)) continue;
-
-      final orphanCount = ServerContext.extractCountFromRows(
-        ServerContext.normalizeRows(
-          await query(
-            'SELECT COUNT(*) AS c FROM "$tableName" t '
-            'LEFT JOIN "$toTable" r '
-            'ON t."$fromCol" = r."$toCol" '
-            'WHERE t."$fromCol" IS NOT NULL '
-            'AND r."$toCol" IS NULL',
+      if (fromCol != null &&
+          toTable != null &&
+          toCol != null &&
+          tableNames.contains(toTable)) {
+        final orphanCount = ServerContext.extractCountFromRows(
+          ServerContext.normalizeRows(
+            await query(
+              'SELECT COUNT(*) AS c FROM "$tableName" t '
+              'LEFT JOIN "$toTable" r '
+              'ON t."$fromCol" = r."$toCol" '
+              'WHERE t."$fromCol" IS NOT NULL '
+              'AND r."$toCol" IS NULL',
+            ),
           ),
-        ),
-      );
+        );
 
-      if (orphanCount > 0) {
-        anomalies.add(<String, dynamic>{
-          'table': tableName,
-          'column': fromCol,
-          'type': 'orphaned_fk',
-          'severity': 'error',
-          'count': orphanCount,
-          'message': '$orphanCount orphaned FK(s): '
-              '$tableName.$fromCol -> $toTable.$toCol',
-        });
+        if (orphanCount > 0) {
+          anomalies.add(<String, dynamic>{
+            'table': tableName,
+            'column': fromCol,
+            'type': 'orphaned_fk',
+            'severity': 'error',
+            'count': orphanCount,
+            'message': '$orphanCount orphaned FK(s): '
+                '$tableName.$fromCol -> $toTable.$toCol',
+          });
+        }
       }
     }
   }
 
-  Future<void> _detectDuplicateRows(
-    DriftDebugQuery query,
-    String tableName,
-    int tableRowCount,
-    List<Map<String, dynamic>> anomalies,
-  ) async {
+  Future<void> _detectDuplicateRows({
+    required DriftDebugQuery query,
+    required String tableName,
+    required int tableRowCount,
+    required List<Map<String, dynamic>> anomalies,
+  }) async {
     final distinctCount = ServerContext.extractCountFromRows(
       ServerContext.normalizeRows(
         await query(

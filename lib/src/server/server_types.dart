@@ -10,6 +10,7 @@ import 'server_constants.dart';
 class Snapshot {
   const Snapshot(
       {required this.id, required this.createdAt, required this.tables});
+
   final String id;
   final DateTime createdAt;
   final Map<String, List<Map<String, dynamic>>> tables;

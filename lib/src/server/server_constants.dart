@@ -14,12 +14,15 @@ abstract final class ServerConstants {
   static const int maxPort = 65535;
   static const int maxLimit = 1000;
   static const int defaultLimit = 200;
-  // Digit separators (2_000_000) require SDK 3.6+; package supports SDK 3.0+. Rule disabled in analysis_options_custom.yaml.
+  /// Digit separators (2_000_000) require SDK 3.6+; package supports SDK 3.0+. Rule disabled in analysis_options_custom.yaml.
   static const int maxOffset = 2000000;
   static const Duration longPollTimeout = Duration(seconds: 30);
+  /// Poll interval during long-poll wait.
   static const Duration longPollCheckInterval =
-      Duration(milliseconds: 300); // Poll interval during long-poll wait
-  // --- Route constants (method + path; alt forms allow path without leading slash) ---
+      Duration(milliseconds: 300);
+
+  /// Route constants (method + path; alt forms allow path without leading slash).
+  ///
   static const String methodGet = 'GET';
   static const String methodPost = 'POST';
   static const String methodDelete = 'DELETE';
@@ -141,7 +144,7 @@ abstract final class ServerConstants {
   static const String messageSnapshotCleared = 'Snapshot cleared.';
   static const String sqlTableNames =
       "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
-  // Banner (no_magic_string)
+  /// Banner (no_magic_string).
   static const String bannerTop =
       '╔══════════════════════════════════════════════════════════════╗';
   static const String bannerTitle =
@@ -196,7 +199,7 @@ abstract final class ServerConstants {
   static const String contentTypeOctetStream = 'octet-stream';
   static const String contentTypeTextPlain = 'text';
   static const String charsetUtf8 = 'utf-8';
-  // Patterns for index suggestion heuristics (hoisted to avoid per-column allocation).
+  /// Patterns for index suggestion heuristics (hoisted to avoid per-column allocation).
   static final RegExp reIdSuffix = RegExp(r'_id$', caseSensitive: false);
   static final RegExp reDateTimeSuffix = RegExp(
     r'(created|updated|deleted|date|time|_at)$',

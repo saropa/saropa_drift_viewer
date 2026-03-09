@@ -86,13 +86,13 @@ final class SqlHandler {
         firstSemicolon <
             sqlNoStrings.length - ServerConstants.indexAfterSemicolon) {
       final after = ServerContext.safeSubstring(sqlNoStrings,
-              firstSemicolon + ServerConstants.indexAfterSemicolon)
+              start: firstSemicolon + ServerConstants.indexAfterSemicolon)
           .trim();
       if (after.isNotEmpty) return false;
     }
     final withoutTrailingSemicolon = sqlNoStrings.endsWith(';')
-        ? ServerContext.safeSubstring(sqlNoStrings, 0,
-                sqlNoStrings.length - ServerConstants.indexAfterSemicolon)
+        ? ServerContext.safeSubstring(sqlNoStrings, start: 0,
+                end: sqlNoStrings.length - ServerConstants.indexAfterSemicolon)
             .trim()
         : sqlNoStrings;
     final upper = withoutTrailingSemicolon.toUpperCase();
@@ -122,6 +122,7 @@ final class SqlHandler {
       final word = match.group(0);
       if (word != null && forbidden.contains(word)) return false;
     }
+
     return true;
   }
 
@@ -165,6 +166,7 @@ final class SqlHandler {
       await for (final chunk in request) {
         builder.add(chunk);
       }
+
       body = utf8.decode(builder.toBytes());
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);

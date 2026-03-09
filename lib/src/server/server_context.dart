@@ -124,7 +124,7 @@ final class ServerContext {
   String? lastDataSignature;
 
   /// Guard to prevent concurrent change-check runs.
-  bool changeCheckInProgress = false;
+  bool isChangeCheckInProgress = false;
 
   /// Ring buffer of recent query timings for the
   /// performance monitor.
@@ -264,8 +264,8 @@ final class ServerContext {
   /// Runs a lightweight fingerprint of table row
   /// counts; bumps [generation] when it changes.
   Future<void> checkDataChange() async {
-    if (changeCheckInProgress) return;
-    changeCheckInProgress = true;
+    if (isChangeCheckInProgress) return;
+    isChangeCheckInProgress = true;
     try {
       final tables = await getTableNames(instrumentedQuery);
       final parts = <String>[];
@@ -289,18 +289,18 @@ final class ServerContext {
     } on Object catch (error, stack) {
       logError(error, stack);
     } finally {
-      changeCheckInProgress = false;
+      isChangeCheckInProgress = false;
     }
   }
 
   /// Validates that [tableName] exists in the
   /// allow-list (from sqlite_master). Sends 400 and
   /// returns false if unknown; otherwise returns true.
-  Future<bool> requireKnownTable(
-    HttpResponse response,
-    DriftDebugQuery queryFn,
-    String tableName,
-  ) async {
+  Future<bool> requireKnownTable({
+    required HttpResponse response,
+    required DriftDebugQuery queryFn,
+    required String tableName,
+  }) async {
     final List<String> allowed = await getTableNames(queryFn);
 
     if (!allowed.contains(tableName)) {
@@ -459,10 +459,10 @@ final class ServerContext {
   /// Avoids RangeError by clamping indices. Returns
   /// empty string when bounds are invalid.
   static String safeSubstring(
-    String s,
-    int start, [
+    String s, {
+    required int start,
     int? end,
-  ]) {
+  }) {
     if (start < 0 || start >= s.length) return '';
 
     final endIndex = end ?? s.length;
@@ -591,33 +591,33 @@ final class ServerContext {
     final current = StringBuffer();
 
     for (final line in lines) {
-      if (line.trim().isEmpty) continue;
+      if (line.trim().isNotEmpty) {
+        final fields = <String>[];
+        var inQuotes = false;
 
-      final fields = <String>[];
-      var inQuotes = false;
+        current.clear();
 
-      current.clear();
+        for (int i = 0; i < line.length; i++) {
+          final c = line[i];
 
-      for (int i = 0; i < line.length; i++) {
-        final c = line[i];
-
-        if (c == '"') {
-          if (inQuotes && i + 1 < line.length && line[i + 1] == '"') {
-            current.write('"');
-            i++;
+          if (c == '"') {
+            if (inQuotes && i + 1 < line.length && line[i + 1] == '"') {
+              current.write('"');
+              i++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (c == ',' && !inQuotes) {
+            fields.add(current.toString().trim());
+            current.clear();
           } else {
-            inQuotes = !inQuotes;
+            current.write(c);
           }
-        } else if (c == ',' && !inQuotes) {
-          fields.add(current.toString().trim());
-          current.clear();
-        } else {
-          current.write(c);
         }
-      }
 
-      fields.add(current.toString().trim());
-      result.add(fields);
+        fields.add(current.toString().trim());
+        result.add(fields);
+      }
     }
 
     return result;

@@ -30,6 +30,7 @@ final class SnapshotHandler {
             await query('SELECT * FROM "$table"');
         data[table] = rows.map((r) => Map<String, dynamic>.from(r)).toList();
       }
+
       final id = DateTime.now().toUtc().toIso8601String();
       final createdAt = DateTime.now().toUtc();
       final created = Snapshot(id: id, createdAt: createdAt, tables: data);
@@ -71,6 +72,7 @@ final class SnapshotHandler {
     for (final e in snap.tables.entries) {
       tableCounts[e.key] = e.value.length;
     }
+
     _ctx.setJsonHeaders(res);
     res.write(jsonEncode(<String, dynamic>{
       ServerConstants.jsonKeySnapshot: <String, dynamic>{
@@ -85,11 +87,11 @@ final class SnapshotHandler {
   }
 
   /// Handles GET /api/snapshot/compare: diffs current DB vs snapshot.
-  Future<void> handleSnapshotCompare(
-    HttpResponse response,
-    HttpRequest request,
-    DriftDebugQuery query,
-  ) async {
+  Future<void> handleSnapshotCompare({
+    required HttpResponse response,
+    required HttpRequest request,
+    required DriftDebugQuery query,
+  }) async {
     final res = response;
     final req = request;
     final snap = _ctx.snapshot;
@@ -139,6 +141,7 @@ final class SnapshotHandler {
         }
         tableDiffs.add(tableDiff);
       }
+
       final body = <String, dynamic>{
         ServerConstants.jsonKeySnapshotId: snap.id,
         ServerConstants.jsonKeySnapshotCreatedAt:
@@ -147,6 +150,7 @@ final class SnapshotHandler {
             DateTime.now().toUtc().toIso8601String(),
         ServerConstants.jsonKeyTables: tableDiffs,
       };
+
       if (req.uri.queryParameters[ServerConstants.queryParamFormat] ==
           ServerConstants.formatDownload) {
         res.statusCode = HttpStatus.ok;
@@ -236,27 +240,27 @@ final class SnapshotHandler {
     for (final entry in thenByPk.entries) {
       final nowRow = nowByPk[entry.key];
 
-      if (nowRow == null) continue;
+      if (nowRow != null) {
+        final thenRow = entry.value;
+        final changedCols = <String>[];
 
-      final thenRow = entry.value;
-      final changedCols = <String>[];
+        for (final col in thenRow.keys) {
+          final thenVal = thenRow[col]?.toString() ?? '';
+          final nowVal = nowRow[col]?.toString() ?? '';
 
-      for (final col in thenRow.keys) {
-        final thenVal = thenRow[col]?.toString() ?? '';
-        final nowVal = nowRow[col]?.toString() ?? '';
-
-        if (thenVal != nowVal) {
-          changedCols.add(col);
+          if (thenVal != nowVal) {
+            changedCols.add(col);
+          }
         }
-      }
 
-      if (changedCols.isNotEmpty) {
-        changedRows.add(<String, dynamic>{
-          ServerConstants.jsonKeyPk: entry.key,
-          ServerConstants.jsonKeyThen: thenRow,
-          ServerConstants.jsonKeyNow: nowRow,
-          ServerConstants.jsonKeyChangedColumns: changedCols,
-        });
+        if (changedCols.isNotEmpty) {
+          changedRows.add(<String, dynamic>{
+            ServerConstants.jsonKeyPk: entry.key,
+            ServerConstants.jsonKeyThen: thenRow,
+            ServerConstants.jsonKeyNow: nowRow,
+            ServerConstants.jsonKeyChangedColumns: changedCols,
+          });
+        }
       }
     }
 

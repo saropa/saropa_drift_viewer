@@ -31,7 +31,7 @@ final class AuthHandler {
           authHeader.length > ServerConstants.authSchemeBearer.length &&
           authHeader.startsWith(ServerConstants.authSchemeBearer)) {
         final token = ServerContext.safeSubstring(
-            authHeader, ServerConstants.authSchemeBearer.length);
+            authHeader, start: ServerConstants.authSchemeBearer.length);
         if (token.isEmpty) return false;
         final incomingHash = sha256.convert(utf8.encode(token)).bytes;
         if (_secureCompareBytes(incomingHash, tokenHash)) return true;
@@ -47,14 +47,14 @@ final class AuthHandler {
           authHeader.startsWith(ServerConstants.authSchemeBasic)) {
         try {
           final basicPayload = ServerContext.safeSubstring(
-              authHeader, ServerConstants.authSchemeBasic.length);
+              authHeader, start: ServerConstants.authSchemeBasic.length);
           if (basicPayload.isEmpty) return false;
           final decoded = utf8.decode(base64.decode(basicPayload));
           final colon = decoded.indexOf(':');
           if (colon >= 0 && colon < decoded.length) {
-            final userPart = ServerContext.safeSubstring(decoded, 0, colon);
+            final userPart = ServerContext.safeSubstring(decoded, start: 0, end: colon);
             final passwordPart =
-                ServerContext.safeSubstring(decoded, colon + 1);
+                ServerContext.safeSubstring(decoded, start: colon + 1);
             if (_secureCompare(userPart, user) &&
                 _secureCompare(passwordPart, password)) {
               return true;
@@ -91,6 +91,7 @@ final class AuthHandler {
     for (int i = 0; i < a.length; i++) {
       result |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
     }
+
     return result == 0;
   }
 
@@ -101,6 +102,7 @@ final class AuthHandler {
     for (int i = 0; i < a.length; i++) {
       result |= a[i] ^ b[i];
     }
+
     return result == 0;
   }
 }

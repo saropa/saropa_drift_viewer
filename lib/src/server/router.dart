@@ -118,7 +118,7 @@ final class Router {
         if (suffix.endsWith(ServerConstants.pathSuffixCount)) {
           final String tableName = suffix.replaceFirst(RegExp(r'/count$'), '');
 
-          await _table.sendTableCount(res, query, tableName);
+          await _table.sendTableCount(response: res, query: query, tableName: tableName);
 
           return;
         }
@@ -126,7 +126,7 @@ final class Router {
           final String tableName =
               suffix.replaceFirst(RegExp(r'/columns$'), '');
 
-          await _table.sendTableColumns(res, query, tableName);
+          await _table.sendTableColumns(response: res, query: query, tableName: tableName);
 
           return;
         }
@@ -134,7 +134,7 @@ final class Router {
           final String tableName =
               suffix.replaceFirst(RegExp(r'/fk-meta$'), '');
 
-          await _table.sendTableFkMeta(res, query, tableName);
+          await _table.sendTableFkMeta(response: res, query: query, tableName: tableName);
 
           return;
         }
@@ -230,7 +230,7 @@ final class Router {
       if (req.method == ServerConstants.methodGet &&
           (path == ServerConstants.pathApiSnapshotCompare ||
               path == ServerConstants.pathApiSnapshotCompareAlt)) {
-        await _snapshot.handleSnapshotCompare(res, req, query);
+        await _snapshot.handleSnapshotCompare(response: res, request: req, query: query);
 
         return;
       }

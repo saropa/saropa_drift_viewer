@@ -211,12 +211,11 @@ final class DriftViewerFloatingButton extends StatelessWidget {
 
   /// Named route builder for WebView screen (prefer_named_routes_for_deep_links).
   @useResult
-  static Route<void> _buildWebViewScreenRoute(String routeName, Uri uri) {
-    return MaterialPageRoute<void>(
-      settings: RouteSettings(name: routeName, arguments: uri.toString()),
-      builder: (BuildContext _) => _WebViewScreenFromSettings(uri: uri),
-    );
-  }
+  static Route<void> _buildWebViewScreenRoute(String routeName, Uri uri) =>
+      MaterialPageRoute<void>(
+        settings: RouteSettings(name: routeName, arguments: uri.toString()),
+        builder: (BuildContext _) => _WebViewScreenFromSettings(uri: uri),
+      );
 
   @override
   @useResult
@@ -283,19 +282,17 @@ class _WebViewErrorScreen extends StatelessWidget {
 
   @override
   @useResult
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Text(
-            _sInvalidOrUnsupportedUrl(urlSample),
-            maxLines: _kErrorMessageMaxLines,
-            overflow: TextOverflow.ellipsis,
+  Widget build(BuildContext _) => Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Text(
+              _sInvalidOrUnsupportedUrl(urlSample),
+              maxLines: _kErrorMessageMaxLines,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
-      ),
-    );
-  }
+      );
 }
 
 /// WebView screen; [uri] is passed from route builder (parsing done there to avoid_expensive_build).
@@ -418,11 +415,11 @@ void _openInWebView(BuildContext context, Uri uri) {
 // WebView navigation delegate (extracted per prefer_extracting_function_callbacks)
 // ---------------------------------------------------------------------------
 
-NavigationDecision _onNavigationRequest(
-  NavigationRequest request,
-  String allowedHost,
-  int allowedPort,
-) {
+NavigationDecision _onNavigationRequest({
+  required NavigationRequest request,
+  required String allowedHost,
+  required int allowedPort,
+}) {
   final requestUri = Uri.tryParse(request.url);
 
   if (requestUri != null &&
@@ -440,7 +437,7 @@ NavigationDelegate _createWebViewNavigationDelegate(Uri allowedUri) {
 
   return NavigationDelegate(
     onNavigationRequest: (NavigationRequest request) =>
-        _onNavigationRequest(request, allowedHost, allowedPort),
+        _onNavigationRequest(request: request, allowedHost: allowedHost, allowedPort: allowedPort),
     onWebResourceError: (WebResourceError error) {
       if (kDebugMode) {
         debugPrint('DriftViewer WebView error: ${error.description}');
@@ -462,11 +459,9 @@ class _DriftViewerLoadingPlaceholder extends StatelessWidget {
 
   @override
   @useResult
-  Widget build(BuildContext context) {
-    return const Center(
-      child: _SkeletonBars(),
-    );
-  }
+  Widget build(BuildContext _) => const Center(
+        child: _SkeletonBars(),
+      );
 }
 
 /// Skeleton bars; uses theme color for require_theme_color_from_scheme.
@@ -479,11 +474,10 @@ class _SkeletonBars extends StatelessWidget {
 
   @override
   @useResult
-  Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.surfaceContainerHighest;
-
-    return _SkeletonBarsContent(color: color);
-  }
+  Widget build(BuildContext context) =>
+      _SkeletonBarsContent(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      );
 }
 
 /// Extracted skeleton shape for prefer_split_widget_const; receives theme color from parent.
@@ -498,15 +492,13 @@ class _SkeletonBarsContent extends StatelessWidget {
 
   @override
   @useResult
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        _SkeletonBar(color: color),
-        _SkeletonBlock(color: color),
-      ],
-    );
-  }
+  Widget build(BuildContext _) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          _SkeletonBar(color: color),
+          _SkeletonBlock(color: color),
+        ],
+      );
 }
 
 /// Single skeleton bar (extracted for prefer_split_widget_const).
@@ -521,19 +513,17 @@ class _SkeletonBar extends StatelessWidget {
 
   @override
   @useResult
-  Widget build(BuildContext context) {
-    return Container(
-      width: _kSkeletonBarWidth,
-      height: _kSkeletonBarHeight,
-      margin: const EdgeInsets.only(bottom: _kSkeletonBarGap),
-      clipBehavior: Clip.hardEdge,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius:
-            const BorderRadius.all(Radius.circular(_kSkeletonCornerRadius)),
-      ),
-    );
-  }
+  Widget build(BuildContext _) => Container(
+        width: _kSkeletonBarWidth,
+        height: _kSkeletonBarHeight,
+        margin: const EdgeInsets.only(bottom: _kSkeletonBarGap),
+        clipBehavior: Clip.hardEdge,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius:
+              const BorderRadius.all(Radius.circular(_kSkeletonCornerRadius)),
+        ),
+      );
 }
 
 /// Skeleton block (extracted for prefer_split_widget_const).
@@ -548,18 +538,16 @@ class _SkeletonBlock extends StatelessWidget {
 
   @override
   @useResult
-  Widget build(BuildContext context) {
-    return Container(
-      width: _kSkeletonBlockWidth,
-      height: _kSkeletonBlockHeight,
-      clipBehavior: Clip.hardEdge,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius:
-            const BorderRadius.all(Radius.circular(_kSkeletonCornerRadius)),
-      ),
-    );
-  }
+  Widget build(BuildContext _) => Container(
+        width: _kSkeletonBlockWidth,
+        height: _kSkeletonBlockHeight,
+        clipBehavior: Clip.hardEdge,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius:
+              const BorderRadius.all(Radius.circular(_kSkeletonCornerRadius)),
+        ),
+      );
 }
 
 // ---------------------------------------------------------------------------
