@@ -102,6 +102,12 @@ export class LogCaptureBridge {
     );
   }
 
+  /** Write a terminal link match/action event. */
+  writeTerminalLinkEvent(msg: string): void {
+    if (!this._api) return;
+    this._api.writeLine(`DRIFT LINK: ${msg}`, { category: 'drift-link' });
+  }
+
   /** Write a connection lifecycle event. */
   writeConnectionEvent(msg: string): void {
     if (!this._api) return;

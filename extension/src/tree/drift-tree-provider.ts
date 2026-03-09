@@ -12,6 +12,7 @@ type TreeNode = ConnectionStatusItem | TableItem | ColumnItem | ForeignKeyItem;
 export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   private readonly _client: DriftApiClient;
   private _tables: TableMetadata[] = [];
+  private _tableItems: TableItem[] = [];
   private _connected = false;
   private _refreshing = false;
 
@@ -31,9 +32,11 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     try {
       await this._client.health();
       this._tables = await this._client.schemaMetadata();
+      this._tableItems = this._tables.map((t) => new TableItem(t));
       this._connected = true;
     } catch {
       this._tables = [];
+      this._tableItems = [];
       this._connected = false;
     } finally {
       this._refreshing = false;
@@ -52,7 +55,7 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
         this._client.baseUrl,
         this._connected,
       );
-      return [status, ...this._tables.map((t) => new TableItem(t))];
+      return [status, ...this._tableItems];
     }
 
     // Table level: columns + foreign keys (lazy-loaded)
@@ -71,6 +74,11 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     }
 
     return [];
+  }
+
+  /** Find a cached TableItem by name (for tree view reveal). */
+  findTableItem(name: string): TableItem | undefined {
+    return this._tableItems.find((item) => item.table.name === name);
   }
 
   get connected(): boolean {
