@@ -61,7 +61,6 @@ final class SessionHandler {
     String sessionId,
   ) async {
     final res = response;
-    // ignore: require_network_status_check
     final session = _sessionStore.get(sessionId);
 
     if (session == null) {

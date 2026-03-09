@@ -266,20 +266,39 @@ final class AnalyticsHandler {
           if (colName != null) {
             if (isNullable) {
               await _detectNullValues(
-                  query: query, tableName: tableName, colName: colName, tableRowCount: tableRowCount, anomalies: anomalies);
+                  query: query,
+                  tableName: tableName,
+                  colName: colName,
+                  tableRowCount: tableRowCount,
+                  anomalies: anomalies);
             }
             if (ServerContext.isTextType(colType)) {
-              await _detectEmptyStrings(query: query, tableName: tableName, colName: colName, anomalies: anomalies);
+              await _detectEmptyStrings(
+                  query: query,
+                  tableName: tableName,
+                  colName: colName,
+                  anomalies: anomalies);
             }
             if (ServerContext.isNumericType(colType)) {
-              await _detectNumericOutliers(query: query, tableName: tableName, colName: colName, anomalies: anomalies);
+              await _detectNumericOutliers(
+                  query: query,
+                  tableName: tableName,
+                  colName: colName,
+                  anomalies: anomalies);
             }
           }
         }
 
         await _detectOrphanedForeignKeys(
-            query: query, tableName: tableName, tableNames: tableNames, anomalies: anomalies);
-        await _detectDuplicateRows(query: query, tableName: tableName, tableRowCount: tableRowCount, anomalies: anomalies);
+            query: query,
+            tableName: tableName,
+            tableNames: tableNames,
+            anomalies: anomalies);
+        await _detectDuplicateRows(
+            query: query,
+            tableName: tableName,
+            tableRowCount: tableRowCount,
+            anomalies: anomalies);
       }
 
       ServerContext.sortAnomaliesBySeverity(anomalies);
@@ -342,7 +361,7 @@ final class AnalyticsHandler {
     final emptyCount = ServerContext.extractCountFromRows(
       ServerContext.normalizeRows(
         await query(
-          "SELECT COUNT(*) AS c FROM \"$tableName\" "
+          'SELECT COUNT(*) AS c FROM "$tableName" '
           "WHERE \"$colName\" = ''",
         ),
       ),

@@ -307,7 +307,7 @@ class _WebViewScreenFromSettings extends StatelessWidget {
 
   @override
   @useResult
-  Widget build(BuildContext context) => _DriftViewerWebViewScreen(uri: uri);
+  Widget build(BuildContext _) => _DriftViewerWebViewScreen(uri: uri);
 }
 
 // ---------------------------------------------------------------------------
@@ -569,7 +569,7 @@ class _SandboxedWebView extends StatelessWidget {
 
   @override
   @useResult
-  Widget build(BuildContext context) => WebViewWidget(controller: controller);
+  Widget build(BuildContext _) => WebViewWidget(controller: controller);
 }
 
 // ---------------------------------------------------------------------------
