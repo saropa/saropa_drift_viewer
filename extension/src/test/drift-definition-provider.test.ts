@@ -2,10 +2,8 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import { DriftApiClient } from '../api-client';
-import {
-  DriftDefinitionProvider,
-  snakeToPascal,
-} from '../definition/drift-definition-provider';
+import { snakeToPascal } from '../dart-names';
+import { DriftDefinitionProvider } from '../definition/drift-definition-provider';
 
 // Re-import mock helpers for type access
 const vscodeMock = vscode as any;

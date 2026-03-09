@@ -1,35 +1,12 @@
 import * as vscode from 'vscode';
 import { DriftApiClient, TableMetadata } from '../api-client';
+import { escapeRegex, snakeToCamel, snakeToPascal } from '../dart-names';
 import {
   classifyIdentifier,
   extractEnclosingString,
   getWordAt,
   isInsideSqlString,
 } from './sql-string-detector';
-
-/**
- * Convert a snake_case SQL name to PascalCase Dart class name.
- * e.g. "users" → "Users", "user_profiles" → "UserProfiles"
- */
-export function snakeToPascal(name: string): string {
-  return name
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join('');
-}
-
-/**
- * Convert snake_case to camelCase.
- * e.g. "created_at" → "createdAt"
- */
-function snakeToCamel(name: string): string {
-  return name.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
-}
-
-/** Escape special regex characters in a string for safe use in RegExp. */
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 /**
  * VS Code DefinitionProvider that resolves SQL table/column names
