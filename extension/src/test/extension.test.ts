@@ -67,8 +67,8 @@ describe('Extension activation', () => {
     // Discovery: discovery, serverManager (2)
     // Lifecycle: watcher, statusBar, perfView, logBridge, 2 debug listeners,
     //   perf cleanup, snapshotStore (8)
-    // Total = 54
-    assert.strictEqual(subscriptions.length, 54, `expected 54 disposables, got ${subscriptions.length}`);
+    // Total = 56
+    assert.strictEqual(subscriptions.length, 56, `expected 56 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
@@ -134,6 +134,12 @@ describe('Extension activation', () => {
     assert.ok('driftViewer.watchTable' in registered);
     assert.ok('driftViewer.watchQuery' in registered);
     assert.ok('driftViewer.openWatchPanel' in registered);
+  });
+
+  it('should register driftViewer.openSqlNotebook command', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.openSqlNotebook' in registered);
   });
 
   it('should register a HoverProvider for Dart files', () => {
