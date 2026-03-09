@@ -27,6 +27,11 @@
         {
           "id": "driftViewer.databaseExplorer",
           "name": "Database"
+        },
+        {
+          "id": "driftViewer.pendingChanges",
+          "name": "Pending Changes",
+          "when": "driftViewer.hasEdits"
         }
       ],
       "debug": [
@@ -112,6 +117,58 @@
       {
         "command": "driftViewer.showAllTables",
         "title": "Drift Viewer: Show All Tables"
+      },
+      {
+        "command": "driftViewer.captureSnapshot",
+        "title": "Drift Viewer: Capture Snapshot"
+      },
+      {
+        "command": "driftViewer.showSnapshotDiff",
+        "title": "Drift Viewer: Show Snapshot Diff"
+      },
+      {
+        "command": "driftViewer.explainQuery",
+        "title": "Drift Viewer: Explain Query Plan"
+      },
+      {
+        "command": "driftViewer.watchTable",
+        "title": "Watch Table",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "driftViewer.watchQuery",
+        "title": "Drift Viewer: Watch Query"
+      },
+      {
+        "command": "driftViewer.openWatchPanel",
+        "title": "Drift Viewer: Open Watch Panel"
+      },
+      {
+        "command": "driftViewer.generateSql",
+        "title": "Drift Viewer: Generate SQL from Edits",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "driftViewer.discardAllEdits",
+        "title": "Drift Viewer: Discard All Edits",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "driftViewer.undoEdit",
+        "title": "Drift Viewer: Undo Edit"
+      },
+      {
+        "command": "driftViewer.redoEdit",
+        "title": "Drift Viewer: Redo Edit"
+      },
+      {
+        "command": "driftViewer.toggleEditing",
+        "title": "Drift Viewer: Toggle Editing Mode"
+      },
+      {
+        "command": "driftViewer.removeChange",
+        "title": "Remove Change",
+        "icon": "$(close)"
       }
     ],
     "menus": {
@@ -130,6 +187,23 @@
           "command": "driftViewer.clearPerformance",
           "when": "view == driftViewer.queryPerformance",
           "group": "navigation"
+        },
+        {
+          "command": "driftViewer.generateSql",
+          "when": "view == driftViewer.pendingChanges",
+          "group": "navigation"
+        },
+        {
+          "command": "driftViewer.discardAllEdits",
+          "when": "view == driftViewer.pendingChanges",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "driftViewer.explainQuery",
+          "when": "editorLangId == dart",
+          "group": "drift@1"
         }
       ],
       "view/item/context": [
@@ -157,9 +231,31 @@
           "command": "driftViewer.filterByColumn",
           "when": "viewItem == driftColumn || viewItem == driftColumnPk",
           "group": "1_view"
+        },
+        {
+          "command": "driftViewer.watchTable",
+          "when": "viewItem == driftTable",
+          "group": "4_watch"
+        },
+        {
+          "command": "driftViewer.removeChange",
+          "when": "viewItem == pendingChange",
+          "group": "inline"
         }
       ]
     },
+    "keybindings": [
+      {
+        "command": "driftViewer.undoEdit",
+        "key": "ctrl+z",
+        "when": "driftViewer.editingActive && focusedView == driftViewer.pendingChanges"
+      },
+      {
+        "command": "driftViewer.redoEdit",
+        "key": "ctrl+shift+z",
+        "when": "driftViewer.editingActive && focusedView == driftViewer.pendingChanges"
+      }
+    ],
     "taskDefinitions": [
       {
         "type": "drift",
@@ -245,6 +341,18 @@
           "default": true,
           "description": "Show row count badges on Drift table files in the explorer."
         },
+        "driftViewer.hover.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show database row preview on hover during debug sessions."
+        },
+        "driftViewer.hover.maxRows": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Number of recent rows to show in hover preview."
+        },
         "driftViewer.linter.enabled": {
           "type": "boolean",
           "default": true,
@@ -255,6 +363,31 @@
           "enum": ["error", "warning", "information", "hint"],
           "default": "warning",
           "description": "Severity level for data anomaly diagnostics."
+        },
+        "driftViewer.timeline.maxSnapshots": {
+          "type": "number",
+          "default": 20,
+          "description": "Maximum number of snapshots to keep in memory."
+        },
+        "driftViewer.timeline.autoCapture": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically capture snapshots when database data changes."
+        },
+        "driftViewer.timeline.minIntervalMs": {
+          "type": "number",
+          "default": 10000,
+          "description": "Minimum milliseconds between automatic snapshot captures."
+        },
+        "driftViewer.watch.notifications": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show desktop notifications when watched data changes."
+        },
+        "driftViewer.watch.maxWatchers": {
+          "type": "number",
+          "default": 10,
+          "description": "Maximum number of simultaneous watch queries."
         }
       }
     }
@@ -263,7 +396,7 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "test": "npm run compile && mocha"
+    "test": "npm run compile && node --max-old-space-size=4096 node_modules/mocha/bin/mocha.js"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",

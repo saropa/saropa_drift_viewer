@@ -16,6 +16,36 @@ export class EventEmitter {
   }
 }
 
+// --- Output Channel ---
+
+export class MockOutputChannel {
+  readonly lines: string[] = [];
+  constructor(public readonly name: string = 'test') {}
+  appendLine(line: string): void { this.lines.push(line); }
+  append(): void { /* no-op */ }
+  clear(): void { /* no-op */ }
+  show(): void { /* no-op */ }
+  hide(): void { /* no-op */ }
+  replace(): void { /* no-op */ }
+  dispose(): void { /* no-op */ }
+}
+
+// --- Timeline support ---
+
+export class TimelineItem {
+  label: string;
+  timestamp: number;
+  id?: string;
+  description?: string;
+  iconPath?: any;
+  command?: any;
+
+  constructor(label: string, timestamp: number) {
+    this.label = label;
+    this.timestamp = timestamp;
+  }
+}
+
 // --- Tree view support ---
 
 export enum TreeItemCollapsibleState {
@@ -40,6 +70,15 @@ export class MarkdownString {
   isTrusted?: boolean;
   constructor(value = '') {
     this.value = value;
+  }
+}
+
+export class Hover {
+  contents: MarkdownString | MarkdownString[];
+  range?: Range;
+  constructor(contents: MarkdownString | MarkdownString[], range?: Range) {
+    this.contents = contents;
+    this.range = range;
   }
 }
 
@@ -228,6 +267,7 @@ export class MockTreeView {
 
 export class MockWebview {
   html = '';
+  postedMessages: unknown[] = [];
   private _onDidReceiveMessage = new EventEmitter();
 
   onDidReceiveMessage(
@@ -240,6 +280,12 @@ export class MockWebview {
       (disposables as any[]).push(disposable);
     }
     return disposable;
+  }
+
+  /** Post a message from the extension to the webview. */
+  postMessage(message: unknown): Thenable<boolean> {
+    this.postedMessages.push(message);
+    return Promise.resolve(true);
   }
 
   /** Simulate the webview sending a message to the extension. */
@@ -290,10 +336,12 @@ export const createdPanels: MockWebviewPanel[] = [];
 export const createdTreeViews: MockTreeView[] = [];
 export const registeredCodeLensProviders: Array<{ selector: any; provider: any }> = [];
 export const registeredDefinitionProviders: Array<{ selector: any; provider: any }> = [];
+export const registeredHoverProviders: Array<{ selector: any; provider: any }> = [];
 export const registeredCodeActionProviders: Array<{ selector: any; provider: any; metadata?: any }> = [];
 export const createdDiagnosticCollections: MockDiagnosticCollection[] = [];
 export const registeredFileDecorationProviders: any[] = [];
 export const registeredTerminalLinkProviders: Array<{ provider: any }> = [];
+export const registeredTimelineProviders: Array<{ scheme: string; provider: any }> = [];
 export const createdTextDocuments: Array<{ content: string; language: string }> = [];
 
 // --- Clipboard mock ---
@@ -358,6 +406,7 @@ export const window = {
     createdTreeViews.push(tv);
     return tv as any;
   },
+  createOutputChannel: (name: string) => new MockOutputChannel(name),
   createStatusBarItem: (_alignment?: any, _priority?: number) => ({
     text: '',
     command: '',
@@ -425,6 +474,10 @@ export const workspace = {
     return options;
   },
   findFiles: async (_include: any, _exclude?: any): Promise<any[]> => [],
+  registerTimelineProvider: (scheme: string, provider: any) => {
+    registeredTimelineProviders.push({ scheme, provider });
+    return { dispose: () => { /* no-op */ } };
+  },
   fs: {
     writeFile: async (uri: any, content: Uint8Array) => {
       writtenFiles.push({ uri, content });
@@ -457,6 +510,10 @@ export const languages = {
   },
   registerDefinitionProvider: (selector: any, provider: any) => {
     registeredDefinitionProviders.push({ selector, provider });
+    return { dispose: () => { /* no-op */ } };
+  },
+  registerHoverProvider: (selector: any, provider: any) => {
+    registeredHoverProviders.push({ selector, provider });
     return { dispose: () => { /* no-op */ } };
   },
   registerCodeActionsProvider: (selector: any, provider: any, metadata?: any) => {
@@ -545,6 +602,7 @@ const debugStartListeners: DebugSessionListener[] = [];
 const debugTerminateListeners: DebugSessionListener[] = [];
 
 export const debug = {
+  activeDebugSession: undefined as any,
   onDidStartDebugSession: (listener: DebugSessionListener) => {
     debugStartListeners.push(listener);
     return {
@@ -635,9 +693,12 @@ export function resetMocks(): void {
   messageMock.reset();
   registeredCodeLensProviders.length = 0;
   registeredDefinitionProviders.length = 0;
+  registeredHoverProviders.length = 0;
   registeredCodeActionProviders.length = 0;
+  debug.activeDebugSession = undefined;
   registeredFileDecorationProviders.length = 0;
   registeredTerminalLinkProviders.length = 0;
+  registeredTimelineProviders.length = 0;
   createdDiagnosticCollections.length = 0;
   createdTextDocuments.length = 0;
   registeredTaskProviders.length = 0;

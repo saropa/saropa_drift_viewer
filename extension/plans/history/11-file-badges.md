@@ -7,6 +7,7 @@ Every `.dart` file containing Drift table definitions gets a badge in the file e
 ## User Experience
 
 In the Explorer sidebar:
+
 ```
 lib/
   database/
@@ -21,6 +22,7 @@ lib/
 ```
 
 Badge colors:
+
 - **Green/default**: normal row counts
 - **Yellow**: table has anomalies (from `/api/analytics/anomalies`)
 - **Red**: table has errors (orphaned FKs, duplicates)
@@ -47,7 +49,9 @@ extension/src/test/
 
 ```typescript
 class DriftFileDecorationProvider implements vscode.FileDecorationProvider {
-  private readonly _onDidChangeFileDecorations = new vscode.EventEmitter<vscode.Uri | vscode.Uri[]>();
+  private readonly _onDidChangeFileDecorations = new vscode.EventEmitter<
+    vscode.Uri | vscode.Uri[]
+  >();
   readonly onDidChangeFileDecorations = this._onDidChangeFileDecorations.event;
 
   // Cached: file URI -> decoration data
@@ -58,13 +62,16 @@ class DriftFileDecorationProvider implements vscode.FileDecorationProvider {
     if (!data) return undefined;
 
     return {
-      badge: data.badge,          // "1K", "45K", "250K"
-      color: data.color,          // ThemeColor
-      tooltip: data.tooltip,      // "users: 1,200 rows\nposts: 45,000 rows"
+      badge: data.badge, // "1K", "45K", "250K"
+      color: data.color, // ThemeColor
+      tooltip: data.tooltip, // "users: 1,200 rows\nposts: 45,000 rows"
     };
   }
 
-  async refresh(client: DriftApiClient, tableFileMap: Map<string, string[]>): Promise<void> {
+  async refresh(
+    client: DriftApiClient,
+    tableFileMap: Map<string, string[]>,
+  ): Promise<void> {
     // tableFileMap: sqlTableName -> [filePath, ...]
 
     const [metadata, anomalyResp] = await Promise.all([
@@ -73,21 +80,35 @@ class DriftFileDecorationProvider implements vscode.FileDecorationProvider {
     ]);
 
     // Build: filePath -> { totalRows, hasAnomaly, hasError, tables[] }
-    const fileData = new Map<string, { totalRows: number; severity: Severity; tables: string[] }>();
+    const fileData = new Map<
+      string,
+      { totalRows: number; severity: Severity; tables: string[] }
+    >();
 
     for (const table of metadata.tables) {
       const files = tableFileMap.get(table.name) ?? [];
       for (const file of files) {
-        const existing = fileData.get(file) ?? { totalRows: 0, severity: 'ok', tables: [] };
+        const existing = fileData.get(file) ?? {
+          totalRows: 0,
+          severity: "ok",
+          tables: [],
+        };
         existing.totalRows += table.rowCount;
-        existing.tables.push(`${table.name}: ${formatCount(table.rowCount)} rows`);
+        existing.tables.push(
+          `${table.name}: ${formatCount(table.rowCount)} rows`,
+        );
 
         // Check anomalies for this table
-        const tableAnomalies = anomalyResp.anomalies.filter(a => a.table === table.name);
-        if (tableAnomalies.some(a => a.severity === 'error')) {
-          existing.severity = 'error';
-        } else if (tableAnomalies.some(a => a.severity === 'warning') && existing.severity !== 'error') {
-          existing.severity = 'warning';
+        const tableAnomalies = anomalyResp.anomalies.filter(
+          (a) => a.table === table.name,
+        );
+        if (tableAnomalies.some((a) => a.severity === "error")) {
+          existing.severity = "error";
+        } else if (
+          tableAnomalies.some((a) => a.severity === "warning") &&
+          existing.severity !== "error"
+        ) {
+          existing.severity = "warning";
         }
 
         fileData.set(file, existing);
@@ -103,7 +124,7 @@ class DriftFileDecorationProvider implements vscode.FileDecorationProvider {
       this._decorations.set(uri.toString(), {
         badge: formatCount(data.totalRows),
         color: severityColor(data.severity),
-        tooltip: data.tables.join('\n'),
+        tooltip: data.tables.join("\n"),
       });
       changedUris.push(uri);
     }
@@ -130,9 +151,12 @@ Badge text is limited to ~3 characters by VS Code, so abbreviation is required.
 ```typescript
 function severityColor(severity: string): vscode.ThemeColor | undefined {
   switch (severity) {
-    case 'error':   return new vscode.ThemeColor('list.errorForeground');
-    case 'warning': return new vscode.ThemeColor('list.warningForeground');
-    default:        return undefined; // default color
+    case "error":
+      return new vscode.ThemeColor("list.errorForeground");
+    case "warning":
+      return new vscode.ThemeColor("list.warningForeground");
+    default:
+      return undefined; // default color
   }
 }
 ```
@@ -140,11 +164,13 @@ function severityColor(severity: string): vscode.ThemeColor | undefined {
 ### Table-to-File Mapping
 
 Built by the Dart parser (Feature 5):
+
 1. Scan workspace `.dart` files for `class ... extends Table`
 2. Map each SQL table name to its source file path
 3. Cache and refresh on file changes
 
 If Feature 5 isn't implemented yet, use a simpler approach:
+
 - Fetch table names from `/api/tables`
 - Search for `class TableName extends Table` in `.dart` files using `vscode.workspace.findFiles` + `vscode.workspace.openTextDocument` + regex
 
@@ -160,11 +186,11 @@ No special contributions — `FileDecorationProvider` is registered programmatic
         "driftViewer.fileBadges.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Show row count badges on Drift table files in the explorer."
-        }
-      }
-    }
-  }
+          "description": "Show row count badges on Drift table files in the explorer.",
+        },
+      },
+    },
+  },
 }
 ```
 
@@ -173,7 +199,7 @@ No special contributions — `FileDecorationProvider` is registered programmatic
 ```typescript
 const fileDecoProvider = new DriftFileDecorationProvider();
 context.subscriptions.push(
-  vscode.window.registerFileDecorationProvider(fileDecoProvider)
+  vscode.window.registerFileDecorationProvider(fileDecoProvider),
 );
 
 // Refresh on data change

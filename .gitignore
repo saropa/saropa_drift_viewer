@@ -28,5 +28,16 @@ extension/node_modules/
 extension/out/
 extension/*.vsix
 
+# AI / LLM tooling config (Claude Code, Cursor, Copilot, etc.)
+.claude/
+CLAUDE.md
+.cursor/
+.cursorignore
+.cursorindexingignore
+.cursorrules
+.copilot/
+.github/copilot-instructions.md
+.aider*
+
 # Root is the Dart package.
 *.bak

@@ -5,6 +5,7 @@ import {
   MockMemento,
   registeredCodeActionProviders,
   registeredCodeLensProviders,
+  registeredHoverProviders,
   resetMocks,
   tasks,
 } from './vscode-mock';
@@ -60,13 +61,14 @@ describe('Extension activation', () => {
 
   it('should push expected disposables', () => {
     activate(fakeContext());
-    // Providers: treeView, definitionProvider, codeLensProvider, diagnosticCollection,
-    //   codeActionProvider, fileDecoProvider, taskProvider, terminalLinkProvider (8)
+    // Providers: treeView, definitionProvider, codeLensProvider, hoverProvider,
+    //   diagnosticCollection, codeActionProvider, fileDecoProvider, taskProvider,
+    //   terminalLinkProvider, timelineProvider (10)
     // Discovery: discovery, serverManager (2)
-    // Lifecycle: watcher, statusBar, perfView, logBridge, 2 debug listeners, perf cleanup (7)
-    // Commands: 18 total (tree/panel/linter/perf/showAllTables + selectServer + retryDiscovery)
-    // Total = 8 + 2 + 7 + 18 = 35
-    assert.strictEqual(subscriptions.length, 35, `expected 35 disposables, got ${subscriptions.length}`);
+    // Lifecycle: watcher, statusBar, perfView, logBridge, 2 debug listeners,
+    //   perf cleanup, snapshotStore (8)
+    // Total = 54
+    assert.strictEqual(subscriptions.length, 54, `expected 54 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
@@ -117,6 +119,30 @@ describe('Extension activation', () => {
     const registered = commands.getRegistered();
     assert.ok('driftViewer.selectServer' in registered);
     assert.ok('driftViewer.retryDiscovery' in registered);
+  });
+
+  it('should register snapshot commands', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.captureSnapshot' in registered);
+    assert.ok('driftViewer.showSnapshotDiff' in registered);
+  });
+
+  it('should register watch commands', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.watchTable' in registered);
+    assert.ok('driftViewer.watchQuery' in registered);
+    assert.ok('driftViewer.openWatchPanel' in registered);
+  });
+
+  it('should register a HoverProvider for Dart files', () => {
+    activate(fakeContext());
+    assert.strictEqual(registeredHoverProviders.length, 1);
+    assert.deepStrictEqual(registeredHoverProviders[0].selector, {
+      language: 'dart',
+      scheme: 'file',
+    });
   });
 
   it('should register a CodeAction provider for Dart files', () => {

@@ -1,6 +1,10 @@
 import * as vscode from 'vscode';
 import { DriftApiClient, QueryEntry } from './api-client';
 import { DriftFileDecorationProvider, buildTableFileMap } from './decorations/file-decoration-provider';
+import { ChangeTracker } from './editing/change-tracker';
+import { EditingBridge } from './editing/editing-bridge';
+import { ChangeItem, PendingChangesProvider } from './editing/pending-changes-provider';
+import { generateSql } from './editing/sql-generator';
 import { DriftCodeActionProvider, SchemaDiagnostics } from './linter/schema-diagnostics';
 import { DriftCodeLensProvider } from './codelens/drift-codelens-provider';
 import { TableNameMapper } from './codelens/table-name-mapper';
@@ -8,13 +12,21 @@ import { LogCaptureBridge } from './debug/log-capture-bridge';
 import { PerformanceTreeProvider } from './debug/performance-tree-provider';
 import { DriftDefinitionProvider } from './definition/drift-definition-provider';
 import { GenerationWatcher } from './generation-watcher';
+import { DriftHoverProvider, HoverCache } from './hover/drift-hover-provider';
+import { ExplainPanel } from './explain/explain-panel';
+import { extractSqlFromContext } from './explain/sql-extractor';
 import { DriftViewerPanel } from './panel';
 import { ServerDiscovery } from './server-discovery';
 import { ServerManager } from './server-manager';
 import { DriftTaskProvider } from './tasks/drift-task-provider';
 import { DriftTerminalLinkProvider } from './terminal/drift-terminal-link-provider';
+import { DriftTimelineProvider } from './timeline/drift-timeline-provider';
+import { SnapshotDiffPanel } from './timeline/snapshot-diff-panel';
+import { computeTableDiff, ROW_LIMIT, rowsToObjects, SnapshotStore } from './timeline/snapshot-store';
 import { DriftTreeProvider } from './tree/drift-tree-provider';
 import { ColumnItem, TableItem } from './tree/tree-items';
+import { WatchManager } from './watch/watch-manager';
+import { WatchPanel } from './watch/watch-panel';
 
 function escapeCsvCell(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -120,6 +132,16 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
+  // Hover preview on Drift table class names (debug-only)
+  const hoverCache = new HoverCache();
+  const hoverProvider = new DriftHoverProvider(client, mapper, hoverCache);
+  context.subscriptions.push(
+    vscode.languages.registerHoverProvider(
+      { language: 'dart', scheme: 'file' },
+      hoverProvider,
+    ),
+  );
+
   // Schema linter (diagnostics on Drift tables)
   const diagnosticCollection = vscode.languages.createDiagnosticCollection('drift-linter');
   context.subscriptions.push(diagnosticCollection);
@@ -138,26 +160,53 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.registerFileDecorationProvider(fileDecoProvider),
   );
   let tableFileMap: Map<string, string> | null = null;
-  async function refreshBadges(): Promise<void> {
-    const cfg = vscode.workspace.getConfiguration('driftViewer');
-    if (!cfg.get<boolean>('fileBadges.enabled', true)) return;
+
+  // Snapshot timeline
+  const snapshotStore = new SnapshotStore(
+    cfg.get<number>('timeline.maxSnapshots', 20) ?? 20,
+    cfg.get<number>('timeline.minIntervalMs', 10000) ?? 10000,
+  );
+  const timelineProvider = new DriftTimelineProvider(snapshotStore);
+  context.subscriptions.push(
+    vscode.workspace.registerTimelineProvider('file', timelineProvider),
+  );
+  context.subscriptions.push({ dispose: () => snapshotStore.dispose() });
+
+  // Live data watch
+  const watchManager = new WatchManager(client, context.workspaceState);
+  watchManager.restore().catch(() => { /* no stored watches */ });
+
+  /** Build/refresh the table-to-file mapping (shared by badges + timeline). */
+  async function ensureTableFileMap(): Promise<Map<string, string>> {
     if (!tableFileMap) {
-      // Ensure mapper knows server table names before scanning workspace
       const meta = await client.schemaMetadata();
       mapper.updateTableList(meta.map((t) => t.name));
       tableFileMap = await buildTableFileMap(mapper);
     }
-    await fileDecoProvider.refresh(client, tableFileMap);
+    timelineProvider.updateFileToTables(tableFileMap);
+    return tableFileMap;
+  }
+
+  async function refreshBadges(): Promise<void> {
+    const map = await ensureTableFileMap();
+    const cfg = vscode.workspace.getConfiguration('driftViewer');
+    if (!cfg.get<boolean>('fileBadges.enabled', true)) return;
+    await fileDecoProvider.refresh(client, map);
   }
 
   // Auto-refresh on data changes
   watcher.onDidChange(async () => {
     treeProvider.refresh();
     definitionProvider.clearCache();
+    hoverCache.clear();
     await codeLensProvider.refreshRowCounts();
     codeLensProvider.notifyChange();
     linter.refresh();
     refreshBadges().catch(() => { /* server down */ });
+    if (cfg.get<boolean>('timeline.autoCapture', true)) {
+      snapshotStore.capture(client).catch(() => { /* server down */ });
+    }
+    watchManager.refresh().catch(() => { /* server down */ });
   });
   watcher.start();
   treeProvider.refresh(); // initial load
@@ -171,6 +220,45 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.tasks.registerTaskProvider(DriftTaskProvider.type, new DriftTaskProvider()),
   );
+
+  // Saropa Log Capture integration (optional)
+  const logBridge = new LogCaptureBridge();
+  logBridge.init(context, client).catch(() => { /* extension not installed */ });
+  context.subscriptions.push({ dispose: () => logBridge.dispose() });
+
+  // --- Data Editing (review workflow) ---
+
+  const editOutputChannel = vscode.window.createOutputChannel(
+    'Drift Viewer: Data Edits',
+  );
+  context.subscriptions.push(editOutputChannel);
+  const changeTracker = new ChangeTracker(editOutputChannel);
+  context.subscriptions.push(changeTracker);
+  const editingBridge = new EditingBridge(changeTracker);
+  context.subscriptions.push(editingBridge);
+  const pendingProvider = new PendingChangesProvider(changeTracker);
+
+  const pendingView = vscode.window.createTreeView(
+    'driftViewer.pendingChanges',
+    { treeDataProvider: pendingProvider },
+  );
+  context.subscriptions.push(pendingView);
+
+  // Keep context keys and log bridge in sync with pending edits
+  changeTracker.onDidChange(() => {
+    vscode.commands.executeCommand(
+      'setContext',
+      'driftViewer.hasEdits',
+      changeTracker.changeCount > 0,
+    );
+    vscode.commands.executeCommand(
+      'setContext',
+      'driftViewer.editingActive',
+      changeTracker.changeCount > 0,
+    );
+    // Mirror action to LogCaptureBridge
+    logBridge.writeDataEdit(changeTracker.lastLogMessage);
+  });
 
   // --- Commands ---
 
@@ -186,7 +274,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand(
       'driftViewer.viewTableData',
       (_item: TableItem) => {
-        DriftViewerPanel.createOrShow(client.host, client.port);
+        DriftViewerPanel.createOrShow(client.host, client.port, editingBridge);
       },
     ),
   );
@@ -259,7 +347,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand(
       'driftViewer.filterByColumn',
       (_item: ColumnItem) => {
-        DriftViewerPanel.createOrShow(client.host, client.port);
+        DriftViewerPanel.createOrShow(client.host, client.port, editingBridge);
       },
     ),
   );
@@ -276,7 +364,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Open in editor panel
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.openInPanel', () => {
-      DriftViewerPanel.createOrShow(client.host, client.port);
+      DriftViewerPanel.createOrShow(client.host, client.port, editingBridge);
     }),
   );
 
@@ -285,7 +373,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand(
       'driftViewer.viewTableInPanel',
       (_tableName: string) => {
-        DriftViewerPanel.createOrShow(client.host, client.port);
+        DriftViewerPanel.createOrShow(client.host, client.port, editingBridge);
       },
     ),
   );
@@ -343,6 +431,183 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
+  // Snapshot commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.captureSnapshot', async () => {
+      const snap = await snapshotStore.capture(client);
+      if (snap) {
+        vscode.window.showInformationMessage('Drift snapshot captured.');
+      } else {
+        vscode.window.showWarningMessage(
+          'Snapshot skipped (too soon or server unreachable).',
+        );
+      }
+    }),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.showSnapshotDiff',
+      async (snapshotId: string, tableName: string) => {
+        const snapshot = snapshotStore.getById(snapshotId);
+        if (!snapshot) return;
+        const snapTable = snapshot.tables.get(tableName);
+        if (!snapTable) return;
+        try {
+          const [result, meta] = await Promise.all([
+            client.sql(
+              `SELECT * FROM "${tableName}" ORDER BY rowid LIMIT ${ROW_LIMIT}`,
+            ),
+            client.schemaMetadata(),
+          ]);
+          const currentRows = rowsToObjects(result.columns, result.rows);
+          const tableMeta = meta.find((t) => t.name === tableName);
+          const diff = computeTableDiff(
+            tableName,
+            snapTable.columns,
+            snapTable.pkColumns,
+            snapTable.rows,
+            currentRows,
+            snapTable.rowCount,
+            tableMeta?.rowCount ?? currentRows.length,
+          );
+          SnapshotDiffPanel.createOrShow(tableName, diff);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Snapshot diff failed: ${msg}`);
+        }
+      },
+    ),
+  );
+
+  // Explain query plan (right-click SQL in Dart files)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.explainQuery',
+      async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return;
+        const sql = extractSqlFromContext(
+          editor.document.getText(),
+          editor.document.getText(editor.selection),
+          editor.selection.start.line,
+        );
+        if (!sql) {
+          vscode.window.showWarningMessage(
+            'No SQL query found at cursor position.',
+          );
+          return;
+        }
+        try {
+          const [result, suggestions] = await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: 'Explaining query plan\u2026',
+            },
+            () => Promise.all([
+              client.explainSql(sql),
+              client.indexSuggestions(),
+            ]),
+          );
+          ExplainPanel.createOrShow(sql, result, suggestions);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Explain failed: ${msg}`);
+        }
+      },
+    ),
+  );
+
+  // Watch commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.watchTable',
+      (item: TableItem) => {
+        watchManager.add(
+          `SELECT * FROM "${item.table.name}"`,
+          item.table.name,
+          item.table.columns,
+        );
+        WatchPanel.createOrShow(context, watchManager);
+      },
+    ),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.watchQuery',
+      (sql: string) => {
+        watchManager.add(sql, sql.substring(0, 40));
+        WatchPanel.createOrShow(context, watchManager);
+      },
+    ),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.openWatchPanel', () => {
+      WatchPanel.createOrShow(context, watchManager);
+    }),
+  );
+
+  // --- Data Editing Commands ---
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.generateSql', async () => {
+      if (changeTracker.changeCount === 0) {
+        vscode.window.showInformationMessage('No pending edits.');
+        return;
+      }
+      changeTracker.logGenerateSql();
+      const sql = generateSql(changeTracker.changes);
+      const doc = await vscode.workspace.openTextDocument({
+        content: sql,
+        language: 'sql',
+      });
+      await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
+    }),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.discardAllEdits',
+      async () => {
+        if (changeTracker.changeCount === 0) return;
+        const answer = await vscode.window.showWarningMessage(
+          `Discard ${changeTracker.changeCount} pending edit(s)?`,
+          { modal: true },
+          'Discard',
+        );
+        if (answer === 'Discard') {
+          changeTracker.discardAll();
+        }
+      },
+    ),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.undoEdit', () =>
+      changeTracker.undo(),
+    ),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.redoEdit', () =>
+      changeTracker.redo(),
+    ),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.toggleEditing', () => {
+      const active = changeTracker.changeCount > 0;
+      vscode.commands.executeCommand(
+        'setContext',
+        'driftViewer.editingActive',
+        !active,
+      );
+    }),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.removeChange',
+      (item: ChangeItem) => {
+        changeTracker.removeChange(item.change.id);
+      },
+    ),
+  );
+
   // Status bar item (dynamic via discovery)
   const statusItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
@@ -366,6 +631,7 @@ export function activate(context: vscode.ExtensionContext): void {
       codeLensProvider.refreshRowCounts();
       linter.refresh();
       refreshBadges().catch(() => { /* server down */ });
+      watchManager.refresh().catch(() => { /* server down */ });
     }
   });
   discovery.onDidChangeServers(() =>
@@ -380,11 +646,6 @@ export function activate(context: vscode.ExtensionContext): void {
     { treeDataProvider: perfProvider },
   );
   context.subscriptions.push(perfView);
-
-  // Saropa Log Capture integration (optional)
-  const logBridge = new LogCaptureBridge();
-  logBridge.init(context, client).catch(() => { /* extension not installed */ });
-  context.subscriptions.push({ dispose: () => logBridge.dispose() });
 
   // Terminal link provider — clickable SQLite errors
   const revealTable = async (name: string): Promise<void> => {
@@ -491,6 +752,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
 
       // Check server connectivity before showing panel
+      hoverCache.clear();
       try {
         await client.health();
         vscode.commands.executeCommand(
@@ -516,6 +778,7 @@ export function activate(context: vscode.ExtensionContext): void {
         'driftViewer.serverConnected',
         false,
       );
+      hoverCache.clear();
       perfProvider.stopAutoRefresh();
       linter.clear();
       logBridge.writeConnectionEvent('Drift debug server disconnected');

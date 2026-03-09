@@ -108,6 +108,12 @@ export class LogCaptureBridge {
     this._api.writeLine(`DRIFT LINK: ${msg}`, { category: 'drift-link' });
   }
 
+  /** Write a data editing event. */
+  writeDataEdit(msg: string): void {
+    if (!this._api) return;
+    this._api.writeLine(`DRIFT EDIT: ${msg}`, { category: 'drift-edit' });
+  }
+
   /** Write a connection lifecycle event. */
   writeConnectionEvent(msg: string): void {
     if (!this._api) return;

@@ -1,18 +1,22 @@
 {
   "version": "0.2",
   "words": [
+    "anomalies",
     "AUTOINCREMENT",
+    "CLOB",
     "dflt",
+    "freelist",
     "Insertable",
     "keyup",
     "ngrok",
     "notnull",
     "onclick",
+    "outlier",
+    "outliers",
     "rethrowing",
     "Sandboxed",
-    "writeln",
-    "anomalies",
-    "outlier",
-    "outliers"
+    "strikethrough",
+    "VARCHAR",
+    "writeln"
   ]
 }

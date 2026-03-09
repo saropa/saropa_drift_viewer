@@ -347,12 +347,11 @@ def add_unreleased_section(changelog_path: Path) -> None:
 
 
 def update_changelog_unreleased(changelog_path: Path, new_version: str) -> None:
-    """Replace [Unreleased] header with versioned header and today's date."""
+    """Replace [Unreleased] header with versioned header."""
     content = changelog_path.read_text(encoding="utf-8")
-    today = datetime.now().strftime("%Y-%m-%d")
     updated = re.sub(
         r"(##\s*)\[Unreleased\]",
-        rf"\g<1>[{new_version}] - {today}",
+        rf"\g<1>[{new_version}]",
         content,
         count=1,
         flags=re.IGNORECASE,

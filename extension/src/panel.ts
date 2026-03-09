@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { EditingBridge } from './editing/editing-bridge';
 
 export class DriftViewerPanel {
   public static currentPanel: DriftViewerPanel | undefined;
@@ -6,12 +7,15 @@ export class DriftViewerPanel {
   private _disposed = false;
   private _disposables: vscode.Disposable[] = [];
 
-  static createOrShow(host: string, port: number): void {
+  static createOrShow(
+    host: string,
+    port: number,
+    editingBridge?: EditingBridge,
+  ): void {
     const column = vscode.ViewColumn.Beside;
     if (DriftViewerPanel.currentPanel) {
       DriftViewerPanel.currentPanel._panel.reveal(column);
-   
-   return;
+      return;
     }
     const panel = vscode.window.createWebviewPanel(
       'driftViewer',
@@ -23,18 +27,34 @@ export class DriftViewerPanel {
         localResourceRoots: [],
       },
     );
-    DriftViewerPanel.currentPanel = new DriftViewerPanel(panel, host, port);
+    DriftViewerPanel.currentPanel = new DriftViewerPanel(
+      panel, host, port, editingBridge,
+    );
   }
 
-  private constructor(panel: vscode.WebviewPanel, host: string, port: number) {
+  private constructor(
+    panel: vscode.WebviewPanel,
+    host: string,
+    port: number,
+    private readonly _editingBridge?: EditingBridge,
+  ) {
     this._panel = panel;
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
-    // Listen for retry messages from the webview
+    if (this._editingBridge) {
+      this._editingBridge.attach(this._panel.webview);
+    }
+
+    // Listen for messages from the webview
     this._panel.webview.onDidReceiveMessage(
       (msg) => {
         if (msg.command === 'retry') {
           this._loadContent(host, port);
+          return;
+        }
+        // Forward editing messages to the bridge
+        if (this._editingBridge) {
+          this._editingBridge.handleMessage(msg);
         }
       },
       null,
@@ -77,6 +97,12 @@ export class DriftViewerPanel {
         `<head><meta http-equiv="Content-Security-Policy" content="${csp}">`,
       );
 
+      // Inject editing script if bridge is available
+      if (this._editingBridge) {
+        const script = EditingBridge.injectedScript();
+        html = html.replace('</body>', `<script>${script}</script></body>`);
+      }
+
       this._panel.webview.html = html;
     } catch {
       if (this._disposed) return;
@@ -96,6 +122,9 @@ export class DriftViewerPanel {
   dispose(): void {
     this._disposed = true;
     DriftViewerPanel.currentPanel = undefined;
+    if (this._editingBridge) {
+      this._editingBridge.detach();
+    }
     this._panel.dispose();
     this._disposables.forEach((d) => d.dispose());
   }
