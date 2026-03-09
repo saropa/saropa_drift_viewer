@@ -1,17 +1,23 @@
 import * as assert from 'assert';
+import * as sinon from 'sinon';
 import { commands, resetMocks } from './vscode-mock';
 import { activate, deactivate } from '../extension';
 import * as vscode from 'vscode';
 
 describe('Extension activation', () => {
   let subscriptions: vscode.Disposable[];
+  let fetchStub: sinon.SinonStub;
 
   beforeEach(() => {
     resetMocks();
     subscriptions = [];
+    fetchStub = sinon.stub(globalThis, 'fetch');
+    // Default: server unreachable (tree provider refresh won't hang)
+    fetchStub.rejects(new Error('connection refused'));
   });
 
   afterEach(() => {
+    fetchStub.restore();
     subscriptions.forEach((d) => d.dispose());
   });
 
@@ -31,9 +37,21 @@ describe('Extension activation', () => {
     assert.ok('driftViewer.openInPanel' in registered, 'openInPanel should be registered');
   });
 
-  it('should push 3 disposables (2 commands + status bar)', () => {
+  it('should register tree view commands', () => {
     activate(fakeContext());
-    assert.strictEqual(subscriptions.length, 3, 'should have 3 disposables');
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.refreshTree' in registered);
+    assert.ok('driftViewer.viewTableData' in registered);
+    assert.ok('driftViewer.copyTableName' in registered);
+    assert.ok('driftViewer.exportTableCsv' in registered);
+    assert.ok('driftViewer.copyColumnName' in registered);
+    assert.ok('driftViewer.filterByColumn' in registered);
+  });
+
+  it('should push expected disposables', () => {
+    activate(fakeContext());
+    // treeView + watcher + 8 commands + statusBar = 11
+    assert.strictEqual(subscriptions.length, 11, `expected 11 disposables, got ${subscriptions.length}`);
   });
 
   it('deactivate should not throw', () => {

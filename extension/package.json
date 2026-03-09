@@ -13,6 +13,23 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "driftViewer",
+          "title": "Drift Viewer",
+          "icon": "$(database)"
+        }
+      ]
+    },
+    "views": {
+      "driftViewer": [
+        {
+          "id": "driftViewer.databaseExplorer",
+          "name": "Database"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "driftViewer.openInBrowser",
@@ -21,8 +38,69 @@
       {
         "command": "driftViewer.openInPanel",
         "title": "Drift Viewer: Open in Editor Panel"
+      },
+      {
+        "command": "driftViewer.refreshTree",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "driftViewer.viewTableData",
+        "title": "View Table Data"
+      },
+      {
+        "command": "driftViewer.copyTableName",
+        "title": "Copy Table Name"
+      },
+      {
+        "command": "driftViewer.exportTableCsv",
+        "title": "Export as CSV"
+      },
+      {
+        "command": "driftViewer.copyColumnName",
+        "title": "Copy Column Name"
+      },
+      {
+        "command": "driftViewer.filterByColumn",
+        "title": "Filter by Column"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "driftViewer.refreshTree",
+          "when": "view == driftViewer.databaseExplorer",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "driftViewer.viewTableData",
+          "when": "viewItem == driftTable",
+          "group": "1_view"
+        },
+        {
+          "command": "driftViewer.copyTableName",
+          "when": "viewItem == driftTable",
+          "group": "2_copy"
+        },
+        {
+          "command": "driftViewer.exportTableCsv",
+          "when": "viewItem == driftTable",
+          "group": "3_export"
+        },
+        {
+          "command": "driftViewer.copyColumnName",
+          "when": "viewItem == driftColumn || viewItem == driftColumnPk",
+          "group": "2_copy"
+        },
+        {
+          "command": "driftViewer.filterByColumn",
+          "when": "viewItem == driftColumn || viewItem == driftColumnPk",
+          "group": "1_view"
+        }
+      ]
+    },
     "configuration": {
       "title": "Drift Viewer",
       "properties": {
