@@ -5,7 +5,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **pub.dev** — [saropa_drift_viewer](https://pub.dev/packages/saropa_drift_viewer)
 
-## [0.2.4] - 2026-03-08
+## [0.3.0]
+
+### Added
+
+- **Web UI: visual query builder** — Collapsible "Query builder" section appears below table metadata when viewing any table. Build SQL queries visually with SELECT column checkboxes, type-aware WHERE clause builder (text: contains/equals/starts-with; numeric: comparison operators; blob: null checks only), ORDER BY column/direction picker, and LIMIT control. Live SQL preview updates as selections change. "Run query" executes via `POST /api/sql` with loading state feedback; "Reset to table view" returns to raw data. Query builder state is persisted per table via localStorage. Column types sourced from existing `/api/schema/metadata` endpoint — no new server endpoints.
+- **Web UI: copy cell to clipboard** — Hover over any data table cell to reveal a copy button. Click copies the raw cell value via `navigator.clipboard.writeText()` with a brief "Copied!" toast notification (auto-dismisses after 1.2s). Works alongside FK navigation links without interference (copy button uses `stopPropagation`). Copy buttons are preserved during search highlighting.
+- **Web UI: filter state caching per table** — Table view state (row filter text, pagination limit/offset, display format preference, query builder configuration) is automatically saved to localStorage when switching tables and restored when returning. "Clear state" button in the pagination bar resets all cached state for the current table. localStorage key pattern: `drift-viewer-table-state-{tableName}`.
+- **Web UI: data type display toggle** — "Display: Raw / Formatted" dropdown in the table toolbar toggles between raw SQLite values and human-readable formatting. Epoch timestamps (seconds or milliseconds after year 2000) in date-named columns display as ISO 8601 strings. Integer 0/1 in boolean-named columns (`is_*`, `has_*`, `*_enabled`, etc.) display as `true`/`false`. Formatted cells show the raw value below in muted text and in the tooltip, both individually copyable. Preference is saved per table as part of filter state caching.
+
+---
+
+## [0.2.4]
 
 ### Added
 

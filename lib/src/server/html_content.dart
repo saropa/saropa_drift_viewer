@@ -65,6 +65,27 @@ abstract final class HtmlContent {
     .chart-slice { stroke: var(--bg); stroke-width: 2; cursor: pointer; }
     .chart-slice:hover { opacity: 0.8; }
     .chart-legend { font-size: 11px; fill: var(--fg); }
+    .cell-raw { color: var(--muted); font-size: 10px; display: block; }
+    #data-table td { position: relative; }
+    #data-table td .cell-copy-btn { display: none; position: absolute; top: 2px; right: 2px; background: var(--bg-pre); border: 1px solid var(--border); border-radius: 3px; color: var(--muted); font-size: 10px; padding: 1px 4px; cursor: pointer; line-height: 1; z-index: 1; }
+    #data-table td:hover .cell-copy-btn { display: inline-block; }
+    #data-table td .cell-copy-btn:hover { color: var(--fg); border-color: var(--link); }
+    .copy-toast { position: fixed; bottom: 1rem; right: 1rem; background: var(--link); color: var(--bg); padding: 0.3rem 0.75rem; border-radius: 4px; font-size: 12px; z-index: 9999; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; }
+    .copy-toast.show { opacity: 1; }
+    .qb-section { margin-bottom: 0.5rem; }
+    .qb-section .qb-header { cursor: pointer; user-select: none; color: var(--link); font-size: 0.875rem; padding: 0.25rem 0; }
+    .qb-section .qb-header:hover { text-decoration: underline; }
+    .qb-section .qb-body { padding: 0.5rem; background: var(--bg-pre); border: 1px solid var(--border); border-radius: 4px; }
+    .qb-section .qb-body.collapsed { display: none; }
+    .qb-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; flex-wrap: wrap; }
+    .qb-row label { color: var(--muted); font-size: 0.8rem; min-width: 5rem; }
+    .qb-row select, .qb-row input[type="text"], .qb-row input[type="number"], .qb-row button { padding: 0.3rem 0.4rem; background: var(--bg); border: 1px solid var(--border); color: var(--fg); border-radius: 3px; font-size: 12px; }
+    .qb-columns { display: flex; flex-wrap: wrap; gap: 0.25rem; max-height: 6rem; overflow-y: auto; }
+    .qb-columns label { font-size: 11px; color: var(--fg); display: inline-flex; align-items: center; gap: 2px; min-width: auto; }
+    .qb-where-item { display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.2rem; flex-wrap: wrap; }
+    .qb-where-item select, .qb-where-item input { font-size: 11px; padding: 0.2rem 0.3rem; }
+    .qb-where-item button { font-size: 10px; padding: 0.15rem 0.3rem; }
+    .qb-preview { font-family: ui-monospace, monospace; font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 0.4rem; margin-top: 0.35rem; color: var(--muted); white-space: pre-wrap; word-break: break-word; max-height: 4rem; overflow: auto; }
   </style>
 </head>
 <body>
@@ -145,6 +166,14 @@ abstract final class HtmlContent {
     <button type="button" id="pagination-prev">Prev</button>
     <button type="button" id="pagination-next">Next</button>
     <button type="button" id="pagination-apply">Apply</button>
+    <button type="button" id="clear-table-state" title="Reset cached filter/pagination state for this table">Clear state</button>
+  </div>
+  <div id="display-format-bar" class="toolbar" style="display:none;">
+    <label>Display:</label>
+    <select id="display-format-toggle">
+      <option value="raw">Raw</option>
+      <option value="formatted">Formatted</option>
+    </select>
   </div>
   <p id="tables-loading" class="meta">Loading tables…</p>
   <p class="meta"><a href="/api/schema" id="export-schema" download="schema.sql">Export schema (no data)</a> · <a href="#" id="export-dump">Export full dump (schema + data)</a><span id="export-dump-status" class="meta"></span> · <a href="#" id="export-database">Download database (raw .sqlite)</a><span id="export-database-status" class="meta"></span> · <a href="#" id="export-csv">Export table as CSV</a><span id="export-csv-status" class="meta"></span></p>
@@ -229,6 +258,7 @@ abstract final class HtmlContent {
   </div>
   <ul id="tables"></ul>
   <div id="content" class="content-wrap"></div>
+  <div id="copy-toast" class="copy-toast">Copied!</div>
   <script>
     var DRIFT_VIEWER_AUTH_TOKEN = "";
     function authOpts(o) {
@@ -409,6 +439,391 @@ abstract final class HtmlContent {
     let sqlHistory = [];
     const BOOKMARKS_KEY = 'drift-viewer-sql-bookmarks';
     let sqlBookmarks = [];
+    const TABLE_STATE_KEY_PREFIX = 'drift-viewer-table-state-';
+
+    function saveTableState(tableName) {
+      if (!tableName) return;
+      var state = {
+        rowFilter: (document.getElementById('row-filter').value || ''),
+        limit: limit,
+        offset: offset,
+        displayFormat: (typeof displayFormat !== 'undefined') ? displayFormat : 'raw',
+        queryBuilder: (typeof captureQueryBuilderState === 'function') ? captureQueryBuilderState() : null
+      };
+      try { localStorage.setItem(TABLE_STATE_KEY_PREFIX + tableName, JSON.stringify(state)); } catch (e) {}
+    }
+    function restoreTableState(tableName) {
+      try {
+        var raw = localStorage.getItem(TABLE_STATE_KEY_PREFIX + tableName);
+        if (!raw) return;
+        var state = JSON.parse(raw);
+        if (state.rowFilter != null) document.getElementById('row-filter').value = state.rowFilter;
+        if (typeof state.limit === 'number' && state.limit > 0) limit = state.limit;
+        if (typeof state.offset === 'number' && state.offset >= 0) offset = state.offset;
+        if (state.displayFormat && typeof displayFormat !== 'undefined') {
+          displayFormat = state.displayFormat;
+          var sel = document.getElementById('display-format-toggle');
+          if (sel) sel.value = displayFormat;
+        }
+        if (state.queryBuilder) queryBuilderState = state.queryBuilder;
+      } catch (e) {}
+    }
+    function clearTableState(tableName) {
+      if (!tableName) return;
+      try { localStorage.removeItem(TABLE_STATE_KEY_PREFIX + tableName); } catch (e) {}
+    }
+
+    let displayFormat = 'raw';
+    let tableColumnTypes = {};
+    let queryBuilderActive = false;
+    let queryBuilderState = null;
+
+    async function loadColumnTypes(tableName) {
+      if (tableColumnTypes[tableName]) return tableColumnTypes[tableName];
+      var meta = await loadSchemaMeta();
+      var tables = meta.tables || [];
+      tables.forEach(function(t) {
+        var types = {};
+        (t.columns || []).forEach(function(c) { types[c.name] = (c.type || '').toUpperCase(); });
+        tableColumnTypes[t.name] = types;
+      });
+      return tableColumnTypes[tableName] || {};
+    }
+    function isEpochTimestamp(value) {
+      var n = Number(value);
+      if (!isFinite(n) || n <= 0) return false;
+      if (n > 946684800000 && n < 32503680000000) return 'ms';
+      if (n > 946684800 && n < 32503680000) return 's';
+      return false;
+    }
+    function isBooleanColumn(name) {
+      var lower = name.toLowerCase();
+      return /^(is_|has_|can_|should_|allow_|enable)/.test(lower) ||
+        /_(enabled|active|visible|deleted|archived|verified|confirmed|locked|published)\$/.test(lower) ||
+        lower === 'active' || lower === 'enabled' || lower === 'deleted' || lower === 'verified';
+    }
+    function isDateColumn(name) {
+      var lower = name.toLowerCase();
+      return /date|time|created|updated|deleted|_at\$|_on\$/.test(lower);
+    }
+    function formatCellValue(value, columnName, columnType) {
+      var raw = value != null ? String(value) : '';
+      if (value == null || value === '') return { formatted: raw, raw: raw, wasFormatted: false };
+      var type = (columnType || '').toUpperCase();
+      if ((type === 'INTEGER' || type === '') && isBooleanColumn(columnName)) {
+        if (value === 0 || value === '0') return { formatted: 'false', raw: raw, wasFormatted: true };
+        if (value === 1 || value === '1') return { formatted: 'true', raw: raw, wasFormatted: true };
+      }
+      if ((type === 'INTEGER' || type === 'REAL' || type === '') && (isDateColumn(columnName) || isEpochTimestamp(value))) {
+        var epoch = isEpochTimestamp(value);
+        if (epoch) {
+          var ms = epoch === 'ms' ? Number(value) : Number(value) * 1000;
+          var date = new Date(ms);
+          if (!isNaN(date.getTime())) {
+            return { formatted: date.toISOString(), raw: raw, wasFormatted: true };
+          }
+        }
+      }
+      return { formatted: raw, raw: raw, wasFormatted: false };
+    }
+
+    function showCopyToast() {
+      var toast = document.getElementById('copy-toast');
+      toast.classList.add('show');
+      clearTimeout(toast._hideTimer);
+      toast._hideTimer = setTimeout(function() { toast.classList.remove('show'); }, 1200);
+    }
+    function copyCellValue(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(showCopyToast).catch(function() {});
+      }
+    }
+
+    // --- Query Builder ---
+    var _qbColTypes = {};
+
+    function buildQueryBuilderHtml(tableName, colTypes) {
+      var cols = Object.keys(colTypes || {});
+      if (cols.length === 0) return '';
+      _qbColTypes = colTypes;
+      var html = '<div class="qb-section">';
+      html += '<div class="qb-header" id="qb-toggle">\u25BC Query builder</div>';
+      html += '<div id="qb-body" class="qb-body collapsed">';
+      html += '<div class="qb-row"><label>SELECT</label><div class="qb-columns" id="qb-columns">';
+      cols.forEach(function(c) {
+        html += '<label><input type="checkbox" value="' + esc(c) + '" checked> ' + esc(c) + '</label>';
+      });
+      html += '</div></div>';
+      html += '<div class="qb-row"><label>WHERE</label><div style="flex:1;">';
+      html += '<div id="qb-where-list"></div>';
+      html += '<button type="button" id="qb-add-where" style="font-size:11px;">+ Add condition</button>';
+      html += '</div></div>';
+      html += '<div class="qb-row"><label>ORDER BY</label>';
+      html += '<select id="qb-order-col"><option value="">None</option>';
+      cols.forEach(function(c) { html += '<option value="' + esc(c) + '">' + esc(c) + '</option>'; });
+      html += '</select>';
+      html += '<select id="qb-order-dir"><option value="ASC">ASC</option><option value="DESC">DESC</option></select>';
+      html += '</div>';
+      html += '<div class="qb-row"><label>LIMIT</label>';
+      html += '<input type="number" id="qb-limit" value="200" min="1" max="1000" style="width:5rem;">';
+      html += '</div>';
+      html += '<div class="qb-preview" id="qb-preview"></div>';
+      html += '<div class="qb-row" style="margin-top:0.35rem;">';
+      html += '<button type="button" id="qb-run">Run query</button>';
+      html += '<button type="button" id="qb-reset">Reset to table view</button>';
+      html += '</div>';
+      html += '</div></div>';
+      return html;
+    }
+
+    function getWhereOps(columnType) {
+      var type = (columnType || '').toUpperCase();
+      if (type === 'TEXT' || type.indexOf('VARCHAR') >= 0 || type.indexOf('CHAR') >= 0) {
+        return [
+          { val: 'LIKE', label: 'contains' }, { val: '=', label: 'equals' },
+          { val: 'NOT_LIKE', label: 'not contains' }, { val: 'LIKE_START', label: 'starts with' },
+          { val: 'IS NULL', label: 'is null' }, { val: 'IS NOT NULL', label: 'is not null' }
+        ];
+      } else if (type === 'INTEGER' || type === 'REAL' || type.indexOf('INT') >= 0 || type.indexOf('FLOAT') >= 0 || type.indexOf('DOUBLE') >= 0 || type.indexOf('NUM') >= 0 || type.indexOf('DECIMAL') >= 0) {
+        return [
+          { val: '=', label: '=' }, { val: '!=', label: '!=' },
+          { val: '>', label: '>' }, { val: '<', label: '<' },
+          { val: '>=', label: '>=' }, { val: '<=', label: '<=' },
+          { val: 'IS NULL', label: 'is null' }, { val: 'IS NOT NULL', label: 'is not null' }
+        ];
+      } else if (type === 'BLOB') {
+        return [
+          { val: 'IS NULL', label: 'is null' }, { val: 'IS NOT NULL', label: 'is not null' }
+        ];
+      }
+      return [
+        { val: '=', label: '=' }, { val: '!=', label: '!=' },
+        { val: 'LIKE', label: 'contains' },
+        { val: 'IS NULL', label: 'is null' }, { val: 'IS NOT NULL', label: 'is not null' }
+      ];
+    }
+
+    function addWhereClause(colTypes, preset) {
+      var list = document.getElementById('qb-where-list');
+      if (!list) return;
+      var cols = Object.keys(colTypes || {});
+      if (cols.length === 0) return;
+      var div = document.createElement('div');
+      div.className = 'qb-where-item';
+      var colSel = document.createElement('select');
+      colSel.className = 'qb-where-col';
+      cols.forEach(function(c) {
+        var opt = document.createElement('option');
+        opt.value = c; opt.textContent = c;
+        colSel.appendChild(opt);
+      });
+      if (preset && preset.column) colSel.value = preset.column;
+      var opSel = document.createElement('select');
+      opSel.className = 'qb-where-op';
+      var valInput = document.createElement('input');
+      valInput.type = 'text';
+      valInput.className = 'qb-where-val';
+      valInput.placeholder = 'value';
+      valInput.style.width = '8rem';
+      var removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.textContent = '\u00D7';
+      removeBtn.title = 'Remove condition';
+      removeBtn.addEventListener('click', function() { div.remove(); updateQbPreview(); });
+      var presetValue = preset ? preset.value : null;
+      function updateOps() {
+        var type = colTypes[colSel.value] || '';
+        var ops = getWhereOps(type);
+        opSel.innerHTML = '';
+        ops.forEach(function(o) {
+          var opt = document.createElement('option');
+          opt.value = o.val; opt.textContent = o.label;
+          opSel.appendChild(opt);
+        });
+        if (preset && preset.op) { opSel.value = preset.op; preset = null; }
+        var op = opSel.value;
+        valInput.style.display = (op === 'IS NULL' || op === 'IS NOT NULL') ? 'none' : '';
+      }
+      colSel.addEventListener('change', function() { updateOps(); updateQbPreview(); });
+      opSel.addEventListener('change', function() {
+        var op = this.value;
+        valInput.style.display = (op === 'IS NULL' || op === 'IS NOT NULL') ? 'none' : '';
+        updateQbPreview();
+      });
+      valInput.addEventListener('input', updateQbPreview);
+      div.appendChild(colSel);
+      div.appendChild(opSel);
+      div.appendChild(valInput);
+      div.appendChild(removeBtn);
+      list.appendChild(div);
+      updateOps();
+      if (presetValue) valInput.value = presetValue;
+      updateQbPreview();
+    }
+
+    function buildQueryFromBuilder(tableName) {
+      var checkboxes = document.querySelectorAll('#qb-columns input[type="checkbox"]');
+      var selectedCols = [];
+      checkboxes.forEach(function(cb) { if (cb.checked) selectedCols.push(cb.value); });
+      var selectPart = selectedCols.length > 0
+        ? selectedCols.map(function(c) { return '"' + c + '"'; }).join(', ')
+        : '*';
+      var whereParts = [];
+      var whereItems = document.querySelectorAll('#qb-where-list .qb-where-item');
+      whereItems.forEach(function(item) {
+        var col = item.querySelector('.qb-where-col').value;
+        var op = item.querySelector('.qb-where-op').value;
+        var val = item.querySelector('.qb-where-val').value;
+        if (op === 'IS NULL') { whereParts.push('"' + col + '" IS NULL'); }
+        else if (op === 'IS NOT NULL') { whereParts.push('"' + col + '" IS NOT NULL'); }
+        else if (op === 'LIKE') { whereParts.push('"' + col + "\" LIKE '%" + val.replace(/'/g, "''") + "%'"); }
+        else if (op === 'NOT_LIKE') { whereParts.push('"' + col + "\" NOT LIKE '%" + val.replace(/'/g, "''") + "%'"); }
+        else if (op === 'LIKE_START') { whereParts.push('"' + col + "\" LIKE '" + val.replace(/'/g, "''") + "%'"); }
+        else {
+          var isNum = !isNaN(val) && val.trim() !== '';
+          var sqlVal = isNum ? val : "'" + val.replace(/'/g, "''") + "'";
+          whereParts.push('"' + col + '" ' + op + ' ' + sqlVal);
+        }
+      });
+      var orderCol = document.getElementById('qb-order-col').value;
+      var orderDir = document.getElementById('qb-order-dir').value;
+      var qbLimit = parseInt(document.getElementById('qb-limit').value, 10) || 200;
+      var sql = 'SELECT ' + selectPart + ' FROM "' + tableName + '"';
+      if (whereParts.length > 0) sql += ' WHERE ' + whereParts.join(' AND ');
+      if (orderCol) sql += ' ORDER BY "' + orderCol + '" ' + orderDir;
+      sql += ' LIMIT ' + qbLimit;
+      return sql;
+    }
+
+    function updateQbPreview() {
+      var preview = document.getElementById('qb-preview');
+      if (!preview || !currentTableName) return;
+      preview.textContent = buildQueryFromBuilder(currentTableName);
+    }
+
+    function runQueryBuilder() {
+      var sql = buildQueryFromBuilder(currentTableName);
+      if (!sql) return;
+      var runBtn = document.getElementById('qb-run');
+      if (runBtn) { runBtn.disabled = true; runBtn.textContent = 'Running\u2026'; }
+      var savedState = captureQueryBuilderState();
+      fetch('/api/sql', authOpts({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sql: sql })
+      }))
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(result) {
+          if (!result.ok) {
+            alert('Query error: ' + (result.data.error || 'Unknown error'));
+            return;
+          }
+          queryBuilderActive = true;
+          queryBuilderState = savedState;
+          var rows = result.data.rows || [];
+          var content = document.getElementById('content');
+          var fkMap = {};
+          var cachedFks = fkMetaCache[currentTableName] || [];
+          (cachedFks || []).forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
+          var colTypes = tableColumnTypes[currentTableName] || {};
+          var html = '<p class="meta">Query builder result: ' + rows.length + ' row(s)</p>';
+          html += '<p class="meta" style="font-family:monospace;font-size:11px;color:var(--muted);">' + esc(sql) + '</p>';
+          html += buildQueryBuilderHtml(currentTableName, colTypes);
+          html += buildDataTableHtml(rows, fkMap, colTypes);
+          content.innerHTML = html;
+          bindQueryBuilderEvents(colTypes);
+          restoreQueryBuilderUIState(savedState);
+          // Expand the QB body since user is actively using it
+          var body = document.getElementById('qb-body');
+          var toggle = document.getElementById('qb-toggle');
+          if (body) body.classList.remove('collapsed');
+          if (toggle) toggle.textContent = '\u25B2 Query builder';
+          saveTableState(currentTableName);
+        })
+        .catch(function(e) { alert('Error: ' + e.message); })
+        .finally(function() {
+          if (runBtn) { runBtn.disabled = false; runBtn.textContent = 'Run query'; }
+        });
+    }
+
+    function resetQueryBuilder() {
+      queryBuilderActive = false;
+      queryBuilderState = null;
+      saveTableState(currentTableName);
+      if (currentTableName && currentTableJson) {
+        renderTableView(currentTableName, currentTableJson);
+      }
+    }
+
+    function bindQueryBuilderEvents(colTypes) {
+      var toggle = document.getElementById('qb-toggle');
+      var body = document.getElementById('qb-body');
+      if (toggle && body) {
+        toggle.addEventListener('click', function() {
+          var collapsed = body.classList.contains('collapsed');
+          body.classList.toggle('collapsed', !collapsed);
+          toggle.textContent = collapsed ? '\u25B2 Query builder' : '\u25BC Query builder';
+        });
+      }
+      var addBtn = document.getElementById('qb-add-where');
+      if (addBtn) addBtn.addEventListener('click', function() { addWhereClause(colTypes); });
+      var runBtn = document.getElementById('qb-run');
+      if (runBtn) runBtn.addEventListener('click', runQueryBuilder);
+      var resetBtn = document.getElementById('qb-reset');
+      if (resetBtn) resetBtn.addEventListener('click', resetQueryBuilder);
+      var checkboxes = document.querySelectorAll('#qb-columns input[type="checkbox"]');
+      checkboxes.forEach(function(cb) { cb.addEventListener('change', updateQbPreview); });
+      var orderCol = document.getElementById('qb-order-col');
+      var orderDir = document.getElementById('qb-order-dir');
+      var qbLimit = document.getElementById('qb-limit');
+      if (orderCol) orderCol.addEventListener('change', updateQbPreview);
+      if (orderDir) orderDir.addEventListener('change', updateQbPreview);
+      if (qbLimit) qbLimit.addEventListener('input', updateQbPreview);
+      updateQbPreview();
+    }
+
+    function captureQueryBuilderState() {
+      var state = { active: queryBuilderActive, selectedColumns: [], whereClauses: [], orderBy: '', orderDir: 'ASC', limit: 200 };
+      var checkboxes = document.querySelectorAll('#qb-columns input[type="checkbox"]');
+      checkboxes.forEach(function(cb) { if (cb.checked) state.selectedColumns.push(cb.value); });
+      var whereItems = document.querySelectorAll('#qb-where-list .qb-where-item');
+      whereItems.forEach(function(item) {
+        state.whereClauses.push({
+          column: item.querySelector('.qb-where-col').value,
+          op: item.querySelector('.qb-where-op').value,
+          value: item.querySelector('.qb-where-val').value
+        });
+      });
+      var orderCol = document.getElementById('qb-order-col');
+      var orderDir = document.getElementById('qb-order-dir');
+      var qbLimit = document.getElementById('qb-limit');
+      if (orderCol) state.orderBy = orderCol.value;
+      if (orderDir) state.orderDir = orderDir.value;
+      if (qbLimit) state.limit = parseInt(qbLimit.value, 10) || 200;
+      return state;
+    }
+
+    function restoreQueryBuilderUIState(state) {
+      if (!state) return;
+      var checkboxes = document.querySelectorAll('#qb-columns input[type="checkbox"]');
+      if (state.selectedColumns && state.selectedColumns.length > 0) {
+        checkboxes.forEach(function(cb) {
+          cb.checked = state.selectedColumns.indexOf(cb.value) >= 0;
+        });
+      }
+      if (state.whereClauses && state.whereClauses.length > 0) {
+        state.whereClauses.forEach(function(wc) {
+          addWhereClause(_qbColTypes, { column: wc.column, op: wc.op, value: wc.value });
+        });
+      }
+      var orderCol = document.getElementById('qb-order-col');
+      var orderDir = document.getElementById('qb-order-dir');
+      var qbLimit = document.getElementById('qb-limit');
+      if (orderCol && state.orderBy) orderCol.value = state.orderBy;
+      if (orderDir && state.orderDir) orderDir.value = state.orderDir;
+      if (qbLimit && state.limit) qbLimit.value = state.limit;
+      updateQbPreview();
+    }
 
     function loadSqlHistory() {
       sqlHistory = [];
@@ -1105,8 +1520,18 @@ abstract final class HtmlContent {
       if (dataTable && term && (scope === 'data' || scope === 'both')) {
         dataTable.querySelectorAll('td').forEach(function(td) {
           if (!td.querySelector('.fk-link')) {
-            var text = td.textContent || '';
-            td.innerHTML = highlightText(text, term);
+            // Preserve copy button while highlighting text
+            var copyBtn = td.querySelector('.cell-copy-btn');
+            var textNodes = [];
+            td.childNodes.forEach(function(n) { if (n !== copyBtn) textNodes.push(n.textContent || ''); });
+            var text = textNodes.join('');
+            var highlighted = highlightText(text, term);
+            if (copyBtn) {
+              var btnHtml = copyBtn.outerHTML;
+              td.innerHTML = highlighted + btnHtml;
+            } else {
+              td.innerHTML = highlighted;
+            }
           }
         });
       }
@@ -1114,7 +1539,7 @@ abstract final class HtmlContent {
 
     document.getElementById('search-input').addEventListener('input', applySearch);
     document.getElementById('search-input').addEventListener('keyup', applySearch);
-    document.getElementById('row-filter').addEventListener('input', function() { if (currentTableName && currentTableJson) renderTableView(currentTableName, currentTableJson); });
+    document.getElementById('row-filter').addEventListener('input', function() { if (currentTableName && currentTableJson) { renderTableView(currentTableName, currentTableJson); saveTableState(currentTableName); } });
     document.getElementById('row-filter').addEventListener('keyup', function() { if (currentTableName && currentTableJson) renderTableView(currentTableName, currentTableJson); });
     document.getElementById('search-scope').addEventListener('change', function() {
       const scope = getScope();
@@ -1192,11 +1617,30 @@ abstract final class HtmlContent {
       document.getElementById('pagination-offset').value = offset;
       bar.style.display = getScope() === 'schema' ? 'none' : 'flex';
     }
-    document.getElementById('pagination-limit').addEventListener('change', function() { limit = parseInt(this.value, 10); loadTable(currentTableName); });
+    document.getElementById('pagination-limit').addEventListener('change', function() { limit = parseInt(this.value, 10); saveTableState(currentTableName); loadTable(currentTableName); });
     document.getElementById('pagination-offset').addEventListener('change', function() { offset = parseInt(this.value, 10) || 0; });
-    document.getElementById('pagination-prev').addEventListener('click', function() { offset = Math.max(0, offset - limit); document.getElementById('pagination-offset').value = offset; loadTable(currentTableName); });
-    document.getElementById('pagination-next').addEventListener('click', function() { offset = offset + limit; document.getElementById('pagination-offset').value = offset; loadTable(currentTableName); });
-    document.getElementById('pagination-apply').addEventListener('click', function() { offset = parseInt(document.getElementById('pagination-offset').value, 10) || 0; loadTable(currentTableName); });
+    document.getElementById('pagination-prev').addEventListener('click', function() { offset = Math.max(0, offset - limit); document.getElementById('pagination-offset').value = offset; saveTableState(currentTableName); loadTable(currentTableName); });
+    document.getElementById('pagination-next').addEventListener('click', function() { offset = offset + limit; document.getElementById('pagination-offset').value = offset; saveTableState(currentTableName); loadTable(currentTableName); });
+    document.getElementById('pagination-apply').addEventListener('click', function() { offset = parseInt(document.getElementById('pagination-offset').value, 10) || 0; saveTableState(currentTableName); loadTable(currentTableName); });
+    document.getElementById('clear-table-state').addEventListener('click', function() {
+      clearTableState(currentTableName);
+      document.getElementById('row-filter').value = '';
+      limit = 200;
+      offset = 0;
+      displayFormat = 'raw';
+      var fmtSel = document.getElementById('display-format-toggle');
+      if (fmtSel) fmtSel.value = 'raw';
+      queryBuilderActive = false;
+      queryBuilderState = null;
+      if (currentTableName) loadTable(currentTableName);
+    });
+    document.getElementById('display-format-toggle').addEventListener('change', function() {
+      displayFormat = this.value;
+      if (currentTableName) {
+        saveTableState(currentTableName);
+        if (currentTableJson) renderTableView(currentTableName, currentTableJson);
+      }
+    });
 
     function loadSchemaView() {
       const content = document.getElementById('content');
@@ -1232,7 +1676,8 @@ abstract final class HtmlContent {
           var fkMap = {};
           var cachedFks = fkMetaCache[currentTableName] || [];
           cachedFks.forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
-          dataSection.innerHTML = '<h2>Table data: ' + esc(currentTableName) + '</h2><p class="meta">' + metaText + '</p>' + buildDataTableHtml(filtered, fkMap);
+          var colTypes = tableColumnTypes[currentTableName] || {};
+          dataSection.innerHTML = '<h2>Table data: ' + esc(currentTableName) + '</h2><p class="meta">' + metaText + '</p>' + buildDataTableHtml(filtered, fkMap, colTypes);
         }
       } else {
         container.innerHTML = '<p class="meta">Schema</p><pre id="content-pre">' + esc(schema) + '</pre>';
@@ -1255,7 +1700,8 @@ abstract final class HtmlContent {
           var fkMap = {};
           var cachedFks = fkMetaCache[currentTableName] || [];
           cachedFks.forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
-          dataHtml = '<p class="meta">' + metaText + '</p>' + buildDataTableHtml(filtered, fkMap);
+          var colTypes = tableColumnTypes[currentTableName] || {};
+          dataHtml = '<p class="meta">' + metaText + '</p>' + buildDataTableHtml(filtered, fkMap, colTypes);
         } else {
           lastRenderedData = null;
           dataHtml = '<p class="meta">Select a table above to load data.</p>';
@@ -1322,7 +1768,7 @@ abstract final class HtmlContent {
       };
     }
 
-    function buildDataTableHtml(filtered, fkMap) {
+    function buildDataTableHtml(filtered, fkMap, colTypes) {
       if (!filtered || filtered.length === 0) return '<p class="meta">No rows.</p>';
       var keys = Object.keys(filtered[0]);
       var html = '<table id="data-table"><thead><tr>';
@@ -1337,14 +1783,28 @@ abstract final class HtmlContent {
         keys.forEach(function(k) {
           var val = row[k];
           var fk = fkMap[k];
+          var rawStr = val != null ? String(val) : '';
+          var cellContent;
+          if (displayFormat === 'formatted' && colTypes) {
+            var fmt = formatCellValue(val, k, colTypes[k]);
+            if (fmt.wasFormatted) {
+              cellContent = '<span title="Raw: ' + esc(fmt.raw) + '">' + esc(fmt.formatted) + '</span>'
+                + '<span class="cell-raw">' + esc(fmt.raw) + '</span>';
+            } else {
+              cellContent = esc(rawStr);
+            }
+          } else {
+            cellContent = esc(rawStr);
+          }
+          var copyBtn = '<button type="button" class="cell-copy-btn" data-raw="' + esc(rawStr) + '" title="Copy value">&#x2398;</button>';
           if (fk && val != null) {
             html += '<td><a href="#" class="fk-link" style="color:var(--link);text-decoration:underline;" ';
             html += 'data-table="' + esc(fk.toTable) + '" ';
             html += 'data-column="' + esc(fk.toColumn) + '" ';
-            html += 'data-value="' + esc(String(val)) + '">' ;
-            html += esc(String(val)) + ' &#8594;</a></td>';
+            html += 'data-value="' + esc(rawStr) + '">' ;
+            html += cellContent + ' &#8594;</a>' + copyBtn + '</td>';
           } else {
-            html += '<td>' + esc(val != null ? String(val) : '') + '</td>';
+            html += '<td>' + cellContent + copyBtn + '</td>';
           }
         });
         html += '</tr>';
@@ -1360,45 +1820,68 @@ abstract final class HtmlContent {
       const jsonStr = JSON.stringify(filtered, null, 2);
       lastRenderedData = jsonStr;
       const metaText = rowCountText(name) + (getRowFilter() ? ' (filtered: ' + filtered.length + ' of ' + data.length + ')' : '');
+      // Show/hide display format bar when viewing table data
+      var formatBar = document.getElementById('display-format-bar');
+      if (formatBar) formatBar.style.display = (scope !== 'schema') ? 'flex' : 'none';
       // Show loading hint while FK metadata is being fetched for the first time
       if (!fkMetaCache[name] && scope !== 'both') {
         content.innerHTML = '<p class="meta">' + metaText + '</p><p class="meta">Loading\u2026</p>';
       }
-      function renderDataHtml(fkMap) {
-        var tableHtml = buildDataTableHtml(filtered, fkMap);
+      function renderDataHtml(fkMap, colTypes) {
+        var tableHtml = buildDataTableHtml(filtered, fkMap, colTypes);
+        var qbHtml = buildQueryBuilderHtml(name, colTypes);
         if (scope === 'both') {
           lastRenderedSchema = cachedSchema;
           if (cachedSchema === null) {
             fetch('/api/schema', authOpts()).then(function(r) { return r.text(); }).then(function(schema) {
               cachedSchema = schema;
               lastRenderedSchema = schema;
-              content.innerHTML = '<div class="search-section"><h2>Schema</h2><pre id="schema-pre">' + esc(schema) + '</pre></div><div class="search-section" id="both-data-section"><h2>Table data: ' + esc(name) + '</h2><p class="meta">' + metaText + '</p>' + tableHtml + '</div>';
+              content.innerHTML = '<div class="search-section"><h2>Schema</h2><pre id="schema-pre">' + esc(schema) + '</pre></div><div class="search-section" id="both-data-section"><h2>Table data: ' + esc(name) + '</h2><p class="meta">' + metaText + '</p>' + qbHtml + tableHtml + '</div>';
+              bindQueryBuilderEvents(colTypes);
+              if (queryBuilderState) restoreQueryBuilderUIState(queryBuilderState);
               applySearch();
               renderBreadcrumb();
             });
           } else {
             var dataSection = document.getElementById('both-data-section');
             if (dataSection) {
-              dataSection.innerHTML = '<h2>Table data: ' + esc(name) + '</h2><p class="meta">' + metaText + '</p>' + tableHtml;
+              dataSection.innerHTML = '<h2>Table data: ' + esc(name) + '</h2><p class="meta">' + metaText + '</p>' + qbHtml + tableHtml;
+              bindQueryBuilderEvents(colTypes);
+              if (queryBuilderState) restoreQueryBuilderUIState(queryBuilderState);
             }
             applySearch();
             renderBreadcrumb();
           }
         } else {
           lastRenderedSchema = null;
-          content.innerHTML = '<p class="meta">' + metaText + '</p>' + tableHtml;
+          content.innerHTML = '<p class="meta">' + metaText + '</p>' + qbHtml + tableHtml;
+          bindQueryBuilderEvents(colTypes);
+          if (queryBuilderState) restoreQueryBuilderUIState(queryBuilderState);
           applySearch();
           renderBreadcrumb();
         }
       }
-      loadFkMeta(name).then(function(fks) {
+      // Load FK metadata and column types in parallel, then render
+      Promise.all([
+        loadFkMeta(name),
+        loadColumnTypes(name).catch(function() { return {}; })
+      ]).then(function(results) {
+        var fks = results[0];
+        var colTypes = results[1];
         var fkMap = {};
         (fks || []).forEach(function(fk) { fkMap[fk.fromColumn] = fk; });
-        renderDataHtml(fkMap);
+        renderDataHtml(fkMap, colTypes);
       });
     }
 
     document.addEventListener('click', function(e) {
+      var copyBtn = e.target.closest('.cell-copy-btn');
+      if (copyBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        copyCellValue(copyBtn.getAttribute('data-raw') || '');
+        return;
+      }
       var link = e.target.closest('.fk-link');
       if (!link) return;
       e.preventDefault();
@@ -1414,7 +1897,12 @@ abstract final class HtmlContent {
     }
 
     function loadTable(name) {
+      if (currentTableName && currentTableName !== name) {
+        saveTableState(currentTableName);
+      }
+      var isNewTable = (currentTableName !== name);
       currentTableName = name;
+      if (isNewTable) restoreTableState(name);
       const content = document.getElementById('content');
       const scope = getScope();
       if (scope === 'both' && cachedSchema !== null) {
