@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import { DriftApiClient, QueryEntry } from './api-client';
+import { DriftFileDecorationProvider, buildTableFileMap } from './decorations/file-decoration-provider';
+import { DriftCodeActionProvider, SchemaDiagnostics } from './linter/schema-diagnostics';
 import { DriftCodeLensProvider } from './codelens/drift-codelens-provider';
 import { TableNameMapper } from './codelens/table-name-mapper';
 import { LogCaptureBridge } from './debug/log-capture-bridge';
@@ -7,7 +9,10 @@ import { PerformanceTreeProvider } from './debug/performance-tree-provider';
 import { DriftDefinitionProvider } from './definition/drift-definition-provider';
 import { GenerationWatcher } from './generation-watcher';
 import { DriftViewerPanel } from './panel';
+import { ServerDiscovery } from './server-discovery';
+import { ServerManager } from './server-manager';
 import { DriftTaskProvider } from './tasks/drift-task-provider';
+import { DriftTerminalLinkProvider } from './terminal/drift-terminal-link-provider';
 import { DriftTreeProvider } from './tree/drift-tree-provider';
 import { ColumnItem, TableItem } from './tree/tree-items';
 
@@ -18,20 +23,75 @@ function escapeCsvCell(value: unknown): string {
     : s;
 }
 
-function getServerConfig(): { host: string; port: number } {
-  const cfg = vscode.workspace.getConfiguration('driftViewer');
-  return {
-    host: cfg.get<string>('host', '127.0.0.1') ?? '127.0.0.1',
-    port: cfg.get<number>('port', 8642) ?? 8642,
-  };
+function updateStatusBar(
+  item: vscode.StatusBarItem,
+  discovery: ServerDiscovery,
+  manager: ServerManager,
+  discoveryEnabled: boolean,
+): void {
+  const active = manager.activeServer;
+  const count = manager.servers.length;
+
+  if (active && count <= 1) {
+    item.text = `$(database) Drift: :${active.port}`;
+    item.command = 'driftViewer.openInPanel';
+    item.tooltip = `Connected to ${active.host}:${active.port}`;
+    item.backgroundColor = new vscode.ThemeColor(
+      'statusBarItem.prominentBackground',
+    );
+  } else if (active && count > 1) {
+    item.text = `$(database) Drift: ${count} servers`;
+    item.command = 'driftViewer.selectServer';
+    item.tooltip = `Active: :${active.port} (${count} servers found)`;
+    item.backgroundColor = new vscode.ThemeColor(
+      'statusBarItem.prominentBackground',
+    );
+  } else if (discoveryEnabled && discovery.state === 'searching') {
+    item.text = '$(sync~spin) Drift: Searching...';
+    item.command = 'driftViewer.retryDiscovery';
+    item.tooltip = 'Scanning for Drift debug servers\u2026';
+    item.backgroundColor = undefined;
+  } else if (!discoveryEnabled) {
+    item.text = '$(database) Drift Viewer';
+    item.command = 'driftViewer.openInPanel';
+    item.tooltip = 'Open Drift Viewer in editor panel';
+    item.backgroundColor = undefined;
+  } else {
+    item.text = '$(circle-slash) Drift: Offline';
+    item.command = 'driftViewer.retryDiscovery';
+    item.tooltip = 'No Drift debug servers found';
+    item.backgroundColor = undefined;
+  }
+  item.show();
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  const { host, port } = getServerConfig();
+  const cfg = vscode.workspace.getConfiguration('driftViewer');
+  const host = cfg.get<string>('host', '127.0.0.1') ?? '127.0.0.1';
+  const port = cfg.get<number>('port', 8642) ?? 8642;
 
   // Shared API client & services
   const client = new DriftApiClient(host, port);
   const watcher = new GenerationWatcher(client);
+
+  // Auto-discovery (include last-known ports for faster reconnection)
+  const lastKnownPorts = context.workspaceState
+    .get<number[]>('driftViewer.lastKnownPorts', []);
+  const discovery = new ServerDiscovery({
+    host,
+    portRangeStart: cfg.get<number>('discovery.portRangeStart', 8642) ?? 8642,
+    portRangeEnd: cfg.get<number>('discovery.portRangeEnd', 8649) ?? 8649,
+    additionalPorts: lastKnownPorts,
+  });
+  const serverManager = new ServerManager(
+    discovery, client, context.workspaceState,
+  );
+  const discoveryEnabled = cfg.get<boolean>('discovery.enabled', true) !== false;
+  if (discoveryEnabled) {
+    discovery.start();
+  }
+  context.subscriptions.push({ dispose: () => discovery.dispose() });
+  context.subscriptions.push({ dispose: () => serverManager.dispose() });
   const treeProvider = new DriftTreeProvider(client);
 
   // Tree view
@@ -60,16 +120,50 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
+  // Schema linter (diagnostics on Drift tables)
+  const diagnosticCollection = vscode.languages.createDiagnosticCollection('drift-linter');
+  context.subscriptions.push(diagnosticCollection);
+  const linter = new SchemaDiagnostics(client, diagnosticCollection);
+  context.subscriptions.push(
+    vscode.languages.registerCodeActionsProvider(
+      { language: 'dart', scheme: 'file' },
+      new DriftCodeActionProvider(),
+      { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] },
+    ),
+  );
+
+  // File decoration badges (row counts on table files)
+  const fileDecoProvider = new DriftFileDecorationProvider();
+  context.subscriptions.push(
+    vscode.window.registerFileDecorationProvider(fileDecoProvider),
+  );
+  let tableFileMap: Map<string, string> | null = null;
+  async function refreshBadges(): Promise<void> {
+    const cfg = vscode.workspace.getConfiguration('driftViewer');
+    if (!cfg.get<boolean>('fileBadges.enabled', true)) return;
+    if (!tableFileMap) {
+      // Ensure mapper knows server table names before scanning workspace
+      const meta = await client.schemaMetadata();
+      mapper.updateTableList(meta.map((t) => t.name));
+      tableFileMap = await buildTableFileMap(mapper);
+    }
+    await fileDecoProvider.refresh(client, tableFileMap);
+  }
+
   // Auto-refresh on data changes
   watcher.onDidChange(async () => {
     treeProvider.refresh();
     definitionProvider.clearCache();
     await codeLensProvider.refreshRowCounts();
     codeLensProvider.notifyChange();
+    linter.refresh();
+    refreshBadges().catch(() => { /* server down */ });
   });
   watcher.start();
   treeProvider.refresh(); // initial load
   codeLensProvider.refreshRowCounts(); // initial CodeLens load
+  linter.refresh(); // initial linter scan
+  refreshBadges().catch(() => { /* server down */ });
 
   context.subscriptions.push({ dispose: () => watcher.stop() });
 
@@ -92,7 +186,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand(
       'driftViewer.viewTableData',
       (_item: TableItem) => {
-        DriftViewerPanel.createOrShow(host, port);
+        DriftViewerPanel.createOrShow(client.host, client.port);
       },
     ),
   );
@@ -165,7 +259,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand(
       'driftViewer.filterByColumn',
       (_item: ColumnItem) => {
-        DriftViewerPanel.createOrShow(host, port);
+        DriftViewerPanel.createOrShow(client.host, client.port);
       },
     ),
   );
@@ -173,9 +267,8 @@ export function activate(context: vscode.ExtensionContext): void {
   // Open in browser
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.openInBrowser', async () => {
-      const cfg = getServerConfig();
       await vscode.env.openExternal(
-        vscode.Uri.parse(`http://${cfg.host}:${cfg.port}`),
+        vscode.Uri.parse(`http://${client.host}:${client.port}`),
       );
     }),
   );
@@ -183,8 +276,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Open in editor panel
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.openInPanel', () => {
-      const cfg = getServerConfig();
-      DriftViewerPanel.createOrShow(cfg.host, cfg.port);
+      DriftViewerPanel.createOrShow(client.host, client.port);
     }),
   );
 
@@ -193,7 +285,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand(
       'driftViewer.viewTableInPanel',
       (_tableName: string) => {
-        DriftViewerPanel.createOrShow(host, port);
+        DriftViewerPanel.createOrShow(client.host, client.port);
       },
     ),
   );
@@ -224,16 +316,61 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
-  // Status bar item
+  // Schema linter commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.runLinter', () =>
+      linter.refresh(),
+    ),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.copySuggestedSql',
+      (sql: string) => {
+        vscode.env.clipboard.writeText(sql);
+      },
+    ),
+  );
+
+  // Discovery commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.selectServer', () =>
+      serverManager.selectServer(),
+    ),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.retryDiscovery', () =>
+      discovery.retry(),
+    ),
+  );
+
+  // Status bar item (dynamic via discovery)
   const statusItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
     100,
   );
-  statusItem.text = '$(database) Drift Viewer';
-  statusItem.command = 'driftViewer.openInPanel';
-  statusItem.tooltip = 'Open Drift Viewer in editor panel';
-  statusItem.show();
+  updateStatusBar(statusItem, discovery, serverManager, discoveryEnabled);
   context.subscriptions.push(statusItem);
+
+  serverManager.onDidChangeActive((server) => {
+    updateStatusBar(statusItem, discovery, serverManager, discoveryEnabled);
+    vscode.commands.executeCommand(
+      'setContext',
+      'driftViewer.serverConnected',
+      server !== undefined,
+    );
+    if (server) {
+      watcher.stop();
+      watcher.reset();
+      watcher.start();
+      treeProvider.refresh();
+      codeLensProvider.refreshRowCounts();
+      linter.refresh();
+      refreshBadges().catch(() => { /* server down */ });
+    }
+  });
+  discovery.onDidChangeServers(() =>
+    updateStatusBar(statusItem, discovery, serverManager, discoveryEnabled),
+  );
 
   // --- Query Performance Panel (Debug sidebar) ---
 
@@ -248,6 +385,52 @@ export function activate(context: vscode.ExtensionContext): void {
   const logBridge = new LogCaptureBridge();
   logBridge.init(context, client).catch(() => { /* extension not installed */ });
   context.subscriptions.push({ dispose: () => logBridge.dispose() });
+
+  // Terminal link provider — clickable SQLite errors
+  const revealTable = async (name: string): Promise<void> => {
+    let item = treeProvider.findTableItem(name);
+    if (!item) {
+      await treeProvider.refresh();
+      item = treeProvider.findTableItem(name);
+    }
+    if (item) {
+      await treeView.reveal(item, { select: true, focus: true });
+    } else {
+      await vscode.commands.executeCommand(
+        'driftViewer.databaseExplorer.focus',
+      );
+    }
+  };
+  context.subscriptions.push(
+    vscode.window.registerTerminalLinkProvider(
+      new DriftTerminalLinkProvider(client, revealTable, logBridge),
+    ),
+  );
+
+  // Show all tables (QuickPick)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.showAllTables',
+      async () => {
+        try {
+          const meta = await client.schemaMetadata();
+          const names = meta.map((t) => t.name).sort();
+          if (names.length === 0) {
+            vscode.window.showInformationMessage('No tables found.');
+            return;
+          }
+          const picked = await vscode.window.showQuickPick(names, {
+            placeHolder: 'Select a table to reveal',
+          });
+          if (picked) await revealTable(picked);
+        } catch {
+          vscode.window.showWarningMessage(
+            'Drift debug server not reachable.',
+          );
+        }
+      },
+    ),
+  );
 
   // Refresh performance
   context.subscriptions.push(
@@ -302,6 +485,11 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.debug.onDidStartDebugSession(async (session) => {
       if (session.type !== 'dart') return;
 
+      // If discovery is active and no server found yet, trigger retry
+      if (!serverManager.activeServer) {
+        discovery.retry();
+      }
+
       // Check server connectivity before showing panel
       try {
         await client.health();
@@ -329,6 +517,7 @@ export function activate(context: vscode.ExtensionContext): void {
         false,
       );
       perfProvider.stopAutoRefresh();
+      linter.clear();
       logBridge.writeConnectionEvent('Drift debug server disconnected');
     }),
   );

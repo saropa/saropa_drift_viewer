@@ -92,6 +92,26 @@
       {
         "command": "driftViewer.showQueryDetail",
         "title": "Drift Viewer: Show Query Detail"
+      },
+      {
+        "command": "driftViewer.runLinter",
+        "title": "Drift Viewer: Run Schema Linter"
+      },
+      {
+        "command": "driftViewer.copySuggestedSql",
+        "title": "Drift Viewer: Copy Suggested SQL"
+      },
+      {
+        "command": "driftViewer.selectServer",
+        "title": "Drift Viewer: Select Server"
+      },
+      {
+        "command": "driftViewer.retryDiscovery",
+        "title": "Drift Viewer: Retry Server Discovery"
+      },
+      {
+        "command": "driftViewer.showAllTables",
+        "title": "Drift Viewer: Show All Tables"
       }
     ],
     "menus": {
@@ -184,6 +204,21 @@
           "default": "127.0.0.1",
           "description": "Host of the Drift debug server."
         },
+        "driftViewer.discovery.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically scan for running Drift debug servers."
+        },
+        "driftViewer.discovery.portRangeStart": {
+          "type": "number",
+          "default": 8642,
+          "description": "Start of port range to scan for Drift debug servers."
+        },
+        "driftViewer.discovery.portRangeEnd": {
+          "type": "number",
+          "default": 8649,
+          "description": "End of port range to scan for Drift debug servers (inclusive)."
+        },
         "driftViewer.tasks.blockOnWarnings": {
           "type": "boolean",
           "default": false,
@@ -204,6 +239,22 @@
           "enum": ["off", "slow-only", "all"],
           "default": "slow-only",
           "description": "Log queries to Saropa Log Capture: off, slow queries only, or all queries."
+        },
+        "driftViewer.fileBadges.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show row count badges on Drift table files in the explorer."
+        },
+        "driftViewer.linter.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show database diagnostics on Drift table definitions."
+        },
+        "driftViewer.linter.anomalySeverity": {
+          "type": "string",
+          "enum": ["error", "warning", "information", "hint"],
+          "default": "warning",
+          "description": "Severity level for data anomaly diagnostics."
         }
       }
     }

@@ -49,10 +49,23 @@ export interface PerformanceData {
 }
 
 export class DriftApiClient {
-  private readonly _baseUrl: string;
+  private _baseUrl: string;
 
   constructor(host: string, port: number) {
     this._baseUrl = `http://${host}:${port}`;
+  }
+
+  /** Update the server endpoint (called by ServerManager on active server change). */
+  reconfigure(host: string, port: number): void {
+    this._baseUrl = `http://${host}:${port}`;
+  }
+
+  get host(): string {
+    return new URL(this._baseUrl).hostname;
+  }
+
+  get port(): number {
+    return parseInt(new URL(this._baseUrl).port, 10);
   }
 
   async health(): Promise<HealthResponse> {

@@ -58,6 +58,11 @@ export class GenerationWatcher {
     }
   }
 
+  /** Reset the generation counter (e.g., after active server changes). */
+  reset(): void {
+    this._generation = 0;
+  }
+
   get generation(): number {
     return this._generation;
   }

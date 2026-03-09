@@ -1,6 +1,13 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import { commands, registeredCodeLensProviders, resetMocks, tasks } from './vscode-mock';
+import {
+  commands,
+  MockMemento,
+  registeredCodeActionProviders,
+  registeredCodeLensProviders,
+  resetMocks,
+  tasks,
+} from './vscode-mock';
 import { activate, deactivate } from '../extension';
 import * as vscode from 'vscode';
 
@@ -22,7 +29,10 @@ describe('Extension activation', () => {
   });
 
   function fakeContext(): vscode.ExtensionContext {
-    return { subscriptions } as unknown as vscode.ExtensionContext;
+    return {
+      subscriptions,
+      workspaceState: new MockMemento(),
+    } as unknown as vscode.ExtensionContext;
   }
 
   it('should register driftViewer.openInBrowser command', () => {
@@ -50,9 +60,13 @@ describe('Extension activation', () => {
 
   it('should push expected disposables', () => {
     activate(fakeContext());
-    // treeView + definitionProvider + codeLensProvider + watcher + taskProvider + 10 commands + statusBar
-    // + perfView + logBridge + 3 perf commands + 2 debug listeners + perf cleanup = 24
-    assert.strictEqual(subscriptions.length, 24, `expected 24 disposables, got ${subscriptions.length}`);
+    // Providers: treeView, definitionProvider, codeLensProvider, diagnosticCollection,
+    //   codeActionProvider, fileDecoProvider, taskProvider, terminalLinkProvider (8)
+    // Discovery: discovery, serverManager (2)
+    // Lifecycle: watcher, statusBar, perfView, logBridge, 2 debug listeners, perf cleanup (7)
+    // Commands: 18 total (tree/panel/linter/perf/showAllTables + selectServer + retryDiscovery)
+    // Total = 8 + 2 + 7 + 18 = 35
+    assert.strictEqual(subscriptions.length, 35, `expected 35 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
@@ -89,6 +103,29 @@ describe('Extension activation', () => {
     assert.ok('driftViewer.refreshPerformance' in registered);
     assert.ok('driftViewer.clearPerformance' in registered);
     assert.ok('driftViewer.showQueryDetail' in registered);
+  });
+
+  it('should register schema linter commands', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.runLinter' in registered);
+    assert.ok('driftViewer.copySuggestedSql' in registered);
+  });
+
+  it('should register discovery commands', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.selectServer' in registered);
+    assert.ok('driftViewer.retryDiscovery' in registered);
+  });
+
+  it('should register a CodeAction provider for Dart files', () => {
+    activate(fakeContext());
+    assert.strictEqual(registeredCodeActionProviders.length, 1);
+    assert.deepStrictEqual(registeredCodeActionProviders[0].selector, {
+      language: 'dart',
+      scheme: 'file',
+    });
   });
 
   it('deactivate should not throw', () => {
