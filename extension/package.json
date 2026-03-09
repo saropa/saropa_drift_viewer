@@ -28,6 +28,13 @@
           "id": "driftViewer.databaseExplorer",
           "name": "Database"
         }
+      ],
+      "debug": [
+        {
+          "id": "driftViewer.queryPerformance",
+          "name": "Drift Queries",
+          "when": "inDebugMode && driftViewer.serverConnected"
+        }
       ]
     },
     "commands": [
@@ -71,6 +78,20 @@
       {
         "command": "driftViewer.runTableQuery",
         "title": "Drift Viewer: Run Table Query"
+      },
+      {
+        "command": "driftViewer.refreshPerformance",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "driftViewer.clearPerformance",
+        "title": "Drift Viewer: Clear Query Stats",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "driftViewer.showQueryDetail",
+        "title": "Drift Viewer: Show Query Detail"
       }
     ],
     "menus": {
@@ -78,6 +99,16 @@
         {
           "command": "driftViewer.refreshTree",
           "when": "view == driftViewer.databaseExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "driftViewer.refreshPerformance",
+          "when": "view == driftViewer.queryPerformance",
+          "group": "navigation"
+        },
+        {
+          "command": "driftViewer.clearPerformance",
+          "when": "view == driftViewer.queryPerformance",
           "group": "navigation"
         }
       ],
@@ -157,6 +188,22 @@
           "type": "boolean",
           "default": false,
           "description": "Block app launch when health check finds warnings (not just errors)."
+        },
+        "driftViewer.performance.slowThresholdMs": {
+          "type": "number",
+          "default": 500,
+          "description": "Queries slower than this (ms) are highlighted as slow."
+        },
+        "driftViewer.performance.refreshIntervalMs": {
+          "type": "number",
+          "default": 3000,
+          "description": "How often to refresh performance data during debug (ms)."
+        },
+        "driftViewer.performance.logToCapture": {
+          "type": "string",
+          "enum": ["off", "slow-only", "all"],
+          "default": "slow-only",
+          "description": "Log queries to Saropa Log Capture: off, slow queries only, or all queries."
         }
       }
     }

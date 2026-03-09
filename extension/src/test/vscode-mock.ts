@@ -256,14 +256,25 @@ export const window = {
 
 const registeredCommands: Record<string, (...args: any[]) => any> = {};
 
+const contextValues: Record<string, unknown> = {};
+
 export const commands = {
   registerCommand: (id: string, handler: (...args: any[]) => any) => {
     registeredCommands[id] = handler;
     return { dispose: () => { delete registeredCommands[id]; } };
   },
+  executeCommand: async (id: string, ...args: any[]) => {
+    if (id === 'setContext' && args.length >= 2) {
+      contextValues[args[0] as string] = args[1];
+      return;
+    }
+    return registeredCommands[id]?.(...args);
+  },
   /** Helper to invoke a registered command in tests. */
   executeRegistered: (id: string, ...args: any[]) => registeredCommands[id]?.(...args),
   getRegistered: () => ({ ...registeredCommands }),
+  /** Read a context value set via setContext. */
+  getContext: (key: string) => contextValues[key],
 };
 
 export const workspace = {
@@ -381,6 +392,58 @@ export class Task {
   }
 }
 
+// --- Debug session support ---
+
+type DebugSessionListener = (session: any) => void;
+const debugStartListeners: DebugSessionListener[] = [];
+const debugTerminateListeners: DebugSessionListener[] = [];
+
+export const debug = {
+  onDidStartDebugSession: (listener: DebugSessionListener) => {
+    debugStartListeners.push(listener);
+    return {
+      dispose: () => {
+        const idx = debugStartListeners.indexOf(listener);
+        if (idx >= 0) debugStartListeners.splice(idx, 1);
+      },
+    };
+  },
+  onDidTerminateDebugSession: (listener: DebugSessionListener) => {
+    debugTerminateListeners.push(listener);
+    return {
+      dispose: () => {
+        const idx = debugTerminateListeners.indexOf(listener);
+        if (idx >= 0) debugTerminateListeners.splice(idx, 1);
+      },
+    };
+  },
+  /** Simulate a debug session starting. */
+  simulateStart: (session: any) => {
+    for (const l of [...debugStartListeners]) l(session);
+  },
+  /** Simulate a debug session ending. */
+  simulateTerminate: (session: any) => {
+    for (const l of [...debugTerminateListeners]) l(session);
+  },
+};
+
+// --- Extensions mock ---
+
+const extensionMap: Record<string, any> = {};
+
+export const extensions = {
+  getExtension: (id: string) => extensionMap[id],
+  /** Helper to register a fake extension for testing. */
+  setExtension: (id: string, ext: any) => { extensionMap[id] = ext; },
+  clearExtensions: () => {
+    for (const key of Object.keys(extensionMap)) {
+      delete extensionMap[key];
+    }
+  },
+};
+
+// --- Task support ---
+
 const registeredTaskProviders: Array<{ type: string; provider: any }> = [];
 
 export const tasks = {
@@ -408,7 +471,13 @@ export function resetMocks(): void {
   registeredDefinitionProviders.length = 0;
   createdTextDocuments.length = 0;
   registeredTaskProviders.length = 0;
+  debugStartListeners.length = 0;
+  debugTerminateListeners.length = 0;
+  extensions.clearExtensions();
   for (const key of Object.keys(registeredCommands)) {
     delete registeredCommands[key];
+  }
+  for (const key of Object.keys(contextValues)) {
+    delete contextValues[key];
   }
 }

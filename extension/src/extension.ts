@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
-import { DriftApiClient } from './api-client';
+import { DriftApiClient, QueryEntry } from './api-client';
 import { DriftCodeLensProvider } from './codelens/drift-codelens-provider';
 import { TableNameMapper } from './codelens/table-name-mapper';
+import { LogCaptureBridge } from './debug/log-capture-bridge';
+import { PerformanceTreeProvider } from './debug/performance-tree-provider';
 import { DriftDefinitionProvider } from './definition/drift-definition-provider';
 import { GenerationWatcher } from './generation-watcher';
 import { DriftViewerPanel } from './panel';
@@ -232,6 +234,108 @@ export function activate(context: vscode.ExtensionContext): void {
   statusItem.tooltip = 'Open Drift Viewer in editor panel';
   statusItem.show();
   context.subscriptions.push(statusItem);
+
+  // --- Query Performance Panel (Debug sidebar) ---
+
+  const perfProvider = new PerformanceTreeProvider();
+  const perfView = vscode.window.createTreeView(
+    'driftViewer.queryPerformance',
+    { treeDataProvider: perfProvider },
+  );
+  context.subscriptions.push(perfView);
+
+  // Saropa Log Capture integration (optional)
+  const logBridge = new LogCaptureBridge();
+  logBridge.init(context, client).catch(() => { /* extension not installed */ });
+  context.subscriptions.push({ dispose: () => logBridge.dispose() });
+
+  // Refresh performance
+  context.subscriptions.push(
+    vscode.commands.registerCommand('driftViewer.refreshPerformance', () =>
+      perfProvider.refresh(client),
+    ),
+  );
+
+  // Clear performance stats
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.clearPerformance',
+      async () => {
+        try {
+          await client.clearPerformance();
+          await perfProvider.refresh(client);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Clear stats failed: ${msg}`);
+        }
+      },
+    ),
+  );
+
+  // Show query detail (click on a query item)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.showQueryDetail',
+      async (query: QueryEntry) => {
+        const content = [
+          `-- Duration: ${query.durationMs}ms`,
+          `-- Rows: ${query.rowCount}`,
+          `-- Time: ${query.at}`,
+          '',
+          query.sql,
+        ].join('\n');
+        const doc = await vscode.workspace.openTextDocument({
+          content,
+          language: 'sql',
+        });
+        await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
+      },
+    ),
+  );
+
+  // Debug session lifecycle — start/stop performance auto-refresh
+  const perfCfg = vscode.workspace.getConfiguration('driftViewer');
+  const refreshInterval =
+    perfCfg.get<number>('performance.refreshIntervalMs', 3000) ?? 3000;
+
+  context.subscriptions.push(
+    vscode.debug.onDidStartDebugSession(async (session) => {
+      if (session.type !== 'dart') return;
+
+      // Check server connectivity before showing panel
+      try {
+        await client.health();
+        vscode.commands.executeCommand(
+          'setContext',
+          'driftViewer.serverConnected',
+          true,
+        );
+        perfProvider.startAutoRefresh(client, refreshInterval);
+        logBridge.writeConnectionEvent(
+          `Connected to Drift debug server at ${client.baseUrl}`,
+        );
+      } catch {
+        // Server not reachable — panel stays hidden
+      }
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.debug.onDidTerminateDebugSession((session) => {
+      if (session.type !== 'dart') return;
+      vscode.commands.executeCommand(
+        'setContext',
+        'driftViewer.serverConnected',
+        false,
+      );
+      perfProvider.stopAutoRefresh();
+      logBridge.writeConnectionEvent('Drift debug server disconnected');
+    }),
+  );
+
+  context.subscriptions.push({
+    dispose: () => perfProvider.stopAutoRefresh(),
+  });
 }
 
 export function deactivate(): void {}

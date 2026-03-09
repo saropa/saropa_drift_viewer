@@ -33,6 +33,21 @@ export interface Anomaly {
   severity: 'error' | 'warning' | 'info';
 }
 
+export interface QueryEntry {
+  sql: string;
+  durationMs: number;
+  rowCount: number;
+  at: string;
+}
+
+export interface PerformanceData {
+  totalQueries: number;
+  totalDurationMs: number;
+  avgDurationMs: number;
+  slowQueries: QueryEntry[];
+  recentQueries: QueryEntry[];
+}
+
 export class DriftApiClient {
   private readonly _baseUrl: string;
 
@@ -103,6 +118,23 @@ export class DriftApiClient {
       throw new Error(`Anomaly scan failed: ${resp.status}`);
     }
     return resp.json() as Promise<Anomaly[]>;
+  }
+
+  async performance(): Promise<PerformanceData> {
+    const resp = await fetch(`${this._baseUrl}/api/analytics/performance`);
+    if (!resp.ok) {
+      throw new Error(`Performance query failed: ${resp.status}`);
+    }
+    return resp.json() as Promise<PerformanceData>;
+  }
+
+  async clearPerformance(): Promise<void> {
+    const resp = await fetch(`${this._baseUrl}/api/analytics/performance`, {
+      method: 'DELETE',
+    });
+    if (!resp.ok) {
+      throw new Error(`Clear performance failed: ${resp.status}`);
+    }
   }
 
   get baseUrl(): string {

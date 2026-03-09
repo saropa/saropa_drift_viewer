@@ -50,8 +50,9 @@ describe('Extension activation', () => {
 
   it('should push expected disposables', () => {
     activate(fakeContext());
-    // treeView + definitionProvider + codeLensProvider + watcher + taskProvider + 10 commands + statusBar = 16
-    assert.strictEqual(subscriptions.length, 16, `expected 16 disposables, got ${subscriptions.length}`);
+    // treeView + definitionProvider + codeLensProvider + watcher + taskProvider + 10 commands + statusBar
+    // + perfView + logBridge + 3 perf commands + 2 debug listeners + perf cleanup = 24
+    assert.strictEqual(subscriptions.length, 24, `expected 24 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
@@ -80,6 +81,14 @@ describe('Extension activation', () => {
     const providers = tasks.getRegisteredProviders();
     assert.strictEqual(providers.length, 1);
     assert.strictEqual(providers[0].type, 'drift');
+  });
+
+  it('should register performance commands', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.refreshPerformance' in registered);
+    assert.ok('driftViewer.clearPerformance' in registered);
+    assert.ok('driftViewer.showQueryDetail' in registered);
   });
 
   it('deactivate should not throw', () => {
