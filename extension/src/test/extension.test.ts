@@ -72,8 +72,14 @@ describe('Extension activation', () => {
     // Gap closures: exportDump, downloadDatabase, schemaDiagram, compareReport,
     //   migrationPreview, sizeAnalytics, importData, shareSession, openSession,
     //   annotateSession (10)
-    // Total = 68
-    assert.strictEqual(subscriptions.length, 68, `expected 68 disposables, got ${subscriptions.length}`);
+    // Data management: clearTable, clearAllTables, clearTableGroup,
+    //   importDataset, exportDataset (5)
+    // Global search: globalSearch (1)
+    // Row comparator: compareRows (1)
+    // Schema docs: generateSchemaDocs (1)
+    // Column profiler: profileColumn (1)
+    // Total = 77
+    assert.strictEqual(subscriptions.length, 77, `expected 77 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
@@ -145,6 +151,12 @@ describe('Extension activation', () => {
     activate(fakeContext());
     const registered = commands.getRegistered();
     assert.ok('driftViewer.openSqlNotebook' in registered);
+  });
+
+  it('should register driftViewer.globalSearch command', () => {
+    activate(fakeContext());
+    const registered = commands.getRegistered();
+    assert.ok('driftViewer.globalSearch' in registered);
   });
 
   it('should register a HoverProvider for Dart files', () => {
