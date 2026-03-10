@@ -49,7 +49,8 @@ export function rowsToObjects(
   });
 }
 
-function pkKey(row: Record<string, unknown>, pkCols: string[]): string {
+/** Build a stable string key from a row's primary key columns. */
+export function pkKey(row: Record<string, unknown>, pkCols: string[]): string {
   return pkCols.map((c) => String(row[c] ?? '')).join('\0');
 }
 
