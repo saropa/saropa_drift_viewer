@@ -55,6 +55,7 @@ import type { DataBreakpointType } from './data-breakpoint/data-breakpoint-types
 import { AnnotationStore } from './annotations/annotation-store';
 import { registerAnnotationCommands } from './annotations/annotation-commands';
 import { registerSeederCommands } from './seeder/seeder-commands';
+import { registerConstraintWizardCommands } from './constraint-wizard/constraint-commands';
 
 async function pickTable(
   client: DriftApiClient,
@@ -1201,6 +1202,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // --- Test Data Seeder ---
   registerSeederCommands(context, client);
+  // --- Constraint Wizard ---
+  registerConstraintWizardCommands(context, client);
 
   // --- Data Breakpoints ---
   context.subscriptions.push(

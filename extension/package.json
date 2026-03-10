@@ -315,6 +315,11 @@
       {
         "command": "driftViewer.toggleDataBreakpoint",
         "title": "Drift Viewer: Toggle Data Breakpoint"
+      },
+      {
+        "command": "driftViewer.constraintWizard",
+        "title": "Drift Viewer: Constraint Wizard",
+        "icon": "$(shield)"
       }
     ],
     "menus": {
@@ -427,6 +432,11 @@
           "command": "driftViewer.addDataBreakpoint",
           "when": "viewItem == driftTable",
           "group": "7_breakpoint"
+        },
+        {
+          "command": "driftViewer.constraintWizard",
+          "when": "viewItem == driftTable",
+          "group": "9_constraints"
         },
         {
           "command": "driftViewer.annotateTable",

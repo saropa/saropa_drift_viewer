@@ -84,8 +84,9 @@ describe('Extension activation', () => {
     // Annotations: annotateTable, annotateColumn, openBookmarks,
     //   exportAnnotations, importAnnotations (5)
     // Seeder: seedTable, seedAllTables (2)
-    // Total = 89
-    assert.strictEqual(subscriptions.length, 89, `expected 89 disposables, got ${subscriptions.length}`);
+    // Constraint wizard: constraintWizard (1)
+    // Total = 90
+    assert.strictEqual(subscriptions.length, 90, `expected 90 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

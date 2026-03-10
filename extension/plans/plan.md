@@ -70,7 +70,7 @@ Thirty "WOW" features for saropa_drift_viewer, organized into three tiers by ser
 | 23 | Row Impact Analysis | 5 | Medium | **Medium** | High |
 | 38 | Entity Relationship Diagram | 4 | Medium | **High** | Medium |
 | 41 | Schema Evolution Timeline | 4 | Medium | **High** | Very High |
-| 44 | Constraint Wizard | 4 | Medium | **High** | Very High |
+| 44 | Constraint Wizard | 4 | Medium | **High** | Very High | **DONE** |
 | 43 | Query Cost Analyzer | 4 | Medium | **Medium** | High |
 | 27 | Data Invariant Checker | 4 | Medium | **Medium** | High |
 | 30 | Database Health Score | 4 | Medium | **Medium** | High |
