@@ -438,6 +438,9 @@ export const window = {
     registeredTerminalLinkProviders.push({ provider });
     return { dispose: () => { /* no-op */ } };
   },
+  registerWebviewViewProvider: (_viewId: string, _provider: any) => {
+    return { dispose: () => { /* no-op */ } };
+  },
 };
 
 const registeredCommands: Record<string, (...args: any[]) => any> = {};
