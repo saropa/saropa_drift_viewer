@@ -1,37 +1,126 @@
-# Drift Viewer (VS Code / Cursor)
+# Drift Viewer — VS Code Extension
 
-## Database Explorer
+Full IDE integration for [saropa_drift_viewer](https://pub.dev/packages/saropa_drift_viewer), the debug-only SQLite/Drift database inspector for Flutter and Dart apps.
 
-A **database icon** in the activity bar opens a tree view showing:
+## Requirements
 
-- Connection status (green/red indicator)
+Your Flutter/Dart app must be running with the Drift debug server started. See the [Dart package README](https://pub.dev/packages/saropa_drift_viewer) for setup (two lines of code).
+
+## Features
+
+### Database Explorer
+
+A **database icon** in the activity bar opens a tree view:
+
 - Tables with row counts
 - Columns with type icons (key, number, string, blob)
 - Foreign key relationships
+- Right-click: **View Data**, **Copy Name**, **Export CSV**, **Watch Table**
+- Auto-refreshes when the app writes to the database
 
-Right-click actions: **View Data**, **Copy Name**, **Export CSV**, **Filter by Column**. The tree auto-refreshes when the app writes to the database.
+### Code Intelligence
+
+Works in Dart files with Drift table definitions:
+
+- **Go to Definition** (F12) — jump from SQL table/column names to their definitions
+- **CodeLens** — row counts and quick actions on Drift table classes
+- **Hover Preview** — see recent rows when hovering over table class names
+- **Schema Linter** — diagnostics with quick-fix code actions for missing indexes and anomalies
+- **File Badges** — row count badges on Drift table files in the explorer
+
+### Query Tools
+
+- **SQL Notebook** (`Ctrl+Shift+Q`) — multi-statement editor with autocomplete, results grid, and inline charts
+- **EXPLAIN Panel** — color-coded query plan tree with index suggestions
+- **Live Watch** — monitor queries with diff highlighting; persists across sessions
+
+### Schema & Migration
+
+- **Schema Diff** — compare code-defined tables vs runtime schema
+- **Schema Diagram** — ER-style visualization of tables and FK relationships
+- **Generate Dart** — scaffold Drift table classes from the runtime schema
+- **Migration Preview** — preview migration DDL from database comparison
+
+### Data Management
+
+- **Import Data** — 3-step wizard for JSON, CSV, or SQL files
+- **Data Editing** — track cell edits, row inserts/deletes; generate SQL from pending changes
+- **Export SQL Dump** — full schema + data to `.sql`
+- **Download Database** — save the raw `.db` file
+
+### Debugging
+
+- **Query Performance** — debug sidebar with slow query stats and timing
+- **Snapshot Timeline** — capture snapshots, compare to current state, view diffs
+- **Database Comparison** — diff two databases (schema match, row count differences)
+- **Size Analytics** — storage dashboard with table sizes, indexes, journal mode
+- **Terminal Links** — clickable SQLite error messages
+- **Pre-launch Tasks** — health check, anomaly scan, index coverage
+
+### Sessions
+
+- **Share Session** — snapshot state, copy shareable URL
+- **Open Session** — view a shared session by ID
+- **Annotate Session** — add notes to shared sessions
+
+## Configuration
+
+| Setting | Default | Description |
+|---|---|---|
+| `driftViewer.host` | `127.0.0.1` | Debug server host |
+| `driftViewer.port` | `8642` | Debug server port |
+| `driftViewer.authToken` | *(empty)* | Bearer token for authenticated servers |
+| `driftViewer.discovery.enabled` | `true` | Auto-scan for running servers |
+| `driftViewer.discovery.portRangeStart` | `8642` | Scan range start |
+| `driftViewer.discovery.portRangeEnd` | `8649` | Scan range end |
+| `driftViewer.fileBadges.enabled` | `true` | Row count badges on table files |
+| `driftViewer.hover.enabled` | `true` | Hover preview during debug |
+| `driftViewer.hover.maxRows` | `3` | Rows shown in hover preview |
+| `driftViewer.linter.enabled` | `true` | Schema linter diagnostics |
+| `driftViewer.timeline.autoCapture` | `true` | Auto-capture snapshots on data change |
+| `driftViewer.watch.notifications` | `false` | Desktop notifications for watch changes |
+| `driftViewer.performance.slowThresholdMs` | `500` | Slow query threshold (ms) |
+
+## Server Discovery
+
+The extension automatically scans ports 8642-8649 for running debug servers. When multiple servers are found, use **Drift Viewer: Select Server** from the command palette. The status bar shows connection state:
+
+- **Drift: :8642** — connected to a single server
+- **Drift: 3 servers** — multiple servers found (click to select)
+- **Drift: Searching...** — scanning for servers
+- **Drift: Offline** — no servers found (click to retry)
 
 ## Commands
 
-- **Drift Viewer: Open in Browser** — opens the viewer in your default browser.
-- **Drift Viewer: Open in Editor Panel** — opens the viewer in a VS Code webview tab (side-by-side with code, no context switching).
-- **Refresh** — manually refresh the database tree (also available in tree header).
+All commands are available via the command palette (`Ctrl+Shift+P`):
 
-A status bar item (**$(database) Drift Viewer**) is also shown for quick access to the editor panel.
+| Command | Description |
+|---|---|
+| Open in Browser | Open web UI in default browser |
+| Open in Editor Panel | Open web UI in VS Code tab |
+| Schema Diff | Compare code vs runtime schema |
+| Schema Diagram | ER-style table visualization |
+| Open SQL Notebook | Multi-statement SQL editor |
+| Explain Query Plan | EXPLAIN for selected SQL |
+| Generate Dart from Schema | Scaffold Drift table classes |
+| Export SQL Dump | Save schema + data as `.sql` |
+| Download Database File | Save raw `.db` file |
+| Preview Migration SQL | Show migration DDL |
+| Compare Databases | Diff two databases |
+| Database Size Analytics | Storage dashboard |
+| Import Data | JSON/CSV/SQL import wizard |
+| Capture Snapshot | Snapshot current database state |
+| Share Debug Session | Create shareable session URL |
+| Run Schema Linter | Manual linter scan |
+| Show All Tables | QuickPick table selector |
 
-All features connect to `http://127.0.0.1:8642` by default (configurable via `driftViewer.host` and `driftViewer.port`).
-
-**Simpler option (no extension):** In this repo, use **Run Task → Open Drift Viewer** (`.vscode/tasks.json`). Your app must be running with the Drift server started.
-
-## Install (development)
+## Development
 
 ```bash
 cd extension && npm install && npm run compile
 ```
 
-Then in VS Code/Cursor: **Run > Run Extension** (F5).
-
-## Tests
+Run/debug: **Run > Run Extension** (F5) in VS Code.
 
 ```bash
 cd extension && npm test

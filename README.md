@@ -6,30 +6,97 @@
 [![CI](https://github.com/saropa/saropa_drift_viewer/actions/workflows/main.yaml/badge.svg)](https://github.com/saropa/saropa_drift_viewer/actions/workflows/main.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minimal web UI. Use from any Flutter/Dart app that has a Drift (or other SQLite) database.
+Debug-only HTTP server + VS Code extension for inspecting SQLite/Drift databases in Flutter and Dart apps. Two ways to access your data — a browser-based web UI and a full-featured VS Code extension with IDE integration.
 
 ---
 
-## Features
+## How it works
+
+Your app runs a lightweight debug server that exposes database tables over HTTP. You inspect the data using either a **browser** or the **VS Code extension** — both connect to the same server.
+
+| | Browser | VS Code Extension |
+|---|---|---|
+| **Install** | None — open `localhost:8642` | Install from Marketplace |
+| **Works with** | Any editor, CI, QA, mobile | VS Code / Cursor |
+| **Best for** | Quick look, sharing URLs | Daily development workflow |
+
+---
+
+## VS Code Extension
+
+Install **Drift Viewer** (`saropa.drift-viewer`) from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=saropa.drift-viewer). The extension auto-discovers running debug servers and provides full IDE integration.
+
+### Database Explorer
+- **Tree view** in the activity bar — tables, columns (with type icons), foreign keys, row counts
+- **Auto-refresh** when your app writes to the database
+- Right-click: View Data, Copy Name, Export CSV, Watch Table
+
+### Code Intelligence (Dart files)
+- **Go to Definition** (F12) on SQL table/column names in Dart strings
+- **CodeLens** on Drift table classes — row counts, quick actions
+- **Hover preview** — see recent rows when hovering over table class names
+- **Schema linter** — diagnostics on table definitions with quick-fix suggestions
+
+### Query Tools
+- **SQL Notebook** — multi-statement editor with autocomplete, results grid, and charts
+- **EXPLAIN panel** — color-coded query plan with index suggestions
+- **Live Watch** — monitor queries in real time with diff highlighting
+
+### Schema & Migration
+- **Schema Diff** — compare code-defined tables vs runtime schema, generate migration SQL
+- **Schema Diagram** — ER-style visualization of tables and foreign key relationships
+- **Generate Dart** — scaffold Drift table classes from the runtime schema
+- **Migration Preview** — preview migration DDL from compare-database results
+
+### Data Management
+- **Import Data** — wizard for importing JSON, CSV, or SQL files into tables
+- **Data Editing** — track cell edits, row inserts/deletes, generate SQL statements
+- **Export SQL Dump** — full schema + data export to `.sql` file
+- **Download Database** — save the raw `.db` file locally
+
+### Debugging
+- **Query Performance** — debug sidebar showing slow queries, timing, and stats
+- **Snapshot Timeline** — capture database snapshots, compare to current state
+- **Database Comparison** — diff two databases (schema + row counts)
+- **Size Analytics** — dashboard with storage breakdown, table sizes, index info
+- **Terminal Links** — clickable SQLite error messages in the terminal
+- **Pre-launch Tasks** — health check, anomaly scan, index coverage before app launch
+
+### Sessions & Collaboration
+- **Share Session** — snapshot current state and copy a shareable URL
+- **Open Session** — view a shared session by ID
+- **Annotate Session** — add notes to shared sessions
+
+### Other
+- **File Badges** — row count badges on Drift table files in the explorer
+- **Auto-discovery** — scans ports 8642-8649 for running debug servers
+- **Auth support** — configure `driftViewer.authToken` for token-protected servers
+- **Saropa Log Capture** integration — mirrors query events to the log capture extension
+
+---
+
+## Browser Web UI
+
+Open **http://127.0.0.1:8642** in any browser. No install required.
 
 - **Table list** with row counts; click a table to view rows as JSON
 - **Pagination** (limit/offset) and client-side filter
 - **Collapsible schema** panel; export table as CSV
 - **Light/dark theme** (saved in localStorage)
-- **Read-only SQL runner** with table/column autofill, templates, and query history (localStorage)
-- **EXPLAIN QUERY PLAN** — one-click query plan viewer highlights full table scans (red) and index lookups (green)
-- **Data charts** — Bar, pie, line/time-series, and histogram from SQL results (inline SVG, no dependencies)
-- **Data anomaly detection** — one-click scan for NULLs, empty strings, orphaned FKs, duplicates, and numeric outliers with severity-coded results
-- **Export** schema-only (`schema.sql`), full dump (schema + data), or raw SQLite file (when `getDatabaseBytes` is set)
+- **Read-only SQL runner** with table/column autofill, templates, and query history
+- **EXPLAIN QUERY PLAN** — highlights full table scans (red) and index lookups (green)
+- **Data charts** — bar, pie, line/time-series, and histogram from SQL results
+- **Data anomaly detection** — scan for NULLs, empty strings, orphaned FKs, duplicates, outliers
+- **Export** — schema-only, full dump (schema + data), or raw SQLite file
 - **Live refresh** via long-poll when data changes
-- **Snapshot / time travel** — in-memory snapshot, compare to now, export diff
-- **Database diff** — compare to another DB (e.g. staging) when `queryCompare` is set; schema + row count diff, export report
-- **Optional auth** — token or HTTP Basic for secure dev tunnels
-- **Bind address** (loopback or any), CORS, health endpoint (`GET /api/health`), and `DriftDebugServer.stop()`
+- **Snapshot / time travel** — capture, compare to now, export diff
+- **Database diff** — compare to another DB when `queryCompare` is set
 
-**Editor integration:** Run Task → **Open Drift Viewer** (VS Code/Cursor) or use the **Drift Viewer** extension in `extension/`.
+---
 
-**Flutter overlay:** In debug builds, wrap your app with [DriftViewerOverlay](https://pub.dev/documentation/saropa_drift_viewer/latest/flutter/DriftViewerOverlay-class.html) to show a floating button that opens the viewer in the browser or in an in-app WebView. See [Flutter overlay](#flutter-overlay) below.
+## Flutter overlay (optional)
+
+In debug builds, wrap your app with [DriftViewerOverlay](https://pub.dev/documentation/saropa_drift_viewer/latest/flutter/DriftViewerOverlay-class.html) to show a floating button that opens the viewer in the browser or in an in-app WebView. See [Flutter overlay](#4-flutter-overlay-optional) below.
 
 ---
 
@@ -81,12 +148,13 @@ await DriftDebugServer.start(
 );
 ```
 
-### 3. Open in a browser
+### 3. Connect a client
 
-Open **http://127.0.0.1:8642**.  
-From VS Code/Cursor: **Run Task → Open Drift Viewer**, or use the **Drift Viewer** extension (`extension/`) for a command-palette shortcut.
+**VS Code extension (recommended):** Install **Drift Viewer** (`saropa.drift-viewer`) from the Marketplace. It auto-discovers the running server — no configuration needed.
 
-**Example app:** [example/](example/) — from repo root: `flutter run -d windows`, then open http://127.0.0.1:8642. See [example/README.md](example/README.md).
+**Browser:** Open **http://127.0.0.1:8642**.
+
+**Example app:** [example/](example/) — from repo root: `flutter run -d windows`, then connect via VS Code or browser. See [example/README.md](example/README.md).
 
 ### 4. Flutter overlay (optional)
 
