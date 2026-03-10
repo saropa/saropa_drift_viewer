@@ -15,7 +15,7 @@ Thirty "WOW" features for saropa_drift_viewer, organized into three tiers by ser
 | 20a | [Data Management](20a-data-management.md) | **IMPLEMENTED.** Reset, Import, Export, Table Groups — prerequisite for 20, 28, 37, 46, 47. |
 | 20 | [Test Data Seeder](20-test-data-seeder.md) | **IMPLEMENTED.** Auto-generate realistic test data respecting FK relationships. Depends on 20a. |
 | 21 | [Visual Query Builder](21-visual-query-builder.md) | Drag-and-drop SQL builder with live preview. |
-| 24 | [Drift Migration Generator](24-drift-migration-generator.md) | Generate Dart migration code from schema diffs. |
+| 24 | [Drift Migration Generator](24-drift-migration-generator.md) | **IMPLEMENTED.** Generate Dart migration code from schema diffs. |
 | 27 | [Data Invariant Checker](27-data-invariant-checker.md) | Define and continuously verify data integrity rules. |
 | 29 | [Smart Column Profiler](29-column-profiler.md) | Click a column → full statistics: distribution, nulls, top values, histogram. |
 | 30 | [Database Health Score](30-health-score.md) | Single-pane dashboard with A–F grade: index coverage, FK integrity, anomalies. |
@@ -61,7 +61,7 @@ Thirty "WOW" features for saropa_drift_viewer, organized into three tiers by ser
 | 42 | Data Annotations & Bookmarks | 3 | Low | **High** | Medium | **DONE** |
 | 45 | Data Sampling Explorer | 3 | Low | **High** | Medium |
 | 40 | SQL Snippet Library | 3 | Low | **High** | Low |
-| 24 | Drift Migration Generator | 5 | Medium | **High** | High |
+| 24 | Drift Migration Generator | 5 | Medium | **High** | High | **DONE** |
 | 19 | Data Breakpoints | 5 | Medium | **High** | Very High | **DONE** |
 | 28 | Data Masking / PII Anonymizer | 5 | Medium | **High** | High |
 | 31 | Regression Test Generator | 5 | Medium | **High** | Very High |
@@ -100,7 +100,7 @@ Thirty "WOW" features for saropa_drift_viewer, organized into three tiers by ser
 
 ### Phase 2 — Differentiators (Medium effort, unique value)
 
-11. **24 — Drift Migration Generator** — Every Drift user, every day
+11. ~~**24 — Drift Migration Generator** — Every Drift user, every day~~ **DONE**
 12. **19 — Data Breakpoints** — No competitor has this
 13. **46 — Automated Data Lineage** — Click any cell, see everything connected
 14. **38 — Entity Relationship Diagram** — Visual map everyone wants
