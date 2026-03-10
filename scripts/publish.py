@@ -29,8 +29,7 @@ except ImportError:
     )
 
 from modules.constants import C, ExitCode, REPO_ROOT, EXTENSION_DIR
-from modules.display import dim, heading, info, show_logo
-from modules.utils import read_package_version
+from modules.display import ask_yn, dim, heading, info, show_logo
 
 
 # ── CLI ──────────────────────────────────────────────────────
@@ -63,6 +62,15 @@ def parse_args() -> argparse.Namespace:
 
 
 # ── Banner ───────────────────────────────────────────────────
+
+
+def _read_banner_version(target: str) -> str:
+    """Read the version to display in the banner (target-appropriate)."""
+    if target == "extension":
+        from modules.target_config import EXTENSION, read_version
+        return read_version(EXTENSION)
+    from modules.target_config import DART, read_version
+    return read_version(DART)
 
 
 def _print_banner(args: argparse.Namespace, target: str, version: str) -> None:
@@ -148,81 +156,102 @@ def _exit_code_from_results(
 # ── Main ─────────────────────────────────────────────────────
 
 
-def main() -> int:
-    """Unified entry point: analyze → package → publish."""
-    args = parse_args()
-    target = args.target
-    version = read_package_version()
-    results: list[tuple[str, bool, float]] = []
-
-    _print_banner(args, target, version)
-
+def _run_analysis(args, target, results):
+    """Run per-target analysis. Returns (dart_version, ext_version, vsix_path, ok)."""
     dart_version = ""
     ext_version = ""
-    vsix_path: str | None = None
-
-    # ── Analysis phase ──
+    vsix_path = None
 
     if target in ("dart", "all"):
         from modules.pipeline import run_dart_analysis
-
         dart_version, dart_ok = run_dart_analysis(args, results)
         if not dart_ok:
-            _print_results(results, dart_version)
-            return _exit_code_from_results(results)
+            return dart_version, ext_version, vsix_path, False
 
     if target in ("extension", "all"):
         from modules.pipeline import run_ext_analysis, package_and_install
-
         ext_version, ext_ok = run_ext_analysis(args, results)
         if not ext_ok:
-            _print_results(results, ext_version)
-            return _exit_code_from_results(results)
-
+            return dart_version, ext_version, vsix_path, False
         vsix_path = package_and_install(args, results, ext_version)
         if not vsix_path:
-            return ExitCode.PACKAGE_FAILED
+            return dart_version, ext_version, vsix_path, False
 
-    # ── Analyze-only: stop here ──
+    return dart_version, ext_version, vsix_path, True
 
-    if args.analyze_only:
-        v = ext_version or dart_version
-        report = _print_results(results, v, vsix_path)
-        if report and target in ("extension", "all"):
-            from modules.ext_install import prompt_open_report
 
-            prompt_open_report(report)
-        return ExitCode.SUCCESS
+def _confirm_dart_publish(version: str) -> bool:
+    """Confirm Dart package publish."""
+    print(f"\n  {C.BOLD}{C.YELLOW}Dart Publish Summary{C.RESET}")
+    print(f"  {'-' * 40}")
+    print(f"  Version: {C.WHITE}v{version}{C.RESET}")
+    print(f"  Tag:     {C.WHITE}v{version}{C.RESET}")
+    print(f"\n  {C.YELLOW}This will:{C.RESET}")
+    print(f"    1. Commit and push to origin")
+    print(f"    2. Create git tag v{version}")
+    print(f"    3. Trigger GitHub Actions publish to pub.dev")
+    print(f"    4. Create GitHub release")
+    print(f"\n  {C.RED}These actions are irreversible.{C.RESET}")
+    return ask_yn("Proceed with publish?", default=False)
 
-    # ── Publish phase ──
+
+def _run_publish(args, target, dart_version, ext_version, vsix_path, results):
+    """Run per-target publish steps. Returns exit code or None on success."""
+    if target in ("dart", "all"):
+        heading("Publish Confirmation")
+        if not _confirm_dart_publish(dart_version):
+            info("Publish cancelled by user.")
+            return ExitCode.USER_CANCELLED
 
     if target in ("extension", "all"):
         from modules.ext_publish import confirm_publish
-
         heading("Publish Confirmation")
         if not confirm_publish(ext_version):
             info("Publish cancelled by user.")
             return ExitCode.USER_CANCELLED
 
     if target in ("dart", "all"):
-        from modules.pipeline import run_dart_publish
-
+        from modules.dart_publish import run_dart_publish
         if not run_dart_publish(dart_version, results):
             _print_results(results, dart_version)
             return _exit_code_from_results(results)
 
     if target in ("extension", "all"):
-        from modules.pipeline import ask_publish_stores, run_publish
+        from modules.ext_publish import ask_publish_stores, run_ext_publish
         from modules.ext_prereqs import get_installed_extension_versions
-
         stores = "both"
         if not get_installed_extension_versions():
             stores = ask_publish_stores()
-        if not run_publish(ext_version, vsix_path, results, stores):
+        if not run_ext_publish(ext_version, vsix_path, results, stores):
             _print_results(results, ext_version, vsix_path)
             return _exit_code_from_results(results)
 
-    return ExitCode.SUCCESS
+    return None
+
+
+def main() -> int:
+    """Unified entry point: analyze -> package -> publish."""
+    args = parse_args()
+    target = args.target
+    version = _read_banner_version(target)
+    results: list[tuple[str, bool, float]] = []
+
+    _print_banner(args, target, version)
+
+    dart_ver, ext_ver, vsix_path, ok = _run_analysis(args, target, results)
+    if not ok:
+        _print_results(results, ext_ver or dart_ver, vsix_path)
+        return _exit_code_from_results(results)
+
+    if args.analyze_only:
+        report = _print_results(results, ext_ver or dart_ver, vsix_path)
+        if report and target in ("extension", "all"):
+            from modules.ext_install import prompt_open_report
+            prompt_open_report(report)
+        return ExitCode.SUCCESS
+
+    err = _run_publish(args, target, dart_ver, ext_ver, vsix_path, results)
+    return err if err is not None else ExitCode.SUCCESS
 
 
 if __name__ == "__main__":

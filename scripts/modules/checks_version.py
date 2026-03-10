@@ -6,17 +6,36 @@ checks. These are the most complex pre-publish validations; keeping
 them separate from git/build checks improves readability.
 """
 
+from __future__ import annotations
+
 import datetime
 import os
 import re
 import sys
+from typing import TYPE_CHECKING
 
-from modules.constants import C, EXTENSION_DIR, TAG_PREFIX
+from modules.constants import C, CHANGELOG_PATH, TAG_PREFIX
 from modules.display import ask_yn, fail, fix, ok, warn
-from modules.utils import is_version_tagged as _is_version_tagged, read_package_version
+
+if TYPE_CHECKING:
+    from modules.target_config import TargetConfig
 
 
 # ── Helpers ───────────────────────────────────────────────
+
+
+def _changelog_for(config: TargetConfig | None) -> str:
+    """Return the CHANGELOG path for the given config (or legacy default)."""
+    if config is not None:
+        return config.changelog_path
+    return CHANGELOG_PATH
+
+
+def _tag_prefix_for(config: TargetConfig | None) -> str:
+    """Return the tag prefix for the given config (or legacy default)."""
+    if config is not None:
+        return config.tag_prefix
+    return TAG_PREFIX
 
 
 def _parse_semver(version: str) -> tuple[int, ...]:
@@ -24,9 +43,11 @@ def _parse_semver(version: str) -> tuple[int, ...]:
     return tuple(int(x) for x in version.split("."))
 
 
-def _get_changelog_max_version() -> str | None:
+def _get_changelog_max_version(
+    config: TargetConfig | None = None,
+) -> str | None:
     """Return the highest versioned heading in CHANGELOG.md, or None."""
-    changelog_path = os.path.join(EXTENSION_DIR, "CHANGELOG.md")
+    changelog_path = _changelog_for(config)
     versions: list[str] = []
     try:
         with open(changelog_path, encoding="utf-8") as f:
@@ -75,52 +96,37 @@ def _ask_version(current: str) -> str | None:
 
 
 def _offer_bump_and_apply(
-    current: str, next_ver: str, fail_msg: str, default_yes: bool = True
+    current: str,
+    next_ver: str,
+    fail_msg: str,
+    default_yes: bool = True,
+    config: TargetConfig | None = None,
 ) -> tuple[str, bool]:
-    """Ask to bump to next_ver; if yes, write package.json and report. Returns (version, ok)."""
+    """Ask to bump; if yes, write version file and report. Returns (version, ok)."""
     if not ask_yn(f"Bump to v{next_ver}?", default=default_yes):
         fail(fail_msg)
         return current, False
-    if not _write_package_version(next_ver):
+    if not _write_version(next_ver, config):
         return current, False
-    fix(f"package.json: {current} -> {C.WHITE}{next_ver}{C.RESET}")
+    label = _version_file_label(config)
+    fix(f"{label}: {current} -> {C.WHITE}{next_ver}{C.RESET}")
     return next_ver, True
 
 
-# ── package.json Version ──────────────────────────────────
+# ── Version File Write ────────────────────────────────────
 
 
-def _write_package_version(version: str) -> bool:
-    """Write a new version string into package.json.
+def _version_file_label(config: TargetConfig | None) -> str:
+    """Return a human-readable label for the version file."""
+    if config is not None:
+        return os.path.basename(config.version_file)
+    return "package.json"
 
-    Uses regex replacement to preserve key order and formatting,
-    avoiding json.dump which alphabetizes keys.
-    """
-    pkg_path = os.path.join(EXTENSION_DIR, "package.json")
-    try:
-        with open(pkg_path, encoding="utf-8") as f:
-            content = f.read()
-    except OSError:
-        fail("Could not read package.json")
-        return False
 
-    updated, count = re.subn(
-        r'("version"\s*:\s*")([^"]+)(")',
-        rf'\g<1>{version}\3',
-        content,
-        count=1,
-    )
-    if count == 0:
-        fail("Could not find 'version' field in package.json")
-        return False
-
-    try:
-        with open(pkg_path, "w", encoding="utf-8") as f:
-            f.write(updated)
-    except OSError:
-        fail("Could not write package.json")
-        return False
-    return True
+def _write_version(version: str, config: TargetConfig | None = None) -> bool:
+    """Write *version* into the target's version file."""
+    from modules.target_config import EXTENSION, write_version
+    return write_version(config if config is not None else EXTENSION, version)
 
 
 # ── CHANGELOG ─────────────────────────────────────────────
@@ -135,9 +141,11 @@ _UNPUBLISHED_HEADING_RE = re.compile(
 _FIRST_RELEASE_HEADING_RE = re.compile(r'^##\s*\[\d+\.\d+\.\d+\]', re.MULTILINE)
 
 
-def _changelog_has_unpublished_heading() -> bool:
+def _changelog_has_unpublished_heading(
+    config: TargetConfig | None = None,
+) -> bool:
     """True if CHANGELOG has ## [Unreleased], [Unpublished], or [Undefined]."""
-    changelog_path = os.path.join(EXTENSION_DIR, "CHANGELOG.md")
+    changelog_path = _changelog_for(config)
     try:
         with open(changelog_path, encoding="utf-8") as f:
             for line in f:
@@ -148,25 +156,13 @@ def _changelog_has_unpublished_heading() -> bool:
     return False
 
 
-def _has_unreleased_section() -> bool:
-    """Check if CHANGELOG.md has an ## [Unreleased] section.
-
-    The [Unreleased] heading (per Keep a Changelog convention) indicates
-    work-in-progress changes. During publish, it gets replaced with the
-    version number and today's date. Also accepts [Unpublished] / [Undefined].
-    """
-    return _changelog_has_unpublished_heading()
-
-
-def _ensure_unreleased_section() -> bool:
-    """If CHANGELOG has no ## [Unreleased], insert it before the first ## [x.y.z] section.
-
-    Keeps Keep a Changelog convention; the stamp step will replace it with [version] - date.
-    Returns True if the file now has an unreleased heading (added or already present).
-    """
-    if _changelog_has_unpublished_heading():
+def _ensure_unreleased_section(
+    config: TargetConfig | None = None,
+) -> bool:
+    """If CHANGELOG has no ## [Unreleased], insert it before the first ## [x.y.z] section."""
+    if _changelog_has_unpublished_heading(config):
         return True
-    changelog_path = os.path.join(EXTENSION_DIR, "CHANGELOG.md")
+    changelog_path = _changelog_for(config)
     try:
         with open(changelog_path, encoding="utf-8") as f:
             content = f.read()
@@ -189,14 +185,12 @@ def _ensure_unreleased_section() -> bool:
     return True
 
 
-def _stamp_changelog(version: str) -> bool:
-    """Replace '## [Unreleased]' (or [Unpublished]/[Undefined]) with '## [version] - date'.
-
-    Called during validation so the CHANGELOG is finalized before
-    packaging. If publish is cancelled, the change is uncommitted
-    and easily reverted with git.
-    """
-    changelog_path = os.path.join(EXTENSION_DIR, "CHANGELOG.md")
+def _stamp_changelog(
+    version: str,
+    config: TargetConfig | None = None,
+) -> bool:
+    """Replace '## [Unreleased]' with '## [version] - date'."""
+    changelog_path = _changelog_for(config)
     try:
         with open(changelog_path, encoding="utf-8") as f:
             content = f.read()
@@ -225,93 +219,115 @@ def _stamp_changelog(version: str) -> bool:
 # ── Tag Availability ──────────────────────────────────────
 
 
-def _ensure_untagged_version(version: str) -> tuple[str, bool]:
+def _is_tagged(version: str, config: TargetConfig | None = None) -> bool:
+    """Check whether the version tag already exists (target-aware)."""
+    from modules.git_ops import is_version_tagged
+    prefix = _tag_prefix_for(config)
+    return is_version_tagged(version, prefix)
+
+
+def _ensure_untagged_version(
+    version: str,
+    config: TargetConfig | None = None,
+) -> tuple[str, bool]:
     """If the version is already tagged, offer to bump patch.
 
     Keeps bumping until an available tag is found or the user declines.
     Returns (resolved_version, success).
     """
+    prefix = _tag_prefix_for(config)
     original = version
-    while _is_version_tagged(version):
+    while _is_tagged(version, config):
         next_ver = _bump_patch(version)
-        warn(f"Tag '{TAG_PREFIX}{version}' already exists.")
+        warn(f"Tag '{prefix}{version}' already exists.")
         if not ask_yn(f"Bump to {next_ver}?", default=True):
             fail("Version already tagged. Bump manually.")
             return version, False
         version = next_ver
 
     if version != original:
-        if not _write_package_version(version):
+        if not _write_version(version, config):
             return version, False
-        fix(f"package.json: {original} -> {C.WHITE}{version}{C.RESET}")
-    ok(f"Tag '{TAG_PREFIX}{version}' is available")
+        label = _version_file_label(config)
+        fix(f"{label}: {original} -> {C.WHITE}{version}{C.RESET}")
+    ok(f"Tag '{prefix}{version}' is available")
     return version, True
 
 
 # ── Main Validation ───────────────────────────────────────
 
 
-def validate_version_changelog() -> tuple[str, bool]:
-    """Validate version, resolve tag conflicts, confirm, and stamp CHANGELOG.
+def _resolve_tagged_stale(
+    pkg_version: str,
+    next_ver: str,
+    max_cl: str,
+    config: TargetConfig | None,
+) -> tuple[str, bool | None]:
+    """Handle stale version when tag already exists. Returns (version, result)."""
+    prefix = _tag_prefix_for(config)
+    label = _version_file_label(config)
+    warn(f"{prefix}{pkg_version} is already released (tag exists).")
 
-    1. package.json must have a valid version (source of truth)
-    2. Version must be greater than the highest released version in CHANGELOG
-    3. CHANGELOG.md must have ## [Unreleased] or [Unpublished] or [Undefined]
-    4. The version must not already be tagged (auto-bumps if so)
-    5. User confirms or overrides the final version
-    6. Stamp CHANGELOG: that heading -> [version] - today
+    if _changelog_has_unpublished_heading(config):
+        pkg_version, bump_ok = _offer_bump_and_apply(
+            pkg_version, next_ver,
+            "Version already tagged; bump to release changelog.",
+            config=config,
+        )
+        return pkg_version, (None if bump_ok else False)
 
-    Steps 3-6 are skipped when the user chooses to publish an
-    already-released version as-is (e.g. to sync to Open VSX).
+    if ask_yn(f"Publish v{pkg_version} as-is (e.g. sync)?", default=True):
+        ok(f"Publishing v{pkg_version} as-is")
+        return pkg_version, True
+    pkg_version, bump_ok = _offer_bump_and_apply(
+        pkg_version, next_ver,
+        f"Set {label} version higher than {max_cl}",
+        config=config,
+    )
+    return pkg_version, (None if bump_ok else False)
+
+
+def _resolve_stale_version(
+    pkg_version: str,
+    max_cl: str,
+    config: TargetConfig | None,
+) -> tuple[str, bool | None]:
+    """Handle version <= CHANGELOG max. Returns (version, result).
+
+    *result* is True/False for early return, or None to continue.
     """
-    pkg_version = read_package_version()
-    if pkg_version == "unknown":
-        fail("Could not read version from package.json")
-        return pkg_version, False
+    next_ver = _bump_patch(max_cl)
 
-    # When version <= CHANGELOG max: infer intent from git. Already tagged -> re-publish (as-is) or bump.
-    max_cl = _get_changelog_max_version()
-    if max_cl and _parse_semver(pkg_version) <= _parse_semver(max_cl):
-        next_ver = _bump_patch(max_cl)
-        if _is_version_tagged(pkg_version):
-            warn(f"{TAG_PREFIX}{pkg_version} is already released (tag exists).")
-            # Changelog still has [Unreleased]/[Unpublished]/[Undefined] -> offer bump first (no "publish as-is?").
-            if _changelog_has_unpublished_heading():
-                pkg_version, bump_ok = _offer_bump_and_apply(
-                    pkg_version, next_ver, "Version already tagged; bump to release changelog."
-                )
-                if not bump_ok:
-                    return pkg_version, False
-            else:
-                if ask_yn(f"Publish v{pkg_version} as-is (e.g. sync to Open VSX)?", default=True):
-                    ok(f"Publishing v{pkg_version} as-is")
-                    return pkg_version, True
-                pkg_version, bump_ok = _offer_bump_and_apply(
-                    pkg_version, next_ver, f"Set package.json version higher than {max_cl}"
-                )
-                if not bump_ok:
-                    return pkg_version, False
-        else:
-            warn(f"package.json v{pkg_version} <= CHANGELOG max v{max_cl}")
-            pkg_version, bump_ok = _offer_bump_and_apply(
-                pkg_version, next_ver, f"Set package.json version higher than {max_cl}"
-            )
-            if not bump_ok:
-                if not ask_yn(f"Publish v{pkg_version} as-is (no CHANGELOG stamp)?", default=False):
-                    fail(f"Set package.json version higher than {max_cl}")
-                    return pkg_version, False
-                ok(f"Publishing v{pkg_version} as-is")
-                return pkg_version, True
+    if _is_tagged(pkg_version, config):
+        return _resolve_tagged_stale(pkg_version, next_ver, max_cl, config)
 
-    if not _has_unreleased_section():
-        if not _ensure_unreleased_section():
+    label = _version_file_label(config)
+    warn(f"{label} v{pkg_version} <= CHANGELOG max v{max_cl}")
+    pkg_version, bump_ok = _offer_bump_and_apply(
+        pkg_version, next_ver,
+        f"Set {label} version higher than {max_cl}",
+        config=config,
+    )
+    if not bump_ok:
+        if not ask_yn(
+            f"Publish v{pkg_version} as-is (no CHANGELOG stamp)?",
+            default=False,
+        ):
+            fail(f"Set {label} version higher than {max_cl}")
             return pkg_version, False
+        ok(f"Publishing v{pkg_version} as-is")
+        return pkg_version, True
+    return pkg_version, None
 
-    version, tag_ok = _ensure_untagged_version(pkg_version)
-    if not tag_ok:
-        return version, False
 
-    # Let the user confirm or override the version (skip if PUBLISH_YES / --yes)
+def _confirm_version(
+    version: str,
+    config: TargetConfig | None,
+) -> tuple[str, bool]:
+    """Prompt user to confirm or override the version. Returns (version, ok)."""
+    prefix = _tag_prefix_for(config)
+    label = _version_file_label(config)
+
     if os.environ.get("PUBLISH_YES"):
         confirmed = version
     else:
@@ -320,17 +336,65 @@ def validate_version_changelog() -> tuple[str, bool]:
         fail("Version not confirmed. Press Y or Enter to confirm, or run with --yes.")
         return version, False
     if confirmed != version:
-        # User overrode -- re-check tag availability
-        if _is_version_tagged(confirmed):
-            fail(f"Tag '{TAG_PREFIX}{confirmed}' already exists.")
+        if _is_tagged(confirmed, config):
+            fail(f"Tag '{prefix}{confirmed}' already exists.")
             return confirmed, False
-        if not _write_package_version(confirmed):
+        if not _write_version(confirmed, config):
             return confirmed, False
-        fix(f"package.json: {version} -> {C.WHITE}{confirmed}{C.RESET}")
+        fix(f"{label}: {version} -> {C.WHITE}{confirmed}{C.RESET}")
         version = confirmed
+    return version, True
 
-    if not _stamp_changelog(version):
+
+def validate_version_changelog(
+    config: TargetConfig | None = None,
+) -> tuple[str, bool]:
+    """Validate version, resolve tag conflicts, confirm, and stamp CHANGELOG."""
+    label = _version_file_label(config)
+
+    from modules.target_config import EXTENSION, read_version
+    pkg_version = read_version(config if config is not None else EXTENSION)
+    if pkg_version == "unknown":
+        fail(f"Could not read version from {label}")
+        return pkg_version, False
+
+    max_cl = _get_changelog_max_version(config)
+    if max_cl and _parse_semver(pkg_version) <= _parse_semver(max_cl):
+        pkg_version, result = _resolve_stale_version(pkg_version, max_cl, config)
+        if result is not None:
+            return pkg_version, result
+
+    if not _changelog_has_unpublished_heading(config):
+        if not _ensure_unreleased_section(config):
+            return pkg_version, False
+
+    version, tag_ok = _ensure_untagged_version(pkg_version, config)
+    if not tag_ok:
+        return version, False
+
+    version, confirmed = _confirm_version(version, config)
+    if not confirmed:
+        return version, False
+
+    if not _stamp_changelog(version, config):
         return version, False
 
     ok(f"Version {C.WHITE}{version}{C.RESET} validated")
     return version, True
+
+
+def sync_package_json_to_pubspec() -> bool:
+    """Sync package.json version to match pubspec.yaml (for ``all`` mode)."""
+    from modules.target_config import DART, EXTENSION, read_version, write_version
+    dart_ver = read_version(DART)
+    if dart_ver == "unknown":
+        fail("Could not read version from pubspec.yaml")
+        return False
+    ext_ver = read_version(EXTENSION)
+    if ext_ver == dart_ver:
+        ok(f"package.json already at {dart_ver}")
+        return True
+    if not write_version(EXTENSION, dart_ver):
+        return False
+    fix(f"package.json: {ext_ver} -> {C.WHITE}{dart_ver}{C.RESET}")
+    return True

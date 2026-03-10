@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Pipeline orchestration: analysis and publish step sequencing.
-
-Supports both the legacy extension-only entry point (publish_extension.py)
-and the unified entry point (publish.py) via TargetConfig-aware functions.
-"""
+"""Pipeline orchestration: analysis and publish step sequencing."""
 
 from __future__ import annotations
 
@@ -13,11 +9,63 @@ import time
 from typing import TYPE_CHECKING
 
 from modules.constants import C
-from modules.display import heading, info, ok, warn
+from modules.display import heading, info, ok
 from modules.utils import run_step
 
 if TYPE_CHECKING:
     from modules.target_config import TargetConfig
+
+
+# ── Shared Helpers ───────────────────────────────────────
+
+
+def _validate_version_step(
+    args: argparse.Namespace,
+    results: list[tuple[str, bool, float]],
+    config: "TargetConfig",
+    step_label: str,
+) -> tuple[str, bool]:
+    """Run version validation for a target. Returns (version, ok)."""
+    from modules.checks_version import validate_version_changelog
+
+    heading(step_label)
+    if getattr(args, "yes", False):
+        os.environ["PUBLISH_YES"] = "1"
+    t0 = time.time()
+    version, version_ok = validate_version_changelog(config=config)
+    elapsed = time.time() - t0
+    results.append((f"{config.display_name} version", version_ok, elapsed))
+    if not version_ok:
+        return "", False
+    return version, True
+
+
+def _commit_and_tag(
+    config: "TargetConfig",
+    version: str,
+    results: list[tuple[str, bool, float]],
+    label: str,
+) -> bool:
+    """Commit, push, and tag for a target. Skips if tag exists."""
+    from modules.git_ops import is_version_tagged, git_commit_and_push, create_git_tag
+
+    tagged = is_version_tagged(version, config.tag_prefix)
+    if tagged:
+        heading(f"{label} Git Commit & Push")
+        info(f"Tag {config.tag_prefix}{version} already exists; skipping.")
+        heading(f"{label} Git Tag")
+        info("Skipped (tag exists).")
+        return True
+
+    heading(f"{label} Git Commit & Push")
+    if not run_step("Git commit & push",
+                    lambda: git_commit_and_push(config, version), results):
+        return False
+    heading(f"{label} Git Tag")
+    if not run_step("Git tag",
+                    lambda: create_git_tag(config, version), results):
+        return False
+    return True
 
 
 # ── Extension Analysis ───────────────────────────────────
@@ -86,7 +134,7 @@ def _run_ext_build_and_validate(
 ) -> tuple[str, bool]:
     """Extension compile, test, quality, and version steps."""
     from modules.ext_build import step_compile, step_test, check_file_line_limits
-    from modules.checks_version import validate_version_changelog
+    from modules.target_config import EXTENSION
 
     heading("Step 7 \u00b7 Compile")
     if not run_step("Compile", step_compile, results):
@@ -103,20 +151,45 @@ def _run_ext_build_and_validate(
     if not run_step("File line limits", check_file_line_limits, results):
         return "", False
 
-    heading("Step 10 \u00b7 Version & CHANGELOG")
-    if getattr(args, "yes", False):
-        os.environ["PUBLISH_YES"] = "1"
-    t0 = time.time()
-    version, version_ok = validate_version_changelog()
-    elapsed = time.time() - t0
-    results.append(("Version validation", version_ok, elapsed))
-    if not version_ok:
-        return "", False
-
-    return version, True
+    return _validate_version_step(args, results, EXTENSION, "Step 10 \u00b7 Version & CHANGELOG")
 
 
 # ── Dart Analysis ────────────────────────────────────────
+
+
+def _run_dart_build_steps(
+    args: argparse.Namespace,
+    results: list[tuple[str, bool, float]],
+) -> bool:
+    """Run Dart format, test, analysis, docs, and dry-run."""
+    from modules.dart_build import (
+        format_code, run_tests, run_analysis,
+        generate_docs, pre_publish_validation,
+    )
+
+    heading("Dart \u00b7 Format")
+    if not run_step("Dart format", format_code, results):
+        return False
+
+    if getattr(args, "skip_tests", False):
+        heading("Dart \u00b7 Tests (skipped)")
+    else:
+        heading("Dart \u00b7 Tests")
+        if not run_step("Dart tests", run_tests, results):
+            return False
+
+    heading("Dart \u00b7 Analysis")
+    if not run_step("Dart analysis", run_analysis, results):
+        return False
+
+    heading("Dart \u00b7 Documentation")
+    if not run_step("Dart docs", generate_docs, results):
+        return False
+
+    heading("Dart \u00b7 Dry Run")
+    if not run_step("Dart dry-run", pre_publish_validation, results):
+        return False
+    return True
 
 
 def run_dart_analysis(
@@ -126,11 +199,6 @@ def run_dart_analysis(
     """Run all Dart analysis steps. Returns (version, all_passed)."""
     from modules.dart_prereqs import check_dart, check_flutter, check_publish_workflow
     from modules.checks_git import check_git, check_working_tree, check_remote_sync
-    from modules.dart_build import (
-        format_code, run_tests, run_analysis,
-        generate_docs, pre_publish_validation,
-    )
-    from modules.checks_version import validate_version_changelog
     from modules.target_config import DART
 
     heading("Dart \u00b7 Prerequisites")
@@ -151,40 +219,10 @@ def run_dart_analysis(
     if not run_step("Remote sync", check_remote_sync, results):
         return "", False
 
-    heading("Dart \u00b7 Format")
-    if not run_step("Dart format", format_code, results):
+    if not _run_dart_build_steps(args, results):
         return "", False
 
-    if getattr(args, "skip_tests", False):
-        heading("Dart \u00b7 Tests (skipped)")
-    else:
-        heading("Dart \u00b7 Tests")
-        if not run_step("Dart tests", run_tests, results):
-            return "", False
-
-    heading("Dart \u00b7 Analysis")
-    if not run_step("Dart analysis", run_analysis, results):
-        return "", False
-
-    heading("Dart \u00b7 Documentation")
-    if not run_step("Dart docs", generate_docs, results):
-        return "", False
-
-    heading("Dart \u00b7 Dry Run")
-    if not run_step("Dart dry-run", pre_publish_validation, results):
-        return "", False
-
-    heading("Dart \u00b7 Version & CHANGELOG")
-    if getattr(args, "yes", False):
-        os.environ["PUBLISH_YES"] = "1"
-    t0 = time.time()
-    version, version_ok = validate_version_changelog(config=DART)
-    elapsed = time.time() - t0
-    results.append(("Dart version", version_ok, elapsed))
-    if not version_ok:
-        return "", False
-
-    return version, True
+    return _validate_version_step(args, results, DART, "Dart \u00b7 Version & CHANGELOG")
 
 
 def run_ext_analysis(
@@ -197,17 +235,6 @@ def run_ext_analysis(
     if not _run_ext_dev_checks(args, results):
         return "", False
     return _run_ext_build_and_validate(args, results)
-
-
-# ── Legacy Public API (used by publish_extension.py) ─────
-
-
-def run_analysis(
-    args: argparse.Namespace,
-    results: list[tuple[str, bool, float]],
-) -> tuple[str, bool]:
-    """Run all extension analysis steps (1-10). Legacy API."""
-    return run_ext_analysis(args, results)
 
 
 # ── Package & Install ─────────────────────────────────────
@@ -260,199 +287,3 @@ def _auto_install_vsix(vsix_path: str) -> None:
     info(f"Running: code --install-extension {vsix_name}")
     run(["code", "--install-extension", os.path.abspath(vsix_path)])
 
-
-# ── Publish Phase ─────────────────────────────────────────
-
-
-def ask_publish_stores() -> str:
-    """Ask which store(s) to publish to. Returns 'vscode_only', 'openvsx_only', or 'both'."""
-    print(f"\n  {C.YELLOW}Which store(s) to publish to?{C.RESET}")
-    print("    1 = VS Code Marketplace only")
-    print("    2 = Open VSX only (Cursor / VSCodium)")
-    print("    3 = both")
-    try:
-        raw = input(f"  {C.YELLOW}Choice [3]: {C.RESET}").strip() or "3"
-    except (EOFError, KeyboardInterrupt):
-        print()
-        return "both"
-    if raw == "1":
-        return "vscode_only"
-    if raw == "2":
-        return "openvsx_only"
-    return "both"
-
-
-def _check_publish_credentials(
-    results: list[tuple[str, bool, float]],
-    stores: str = "both",
-) -> bool:
-    """Verify credentials for chosen store(s)."""
-    from modules.checks_git import check_gh_cli
-    from modules.ext_prereqs import check_vsce_auth, check_ovsx_token
-
-    heading("Publish Credentials")
-    if not run_step("GitHub CLI", check_gh_cli, results):
-        return False
-    if stores in ("both", "vscode_only"):
-        if not run_step("vsce PAT", check_vsce_auth, results):
-            return False
-    else:
-        info("Skipping vsce PAT (publish to Open VSX only).")
-    if stores in ("both", "openvsx_only"):
-        run_step("OVSX PAT", check_ovsx_token, results)
-    else:
-        info("Skipping OVSX PAT (publish to VS Code Marketplace only).")
-    return True
-
-
-def _run_publish_steps(
-    version: str,
-    vsix_path: str,
-    results: list[tuple[str, bool, float]],
-    stores: str = "both",
-) -> bool:
-    """Commit, tag, and publish extension. Returns True on success."""
-    from modules.git_ops import is_version_tagged, git_commit_and_push, create_git_tag
-    from modules.ext_publish import (
-        get_marketplace_published_version, publish_marketplace, publish_openvsx,
-    )
-    from modules.ext_prereqs import get_ovsx_pat
-    from modules.github_release import create_github_release
-    from modules.target_config import EXTENSION
-
-    tagged = is_version_tagged(version, EXTENSION.tag_prefix)
-    if tagged:
-        heading("Step 11 \u00b7 Git Commit & Push")
-        info(f"Tag ext-v{version} already exists; skipping commit & tag.")
-        heading("Step 12 \u00b7 Git Tag")
-        info("Skipped (tag exists).")
-    else:
-        heading("Step 11 \u00b7 Git Commit & Push")
-        if not run_step("Git commit & push",
-                        lambda: git_commit_and_push(EXTENSION, version), results):
-            return False
-        heading("Step 12 \u00b7 Git Tag")
-        if not run_step("Git tag",
-                        lambda: create_git_tag(EXTENSION, version), results):
-            return False
-
-    heading("Step 13 \u00b7 Publish to Marketplace")
-    if stores == "openvsx_only":
-        info("Skipping (publish to Open VSX only).")
-    else:
-        published = get_marketplace_published_version()
-        if published == version:
-            info(f"VS Code Marketplace already has v{version}; skipping.")
-        else:
-            if not run_step("Marketplace publish",
-                            lambda: publish_marketplace(vsix_path), results):
-                return False
-
-    heading("Step 14 \u00b7 Publish to Open VSX")
-    if stores == "vscode_only":
-        info("Skipping (publish to VS Code Marketplace only).")
-    else:
-        pat = get_ovsx_pat()
-        if not pat:
-            try:
-                import getpass
-                prompt = "Paste Open VSX token or Enter to skip: "
-                pat = (getpass.getpass(prompt=prompt) or "").strip()
-                if pat:
-                    os.environ["OVSX_PAT"] = pat
-            except (EOFError, KeyboardInterrupt):
-                pat = ""
-            if not pat:
-                warn("No token; skipping Open VSX.")
-        if pat:
-            openvsx_ok = run_step("Open VSX publish",
-                                  lambda: publish_openvsx(vsix_path), results)
-            if not openvsx_ok:
-                warn("Open VSX publish failed; continuing to GitHub release.")
-
-    heading("Step 15 \u00b7 GitHub Release")
-    if not run_step("GitHub release",
-                    lambda: create_github_release(EXTENSION, version, asset_path=vsix_path),
-                    results):
-        warn("Marketplace/Open VSX publish succeeded but GitHub release failed.")
-        warn(f"Create manually: gh release create ext-v{version}")
-
-    return True
-
-
-def run_publish(
-    version: str,
-    vsix_path: str,
-    results: list[tuple[str, bool, float]],
-    stores: str,
-) -> bool:
-    """Run extension publish steps (11-15). Returns True on success."""
-    from modules.report import (
-        save_report, print_timing, print_success_banner, print_report_path,
-    )
-
-    if not _check_publish_credentials(results, stores):
-        return False
-    if not _run_publish_steps(version, vsix_path, results, stores=stores):
-        return False
-
-    report = save_report(results, version, vsix_path, is_publish=True)
-    print_timing(results)
-    print_success_banner(version, vsix_path)
-    print_report_path(report)
-    return True
-
-
-# ── Dart Publish ─────────────────────────────────────────
-
-
-def run_dart_publish(
-    version: str,
-    results: list[tuple[str, bool, float]],
-) -> bool:
-    """Run Dart publish steps. Returns True on success."""
-    from modules.checks_git import check_gh_cli
-    from modules.git_ops import is_version_tagged, git_commit_and_push, create_git_tag
-    from modules.dart_publish import publish_to_pubdev
-    from modules.github_release import create_github_release
-    from modules.target_config import DART
-    from modules.report import (
-        save_report, print_timing, print_success_banner, print_report_path,
-    )
-
-    heading("Dart \u00b7 Publish Credentials")
-    if not run_step("GitHub CLI", check_gh_cli, results):
-        return False
-
-    tagged = is_version_tagged(version, DART.tag_prefix)
-    if tagged:
-        heading("Dart \u00b7 Git Commit & Push")
-        info(f"Tag v{version} already exists; skipping commit & tag.")
-        heading("Dart \u00b7 Git Tag")
-        info("Skipped (tag exists).")
-    else:
-        heading("Dart \u00b7 Git Commit & Push")
-        if not run_step("Git commit & push",
-                        lambda: git_commit_and_push(DART, version), results):
-            return False
-        heading("Dart \u00b7 Git Tag")
-        if not run_step("Git tag",
-                        lambda: create_git_tag(DART, version), results):
-            return False
-
-    heading("Dart \u00b7 Publish to pub.dev")
-    if not run_step("pub.dev publish", publish_to_pubdev, results):
-        return False
-
-    heading("Dart \u00b7 GitHub Release")
-    if not run_step("GitHub release",
-                    lambda: create_github_release(DART, version),
-                    results):
-        warn("pub.dev publish triggered but GitHub release failed.")
-        warn(f"Create manually: gh release create v{version}")
-
-    report = save_report(results, version, is_publish=True)
-    print_timing(results)
-    print_success_banner(version, config=DART)
-    print_report_path(report)
-    return True

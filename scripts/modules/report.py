@@ -16,21 +16,22 @@ from modules.display import heading, ok
 from modules.utils import elapsed_str
 
 
-def _build_report_header(
+def _build_report_lines(
     results: list[tuple[str, bool, float]],
     version: str,
     is_publish: bool,
+    target_label: str = "Extension",
 ) -> list[str]:
-    """Build the header lines for a report."""
+    """Build the full report content lines."""
     total_time = sum(t for _, _, t in results)
     passed = sum(1 for _, p, _ in results if p)
     failed = len(results) - passed
     kind = "Publish" if is_publish else "Analysis"
 
     lines = [
-        f"Drift Viewer Extension -- {kind} Report",
+        f"Drift Viewer {target_label} -- {kind} Report",
         f"Generated: {datetime.datetime.now().isoformat()}",
-        f"Extension version: {version}",
+        f"Version: {version}",
         "",
         f"Results: {passed} passed, {failed} failed" if failed else
         f"Results: {passed} passed",
@@ -39,48 +40,60 @@ def _build_report_header(
     return lines
 
 
-def save_report(
+def _append_report_details(
+    lines: list[str],
     results: list[tuple[str, bool, float]],
     version: str,
-    vsix_path: str | None = None,
-    is_publish: bool = False,
-) -> str | None:
-    """Save a summary report to reports/<yyyymmdd>/. Returns the report path."""
-    now = datetime.datetime.now()
-    date_folder = now.strftime("%Y%m%d")
-    reports_dir = os.path.join(REPO_ROOT, "reports", date_folder)
-    os.makedirs(reports_dir, exist_ok=True)
-
-    ts = now.strftime("%Y%m%d_%H%M%S")
-    kind = "publish" if is_publish else "analyze"
-    report_name = f"{ts}_drift_viewer_extension_{kind}_report.log"
-    report_path = os.path.join(reports_dir, report_name)
-
-    lines = _build_report_header(results, version, is_publish)
-
+    vsix_path: str | None,
+    is_publish: bool,
+    config,
+) -> None:
+    """Append VSIX info, publish links, and step details to report lines."""
+    tag_prefix = config.tag_prefix if config else TAG_PREFIX
     if vsix_path and os.path.isfile(vsix_path):
         vsix_size = os.path.getsize(vsix_path) / 1024
         lines.append(f"VSIX file: {os.path.basename(vsix_path)}")
         lines.append(f"VSIX size: {vsix_size:.1f} KB")
-
     if is_publish:
-        tag = f"{TAG_PREFIX}{version}"
-        lines.append(f"Marketplace: {MARKETPLACE_URL}")
-        lines.append(f"Open VSX (Cursor): {OPENVSX_URL}")
+        tag = f"{tag_prefix}{version}"
         lines.append(f"GitHub release: {REPO_URL}/releases/tag/{tag}")
-
+        if not config or config.name != "dart":
+            lines.append(f"Marketplace: {MARKETPLACE_URL}")
+            lines.append(f"Open VSX (Cursor): {OPENVSX_URL}")
     lines.append("")
     lines.append("Step Details:")
     for name, ok_flag, secs in results:
         status = "PASS" if ok_flag else "FAIL"
         lines.append(f"  [{status}] {name:<25s} {elapsed_str(secs):>8s}")
 
+
+def save_report(
+    results: list[tuple[str, bool, float]],
+    version: str,
+    vsix_path: str | None = None,
+    is_publish: bool = False,
+    config=None,
+) -> str | None:
+    """Save a summary report to reports/<yyyymmdd>/. Returns the report path."""
+    target_label = config.display_name if config else "Extension"
+    target_slug = config.name if config else "extension"
+
+    now = datetime.datetime.now()
+    reports_dir = os.path.join(REPO_ROOT, "reports", now.strftime("%Y%m%d"))
+    os.makedirs(reports_dir, exist_ok=True)
+
+    kind = "publish" if is_publish else "analyze"
+    report_name = f"{now:%Y%m%d_%H%M%S}_drift_viewer_{target_slug}_{kind}_report.log"
+    report_path = os.path.join(reports_dir, report_name)
+
+    lines = _build_report_lines(results, version, is_publish, target_label)
+    _append_report_details(lines, results, version, vsix_path, is_publish, config)
+
     try:
         with open(report_path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
     except OSError:
         return None
-
     return report_path
 
 
