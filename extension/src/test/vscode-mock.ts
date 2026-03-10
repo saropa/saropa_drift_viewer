@@ -467,6 +467,7 @@ export const workspace = {
   getConfiguration: (_section?: string) => ({
     get: <T>(key: string, defaultValue?: T): T | undefined => defaultValue,
   }),
+  onDidChangeConfiguration: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
   openTextDocument: async (options: any) => {
     if (options && typeof options === 'object' && 'content' in options) {
       createdTextDocuments.push(options);
@@ -479,6 +480,7 @@ export const workspace = {
     return { dispose: () => { /* no-op */ } };
   },
   fs: {
+    readFile: async (_uri: any): Promise<Uint8Array> => new Uint8Array(),
     writeFile: async (uri: any, content: Uint8Array) => {
       writtenFiles.push({ uri, content });
     },

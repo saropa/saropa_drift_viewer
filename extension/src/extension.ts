@@ -27,8 +27,17 @@ import { DriftTreeProvider } from './tree/drift-tree-provider';
 import { ColumnItem, TableItem } from './tree/tree-items';
 import { SqlNotebookPanel } from './sql-notebook/sql-notebook-panel';
 import { parseDartTables } from './schema-diff/dart-parser';
-import { computeSchemaDiff, generateMigrationSql } from './schema-diff/schema-diff';
+import {
+  computeSchemaDiff,
+  generateFullSchemaSql,
+  generateMigrationSql,
+} from './schema-diff/schema-diff';
 import { SchemaDiffPanel } from './schema-diff/schema-diff-panel';
+import { SizePanel } from './analytics/size-panel';
+import { ComparePanel } from './compare/compare-panel';
+import { DiagramPanel } from './diagram/diagram-panel';
+import { runImportWizard } from './import/import-command';
+import { annotateSession, openSession, shareSession } from './session/session-commands';
 import { WatchManager } from './watch/watch-manager';
 import { WatchPanel } from './watch/watch-panel';
 import { generateDartTables } from './codegen/dart-codegen';
@@ -89,6 +98,20 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Shared API client & services
   const client = new DriftApiClient(host, port);
+  const authToken = cfg.get<string>('authToken', '') ?? '';
+  if (authToken) {
+    client.setAuthToken(authToken);
+  }
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('driftViewer.authToken')) {
+        const token = vscode.workspace
+          .getConfiguration('driftViewer')
+          .get<string>('authToken', '') ?? '';
+        client.setAuthToken(token || undefined);
+      }
+    }),
+  );
   const watcher = new GenerationWatcher(client);
 
   // Auto-discovery (include last-known ports for faster reconnection)
@@ -526,7 +549,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('driftViewer.schemaDiff', async () => {
       try {
-        const { diff, sql } = await vscode.window.withProgress(
+        const { diff, sql, fullSql } = await vscode.window.withProgress(
           {
             location: vscode.ProgressLocation.Notification,
             title: 'Comparing schema\u2026',
@@ -545,10 +568,14 @@ export function activate(context: vscode.ExtensionContext): void {
             }
             const runtime = await client.schemaMetadata();
             const d = computeSchemaDiff(tables, runtime);
-            return { diff: d, sql: generateMigrationSql(d) };
+            return {
+              diff: d,
+              sql: generateMigrationSql(d),
+              fullSql: generateFullSchemaSql(tables),
+            };
           },
         );
-        SchemaDiffPanel.createOrShow(diff, sql);
+        SchemaDiffPanel.createOrShow(diff, sql, fullSql);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         vscode.window.showErrorMessage(`Schema diff failed: ${msg}`);
@@ -820,6 +847,198 @@ export function activate(context: vscode.ExtensionContext): void {
         });
         await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
       },
+    ),
+  );
+
+  // --- Gap closures: export commands ---
+
+  // Export full SQL dump
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.exportDump',
+      async () => {
+        try {
+          const sql = await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: 'Exporting SQL dump\u2026',
+            },
+            () => client.schemaDump(),
+          );
+          const uri = await vscode.window.showSaveDialog({
+            defaultUri: vscode.Uri.file('dump.sql'),
+            filters: { SQL: ['sql'] },
+          });
+          if (uri) {
+            await vscode.workspace.fs.writeFile(
+              uri, Buffer.from(sql, 'utf-8'),
+            );
+            vscode.window.showInformationMessage('SQL dump exported.');
+          }
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Export dump failed: ${msg}`);
+        }
+      },
+    ),
+  );
+
+  // Download raw SQLite database file
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.downloadDatabase',
+      async () => {
+        try {
+          const data = await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: 'Downloading database\u2026',
+            },
+            () => client.databaseFile(),
+          );
+          const uri = await vscode.window.showSaveDialog({
+            defaultUri: vscode.Uri.file('app.db'),
+            filters: { SQLite: ['db', 'sqlite'] },
+          });
+          if (uri) {
+            await vscode.workspace.fs.writeFile(
+              uri, Buffer.from(data),
+            );
+            vscode.window.showInformationMessage('Database file saved.');
+          }
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Download failed: ${msg}`);
+        }
+      },
+    ),
+  );
+
+  // Schema diagram (ER-style table visualization)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.schemaDiagram',
+      async () => {
+        try {
+          const data = await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: 'Loading schema diagram\u2026',
+            },
+            () => client.schemaDiagram(),
+          );
+          DiagramPanel.createOrShow(data);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Schema diagram failed: ${msg}`);
+        }
+      },
+    ),
+  );
+
+  // Compare databases (A vs B report)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.compareReport',
+      async () => {
+        try {
+          const report = await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: 'Comparing databases\u2026',
+            },
+            () => client.compareReport(),
+          );
+          ComparePanel.createOrShow(report);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Compare failed: ${msg}`);
+        }
+      },
+    ),
+  );
+
+  // Preview migration SQL (compare → migration DDL)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.migrationPreview',
+      async () => {
+        try {
+          const result = await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: 'Generating migration preview\u2026',
+            },
+            () => client.migrationPreview(),
+          );
+          const header = [
+            `-- Migration Preview (${result.changeCount} changes)`,
+            result.hasWarnings ? '-- WARNING: review before executing' : '',
+            `-- Generated: ${result.generatedAt}`,
+            '',
+          ].filter(Boolean).join('\n');
+          const doc = await vscode.workspace.openTextDocument({
+            content: header + result.migrationSql,
+            language: 'sql',
+          });
+          await vscode.window.showTextDocument(
+            doc, vscode.ViewColumn.Beside,
+          );
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(
+            `Migration preview failed: ${msg}`,
+          );
+        }
+      },
+    ),
+  );
+
+  // Size analytics dashboard
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.sizeAnalytics',
+      async () => {
+        try {
+          const data = await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: 'Loading size analytics\u2026',
+            },
+            () => client.sizeAnalytics(),
+          );
+          SizePanel.createOrShow(data);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Size analytics failed: ${msg}`);
+        }
+      },
+    ),
+  );
+
+  // Import data wizard
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.importData',
+      () => runImportWizard(client),
+    ),
+  );
+
+  // --- Gap closures: session commands ---
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.shareSession', () => shareSession(client),
+    ),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.openSession', () => openSession(client),
+    ),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.annotateSession', () => annotateSession(client),
     ),
   );
 

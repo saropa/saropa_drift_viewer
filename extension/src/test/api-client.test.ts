@@ -96,4 +96,93 @@ describe('DriftApiClient', () => {
       assert.strictEqual(client.baseUrl, 'http://127.0.0.1:8642');
     });
   });
+
+  describe('setAuthToken()', () => {
+    it('should send Bearer header when token is set', async () => {
+      client.setAuthToken('my-secret');
+      fetchStub.resolves(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      await client.health();
+      const opts = fetchStub.firstCall.args[1];
+      assert.strictEqual(opts.headers['Authorization'], 'Bearer my-secret');
+    });
+
+    it('should not send auth header when token is undefined', async () => {
+      fetchStub.resolves(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      await client.health();
+      const opts = fetchStub.firstCall.args[1];
+      assert.strictEqual(opts.headers['Authorization'], undefined);
+    });
+
+    it('should clear token when set to empty string', async () => {
+      client.setAuthToken('my-secret');
+      client.setAuthToken('');
+      fetchStub.resolves(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      await client.health();
+      const opts = fetchStub.firstCall.args[1];
+      assert.strictEqual(opts.headers['Authorization'], undefined);
+    });
+
+    it('should merge auth with Content-Type on POST', async () => {
+      client.setAuthToken('token123');
+      const result = { columns: [], rows: [] };
+      fetchStub.resolves(new Response(JSON.stringify(result), { status: 200 }));
+      await client.sql('SELECT 1');
+      const opts = fetchStub.firstCall.args[1];
+      assert.strictEqual(opts.headers['Authorization'], 'Bearer token123');
+      assert.strictEqual(opts.headers['Content-Type'], 'application/json');
+    });
+  });
+
+  describe('schemaDump()', () => {
+    it('should return SQL text', async () => {
+      fetchStub.resolves(new Response('CREATE TABLE t(id INT);', { status: 200 }));
+      const sql = await client.schemaDump();
+      assert.strictEqual(sql, 'CREATE TABLE t(id INT);');
+    });
+
+    it('should throw on non-200 status', async () => {
+      fetchStub.resolves(new Response('', { status: 500 }));
+      await assert.rejects(() => client.schemaDump(), /Schema dump failed/);
+    });
+  });
+
+  describe('databaseFile()', () => {
+    it('should return ArrayBuffer', async () => {
+      const buf = new ArrayBuffer(4);
+      fetchStub.resolves(new Response(buf, { status: 200 }));
+      const result = await client.databaseFile();
+      assert.ok(result instanceof ArrayBuffer);
+    });
+
+    it('should throw on non-200 status', async () => {
+      fetchStub.resolves(new Response('', { status: 500 }));
+      await assert.rejects(() => client.databaseFile(), /Database download failed/);
+    });
+  });
+
+  describe('sessionGet()', () => {
+    it('should URL-encode session ID', async () => {
+      const session = { state: {}, createdAt: '', expiresAt: '', annotations: [] };
+      fetchStub.resolves(new Response(JSON.stringify(session), { status: 200 }));
+      await client.sessionGet('abc def');
+      assert.ok(fetchStub.calledOnceWith(
+        'http://127.0.0.1:8642/api/session/abc%20def',
+        sinon.match.any,
+      ));
+    });
+  });
+
+  describe('importData()', () => {
+    it('should POST format, table, and data', async () => {
+      const result = { imported: 2, errors: [], format: 'json', table: 'users' };
+      fetchStub.resolves(new Response(JSON.stringify(result), { status: 200 }));
+      const data = await client.importData('json', 'users', '[{"id":1}]');
+      assert.deepStrictEqual(data, result);
+      const opts = fetchStub.firstCall.args[1];
+      assert.strictEqual(opts.method, 'POST');
+      const body = JSON.parse(opts.body);
+      assert.strictEqual(body.format, 'json');
+      assert.strictEqual(body.table, 'users');
+    });
+  });
 });

@@ -182,6 +182,46 @@
       {
         "command": "driftViewer.generateDart",
         "title": "Drift Viewer: Generate Dart from Schema"
+      },
+      {
+        "command": "driftViewer.exportDump",
+        "title": "Drift Viewer: Export SQL Dump"
+      },
+      {
+        "command": "driftViewer.downloadDatabase",
+        "title": "Drift Viewer: Download Database File"
+      },
+      {
+        "command": "driftViewer.migrationPreview",
+        "title": "Drift Viewer: Preview Migration SQL"
+      },
+      {
+        "command": "driftViewer.compareReport",
+        "title": "Drift Viewer: Compare Databases"
+      },
+      {
+        "command": "driftViewer.schemaDiagram",
+        "title": "Drift Viewer: Schema Diagram"
+      },
+      {
+        "command": "driftViewer.sizeAnalytics",
+        "title": "Drift Viewer: Database Size Analytics"
+      },
+      {
+        "command": "driftViewer.importData",
+        "title": "Drift Viewer: Import Data"
+      },
+      {
+        "command": "driftViewer.shareSession",
+        "title": "Drift Viewer: Share Debug Session"
+      },
+      {
+        "command": "driftViewer.openSession",
+        "title": "Drift Viewer: Open Shared Session"
+      },
+      {
+        "command": "driftViewer.annotateSession",
+        "title": "Drift Viewer: Annotate Session"
       }
     ],
     "menus": {
@@ -309,6 +349,11 @@
     "configuration": {
       "title": "Drift Viewer",
       "properties": {
+        "driftViewer.authToken": {
+          "type": "string",
+          "default": "",
+          "description": "Bearer token for authenticating with the Drift debug server."
+        },
         "driftViewer.port": {
           "type": "number",
           "default": 8642,

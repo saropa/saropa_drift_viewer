@@ -68,8 +68,12 @@ describe('Extension activation', () => {
     // Lifecycle: watcher, statusBar, perfView, logBridge, 2 debug listeners,
     //   perf cleanup, snapshotStore (8)
     // Codegen: generateDart (1)
-    // Total = 57
-    assert.strictEqual(subscriptions.length, 57, `expected 57 disposables, got ${subscriptions.length}`);
+    // Auth: onDidChangeConfiguration (1)
+    // Gap closures: exportDump, downloadDatabase, schemaDiagram, compareReport,
+    //   migrationPreview, sizeAnalytics, importData, shareSession, openSession,
+    //   annotateSession (10)
+    // Total = 68
+    assert.strictEqual(subscriptions.length, 68, `expected 68 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
