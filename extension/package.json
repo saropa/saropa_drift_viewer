@@ -208,6 +208,11 @@
         "title": "Drift Viewer: Database Size Analytics"
       },
       {
+        "command": "driftViewer.generateSchemaDocs",
+        "title": "Drift Viewer: Generate Schema Documentation",
+        "icon": "$(book)"
+      },
+      {
         "command": "driftViewer.importData",
         "title": "Drift Viewer: Import Data"
       },
@@ -222,6 +227,44 @@
       {
         "command": "driftViewer.annotateSession",
         "title": "Drift Viewer: Annotate Session"
+      },
+      {
+        "command": "driftViewer.clearTable",
+        "title": "Drift Viewer: Clear Table Data",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "driftViewer.clearAllTables",
+        "title": "Drift Viewer: Clear All Table Data"
+      },
+      {
+        "command": "driftViewer.clearTableGroup",
+        "title": "Drift Viewer: Clear Table Group"
+      },
+      {
+        "command": "driftViewer.importDataset",
+        "title": "Drift Viewer: Import Dataset",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "driftViewer.exportDataset",
+        "title": "Drift Viewer: Export Current Data as Dataset",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "driftViewer.globalSearch",
+        "title": "Drift Viewer: Search All Tables",
+        "icon": "$(search)"
+      },
+      {
+        "command": "driftViewer.compareRows",
+        "title": "Drift Viewer: Compare Two Rows",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "driftViewer.profileColumn",
+        "title": "Drift Viewer: Profile Column",
+        "icon": "$(graph)"
       }
     ],
     "menus": {
@@ -229,6 +272,11 @@
         {
           "command": "driftViewer.refreshTree",
           "when": "view == driftViewer.databaseExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "driftViewer.generateSchemaDocs",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
           "group": "navigation"
         },
         {
@@ -249,6 +297,16 @@
         {
           "command": "driftViewer.discardAllEdits",
           "when": "view == driftViewer.pendingChanges",
+          "group": "navigation"
+        },
+        {
+          "command": "driftViewer.importDataset",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "navigation"
+        },
+        {
+          "command": "driftViewer.globalSearch",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
           "group": "navigation"
         }
       ],
@@ -286,9 +344,24 @@
           "group": "1_view"
         },
         {
+          "command": "driftViewer.profileColumn",
+          "when": "viewItem == driftColumn || viewItem == driftColumnPk",
+          "group": "3_profile"
+        },
+        {
           "command": "driftViewer.watchTable",
           "when": "viewItem == driftTable",
           "group": "4_watch"
+        },
+        {
+          "command": "driftViewer.compareRows",
+          "when": "viewItem == driftTable",
+          "group": "5_compare"
+        },
+        {
+          "command": "driftViewer.clearTable",
+          "when": "viewItem == driftTable",
+          "group": "6_data"
         },
         {
           "command": "driftViewer.removeChange",
@@ -312,6 +385,12 @@
         "command": "driftViewer.openSqlNotebook",
         "key": "ctrl+shift+q",
         "mac": "cmd+shift+q",
+        "when": "driftViewer.serverConnected"
+      },
+      {
+        "command": "driftViewer.globalSearch",
+        "key": "ctrl+shift+d",
+        "mac": "cmd+shift+d",
         "when": "driftViewer.serverConnected"
       }
     ],

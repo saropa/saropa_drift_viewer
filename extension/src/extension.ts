@@ -41,6 +41,14 @@ import { annotateSession, openSession, shareSession } from './session/session-co
 import { WatchManager } from './watch/watch-manager';
 import { WatchPanel } from './watch/watch-panel';
 import { generateDartTables } from './codegen/dart-codegen';
+import { registerDataManagementCommands } from './data-management/data-management-commands';
+import { registerComparatorCommands } from './comparator/comparator-commands';
+import { collectSchemaDocsData } from './schema-docs/schema-docs-command';
+import { DocsHtmlRenderer } from './schema-docs/docs-html-renderer';
+import { DocsMdRenderer } from './schema-docs/docs-md-renderer';
+import { GlobalSearchPanel } from './global-search/global-search-panel';
+import { buildProfileQueries, assembleProfile } from './profiler/profiler-queries';
+import { ProfilerPanel } from './profiler/profiler-panel';
 
 function escapeCsvCell(value: unknown): string {
   const s = value === null || value === undefined ? '' : String(value);
@@ -1041,6 +1049,124 @@ export function activate(context: vscode.ExtensionContext): void {
       'driftViewer.annotateSession', () => annotateSession(client),
     ),
   );
+
+  // --- Column Profiler ---
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.profileColumn',
+      async (item: ColumnItem) => {
+        try {
+          const profile = await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: `Profiling ${item.tableName}.${item.column.name}\u2026`,
+            },
+            async () => {
+              const queries = buildProfileQueries(
+                item.tableName, item.column.name, item.column.type,
+              );
+              const results = new Map<string, unknown[][]>();
+              for (const query of queries) {
+                try {
+                  const r = await client.sql(query.sql);
+                  results.set(query.name, r.rows);
+                } catch {
+                  // Skip failed queries gracefully
+                }
+              }
+              return assembleProfile(
+                item.tableName, item.column.name,
+                item.column.type, results,
+              );
+            },
+          );
+          ProfilerPanel.createOrShow(profile);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Profile failed: ${msg}`);
+        }
+      },
+    ),
+  );
+
+  // --- Schema Documentation Generator ---
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.generateSchemaDocs',
+      async () => {
+        const format = await vscode.window.showQuickPick(
+          [
+            {
+              label: 'HTML',
+              description: 'Self-contained web page',
+              value: 'html' as const,
+            },
+            {
+              label: 'Markdown',
+              description: 'Plain text, VCS-friendly',
+              value: 'md' as const,
+            },
+          ],
+          { placeHolder: 'Output format' },
+        );
+        if (!format) {
+          return;
+        }
+
+        try {
+          await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: 'Generating documentation\u2026',
+            },
+            async () => {
+              const data = await collectSchemaDocsData(client);
+
+              if (format.value === 'html') {
+                const html = new DocsHtmlRenderer().render(data);
+                const uri = await vscode.window.showSaveDialog({
+                  defaultUri: vscode.Uri.file('schema-docs.html'),
+                  filters: { HTML: ['html'] },
+                });
+                if (uri) {
+                  await vscode.workspace.fs.writeFile(
+                    uri, Buffer.from(html, 'utf-8'),
+                  );
+                  await vscode.env.openExternal(uri);
+                }
+              } else {
+                const md = new DocsMdRenderer().render(data);
+                const doc = await vscode.workspace.openTextDocument({
+                  content: md,
+                  language: 'markdown',
+                });
+                await vscode.window.showTextDocument(doc);
+              }
+            },
+          );
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(
+            `Schema docs failed: ${msg}`,
+          );
+        }
+      },
+    ),
+  );
+
+  // --- Global Search ---
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'driftViewer.globalSearch',
+      () => GlobalSearchPanel.createOrShow(client),
+    ),
+  );
+
+  // --- Data Management (reset, import, export) ---
+  registerDataManagementCommands(context, client);
+
+  // --- Row Comparator ---
+  registerComparatorCommands(context, client);
 
   // Debug session lifecycle — start/stop performance auto-refresh
   const perfCfg = vscode.workspace.getConfiguration('driftViewer');
