@@ -33,6 +33,7 @@ import {
   generateMigrationSql,
 } from './schema-diff/schema-diff';
 import { SchemaDiffPanel } from './schema-diff/schema-diff-panel';
+import { registerMigrationGenCommands } from './migration-gen/migration-gen-commands';
 import { SizePanel } from './analytics/size-panel';
 import { ComparePanel } from './compare/compare-panel';
 import { DiagramPanel } from './diagram/diagram-panel';
@@ -56,6 +57,7 @@ import { AnnotationStore } from './annotations/annotation-store';
 import { registerAnnotationCommands } from './annotations/annotation-commands';
 import { registerSeederCommands } from './seeder/seeder-commands';
 import { registerConstraintWizardCommands } from './constraint-wizard/constraint-commands';
+import { registerIsarGenCommands } from './isar-gen/isar-gen-commands';
 
 async function pickTable(
   client: DriftApiClient,
@@ -616,6 +618,9 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
   );
+
+  // --- Drift Migration Generator ---
+  registerMigrationGenCommands(context, client);
 
   // Generate Dart from runtime schema
   context.subscriptions.push(
@@ -1204,6 +1209,8 @@ export function activate(context: vscode.ExtensionContext): void {
   registerSeederCommands(context, client);
   // --- Constraint Wizard ---
   registerConstraintWizardCommands(context, client);
+  // --- Isar-to-Drift Schema Generator ---
+  registerIsarGenCommands(context);
 
   // --- Data Breakpoints ---
   context.subscriptions.push(

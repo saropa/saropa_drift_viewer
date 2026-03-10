@@ -320,6 +320,11 @@
         "command": "driftViewer.constraintWizard",
         "title": "Drift Viewer: Constraint Wizard",
         "icon": "$(shield)"
+      },
+      {
+        "command": "driftViewer.isarToDrift",
+        "title": "Drift Viewer: Generate Drift from Isar Schema",
+        "icon": "$(arrow-swap)"
       }
     ],
     "menus": {

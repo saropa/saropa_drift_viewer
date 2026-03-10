@@ -85,8 +85,9 @@ describe('Extension activation', () => {
     //   exportAnnotations, importAnnotations (5)
     // Seeder: seedTable, seedAllTables (2)
     // Constraint wizard: constraintWizard (1)
-    // Total = 90
-    assert.strictEqual(subscriptions.length, 90, `expected 90 disposables, got ${subscriptions.length}`);
+    // Isar-to-Drift: isarToDrift (1)
+    // Total = 92
+    assert.strictEqual(subscriptions.length, 92, `expected 92 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
