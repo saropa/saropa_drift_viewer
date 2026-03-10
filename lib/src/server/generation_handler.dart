@@ -20,7 +20,10 @@ final class GenerationHandler {
     final res = response;
 
     _ctx.setJsonHeaders(res);
-    res.write(jsonEncode(<String, dynamic>{ServerConstants.jsonKeyOk: true}));
+    res.write(jsonEncode(<String, dynamic>{
+      ServerConstants.jsonKeyOk: true,
+      ServerConstants.jsonKeyExtensionConnected: _ctx.isExtensionConnected,
+    }));
     await res.close();
   }
 

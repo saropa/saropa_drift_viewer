@@ -67,6 +67,12 @@ final class Router {
       }
     }
 
+    // Track VS Code extension client header.
+    final driftClient = req.headers.value(ServerConstants.headerDriftClient);
+    if (driftClient == ServerConstants.clientVscode) {
+      _ctx.markExtensionSeen();
+    }
+
     // Health and generation are checked before the
     // DB query so probes / live-refresh work.
     try {
@@ -118,7 +124,8 @@ final class Router {
         if (suffix.endsWith(ServerConstants.pathSuffixCount)) {
           final String tableName = suffix.replaceFirst(RegExp(r'/count$'), '');
 
-          await _table.sendTableCount(response: res, query: query, tableName: tableName);
+          await _table.sendTableCount(
+              response: res, query: query, tableName: tableName);
 
           return;
         }
@@ -126,7 +133,8 @@ final class Router {
           final String tableName =
               suffix.replaceFirst(RegExp(r'/columns$'), '');
 
-          await _table.sendTableColumns(response: res, query: query, tableName: tableName);
+          await _table.sendTableColumns(
+              response: res, query: query, tableName: tableName);
 
           return;
         }
@@ -134,7 +142,8 @@ final class Router {
           final String tableName =
               suffix.replaceFirst(RegExp(r'/fk-meta$'), '');
 
-          await _table.sendTableFkMeta(response: res, query: query, tableName: tableName);
+          await _table.sendTableFkMeta(
+              response: res, query: query, tableName: tableName);
 
           return;
         }
@@ -230,7 +239,8 @@ final class Router {
       if (req.method == ServerConstants.methodGet &&
           (path == ServerConstants.pathApiSnapshotCompare ||
               path == ServerConstants.pathApiSnapshotCompareAlt)) {
-        await _snapshot.handleSnapshotCompare(response: res, request: req, query: query);
+        await _snapshot.handleSnapshotCompare(
+            response: res, request: req, query: query);
 
         return;
       }

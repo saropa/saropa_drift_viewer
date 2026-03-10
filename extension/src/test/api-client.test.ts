@@ -97,6 +97,26 @@ describe('DriftApiClient', () => {
     });
   });
 
+  describe('X-Drift-Client header', () => {
+    it('should send vscode client header on every request', async () => {
+      fetchStub.resolves(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      await client.health();
+      const opts = fetchStub.firstCall.args[1];
+      assert.strictEqual(opts.headers['X-Drift-Client'], 'vscode');
+    });
+
+    it('should include client header alongside auth and content-type', async () => {
+      client.setAuthToken('tok');
+      const result = { columns: [], rows: [] };
+      fetchStub.resolves(new Response(JSON.stringify(result), { status: 200 }));
+      await client.sql('SELECT 1');
+      const opts = fetchStub.firstCall.args[1];
+      assert.strictEqual(opts.headers['X-Drift-Client'], 'vscode');
+      assert.strictEqual(opts.headers['Authorization'], 'Bearer tok');
+      assert.strictEqual(opts.headers['Content-Type'], 'application/json');
+    });
+  });
+
   describe('setAuthToken()', () => {
     it('should send Bearer header when token is set', async () => {
       client.setAuthToken('my-secret');

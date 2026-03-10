@@ -14,12 +14,13 @@ abstract final class ServerConstants {
   static const int maxPort = 65535;
   static const int maxLimit = 1000;
   static const int defaultLimit = 200;
+
   /// Digit separators (2_000_000) require SDK 3.6+; package supports SDK 3.0+. Rule disabled in analysis_options_custom.yaml.
   static const int maxOffset = 2000000;
   static const Duration longPollTimeout = Duration(seconds: 30);
+
   /// Poll interval during long-poll wait.
-  static const Duration longPollCheckInterval =
-      Duration(milliseconds: 300);
+  static const Duration longPollCheckInterval = Duration(milliseconds: 300);
 
   /// Route constants (method + path; alt forms allow path without leading slash).
   ///
@@ -109,6 +110,9 @@ abstract final class ServerConstants {
   static const String jsonKeyDiff = 'diff';
   static const String jsonKeyOnlyInA = 'onlyInA';
   static const String jsonKeyOnlyInB = 'onlyInB';
+  static const String headerDriftClient = 'x-drift-client';
+  static const String clientVscode = 'vscode';
+  static const String jsonKeyExtensionConnected = 'extensionConnected';
   static const String headerAuthorization = 'authorization';
   static const String authSchemeBearer = 'Bearer ';
   static const String authSchemeBasic = 'Basic ';
@@ -144,6 +148,7 @@ abstract final class ServerConstants {
   static const String messageSnapshotCleared = 'Snapshot cleared.';
   static const String sqlTableNames =
       "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
+
   /// Banner (no_magic_string).
   static const String bannerTop =
       '╔══════════════════════════════════════════════════════════════╗';
@@ -199,6 +204,7 @@ abstract final class ServerConstants {
   static const String contentTypeOctetStream = 'octet-stream';
   static const String contentTypeTextPlain = 'text';
   static const String charsetUtf8 = 'utf-8';
+
   /// Patterns for index suggestion heuristics (hoisted to avoid per-column allocation).
   static final RegExp reIdSuffix = RegExp(r'_id$', caseSensitive: false);
   static final RegExp reDateTimeSuffix = RegExp(

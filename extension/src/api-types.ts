@@ -20,6 +20,7 @@ export interface ForeignKey {
 
 export interface HealthResponse {
   ok: boolean;
+  extensionConnected?: boolean;
 }
 
 export interface IndexSuggestion {

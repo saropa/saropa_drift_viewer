@@ -272,7 +272,7 @@ export class DriftApiClient {
   private _headers(
     extra?: Record<string, string>,
   ): Record<string, string> {
-    const h: Record<string, string> = { ...extra };
+    const h: Record<string, string> = { 'X-Drift-Client': 'vscode', ...extra };
     if (this._authToken) {
       h['Authorization'] = `Bearer ${this._authToken}`;
     }

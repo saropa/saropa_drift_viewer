@@ -126,6 +126,24 @@ final class ServerContext {
   /// Guard to prevent concurrent change-check runs.
   bool isChangeCheckInProgress = false;
 
+  /// UTC timestamp of the last request bearing a
+  /// VS Code extension client header.
+  DateTime? _lastExtensionSeen;
+
+  /// Records that the VS Code extension sent a request.
+  void markExtensionSeen() {
+    _lastExtensionSeen = DateTime.now().toUtc();
+  }
+
+  /// Whether the extension has been seen within
+  /// [ServerConstants.longPollTimeout].
+  bool get isExtensionConnected {
+    final last = _lastExtensionSeen;
+    if (last == null) return false;
+    return DateTime.now().toUtc().difference(last).inSeconds <
+        ServerConstants.longPollTimeout.inSeconds;
+  }
+
   /// Ring buffer of recent query timings for the
   /// performance monitor.
   final List<QueryTiming> queryTimings = [];
