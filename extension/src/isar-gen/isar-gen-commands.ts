@@ -8,6 +8,7 @@ import { parseIsarCollections } from './isar-parser';
 import { parseIsarJsonSchema } from './isar-json-parser';
 import { IsarGenPanel } from './isar-gen-panel';
 import type { IIsarCollection, IIsarEmbedded } from './isar-gen-types';
+import { scanWorkspaceForIsarFiles } from './isar-workspace-scanner';
 
 /** Prompt user to pick Isar source files or JSON schema. */
 async function pickIsarFiles(): Promise<vscode.Uri[] | undefined> {
@@ -46,6 +47,30 @@ async function parseFiles(
   return { collections: allCollections, embeddeds: allEmbeddeds };
 }
 
+/** Ask user how they want to provide Isar source files. */
+async function chooseInputMethod(): Promise<vscode.Uri[] | undefined> {
+  const choice = await vscode.window.showQuickPick(
+    [
+      {
+        label: '$(search) Scan workspace',
+        description:
+          'Find all @collection / @embedded files automatically',
+        id: 'scan' as const,
+      },
+      {
+        label: '$(file) Pick files\u2026',
+        description: 'Manually select .dart or .json files',
+        id: 'pick' as const,
+      },
+    ],
+    { placeHolder: 'How do you want to provide Isar source files?' },
+  );
+  if (!choice) return undefined;
+  return choice.id === 'scan'
+    ? scanWorkspaceForIsarFiles()
+    : pickIsarFiles();
+}
+
 /** Register the isarToDrift command. */
 export function registerIsarGenCommands(
   context: vscode.ExtensionContext,
@@ -55,7 +80,7 @@ export function registerIsarGenCommands(
       'driftViewer.isarToDrift',
       async () => {
         try {
-          const uris = await pickIsarFiles();
+          const uris = await chooseInputMethod();
           if (!uris || uris.length === 0) return;
 
           const { collections, embeddeds } = await parseFiles(uris);
