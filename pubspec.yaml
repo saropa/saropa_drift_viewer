@@ -1,54 +1,17 @@
 name: saropa_drift_viewer
-description: Debug-only HTTP server that exposes SQLite/Drift table data as JSON and a minimal web viewer. Use from any Drift (or raw SQLite) app via an injectable query callback.
-version: 0.2.4
-
-homepage: https://saropa.com
-repository: https://github.com/saropa/saropa_drift_viewer
-issue_tracker: https://github.com/saropa/saropa_drift_viewer/issues
-documentation: https://pub.dev/documentation/saropa_drift_viewer/latest/
+description: >-
+  DEPRECATED. This package has been permanently replaced by
+  saropa_drift_advisor.
+  See https://pub.dev/packages/saropa_drift_advisor
+version: 0.2.5
+homepage: https://pub.dev/packages/saropa_drift_advisor
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
 
 dependencies:
-  # Collection utilities (equality, ordering, etc.).
-  # https://pub.dev/packages/collection/changelog
-  collection: ^1.18.0
-
-  # Cryptographic hashes and codes.
-  # https://pub.dev/packages/crypto/changelog
-  crypto: ^3.0.3
-
-  # Flutter SDK.
-  # https://docs.flutter.dev/release/release-notes
   flutter:
     sdk: flutter
 
-  # Internationalization and date/number formatting.
-  # https://pub.dev/packages/intl/changelog
-  intl: ^0.20.2
-
-  # Annotations and meta-programming (e.g. @immutable).
-  # https://pub.dev/packages/meta/changelog
-  meta: ^1.17.0
-
-  # Launch URLs in browser or app.
-  # https://pub.dev/packages/url_launcher/changelog
-  url_launcher: ^6.2.0
-
-  # Platform webview widget.
-  # https://pub.dev/packages/webview_flutter/changelog
-  webview_flutter: ^4.13.0
-
-  # Android implementation for webview_flutter.
-  # https://pub.dev/packages/webview_flutter_android/changelog
-  webview_flutter_android: ^4.10.0
-
 dev_dependencies:
-  # Saropa custom lints; use custom_lint CLI.
-  # https://pub.dev/packages/saropa_lints/changelog
-  saropa_lints: ^8.0.11
-
-  # Unit test framework.
-  # https://pub.dev/packages/test/changelog
   test: ^1.25.0
