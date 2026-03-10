@@ -1,4 +1,4 @@
-# Feature 40: SQL Snippet Library — DONE
+# Feature 40: SQL Snippet Library
 
 ## What It Does
 
