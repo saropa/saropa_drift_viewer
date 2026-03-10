@@ -1,7 +1,9 @@
 import * as assert from 'assert';
 import {
   computeSchemaDiff,
+  generateFullSchemaSql,
   generateMigrationSql,
+  hasDifferences,
   ISchemaDiffResult,
 } from '../schema-diff/schema-diff';
 import { IDartColumn, IDartTable } from '../schema-diff/dart-schema';
@@ -261,5 +263,82 @@ describe('generateMigrationSql', () => {
     };
     const sql = generateMigrationSql(diff);
     assert.strictEqual(sql, '');
+  });
+});
+
+describe('hasDifferences', () => {
+  it('should return false for empty diff', () => {
+    const diff: ISchemaDiffResult = {
+      tablesOnlyInCode: [], tablesOnlyInDb: [], tableDiffs: [],
+    };
+    assert.strictEqual(hasDifferences(diff), false);
+  });
+
+  it('should return true when tables only in code', () => {
+    const diff: ISchemaDiffResult = {
+      tablesOnlyInCode: [dartTable()], tablesOnlyInDb: [], tableDiffs: [],
+    };
+    assert.strictEqual(hasDifferences(diff), true);
+  });
+
+  it('should return true when column mismatches exist', () => {
+    const diff: ISchemaDiffResult = {
+      tablesOnlyInCode: [], tablesOnlyInDb: [],
+      tableDiffs: [{
+        tableName: 'users', codeTable: dartTable(),
+        columnsOnlyInCode: [dartCol({ sqlName: 'x' })],
+        columnsOnlyInDb: [], typeMismatches: [], matchedColumns: 1,
+      }],
+    };
+    assert.strictEqual(hasDifferences(diff), true);
+  });
+
+  it('should return false when matched tables have no issues', () => {
+    const diff: ISchemaDiffResult = {
+      tablesOnlyInCode: [], tablesOnlyInDb: [],
+      tableDiffs: [{
+        tableName: 'users', codeTable: dartTable(),
+        columnsOnlyInCode: [], columnsOnlyInDb: [],
+        typeMismatches: [], matchedColumns: 1,
+      }],
+    };
+    assert.strictEqual(hasDifferences(diff), false);
+  });
+});
+
+describe('generateFullSchemaSql', () => {
+  it('should generate CREATE TABLE for each table', () => {
+    const tables = [
+      dartTable({
+        columns: [
+          dartCol({ sqlName: 'id', sqlType: 'INTEGER' }),
+          dartCol({ sqlName: 'name', sqlType: 'TEXT' }),
+        ],
+      }),
+    ];
+    const sql = generateFullSchemaSql(tables);
+    assert.ok(sql.includes('CREATE TABLE "users"'));
+    assert.ok(sql.includes('"id" INTEGER'));
+    assert.ok(sql.includes('"name" TEXT'));
+  });
+
+  it('should handle multiple tables', () => {
+    const tables = [
+      dartTable({ sqlTableName: 'users' }),
+      dartTable({ sqlTableName: 'posts', dartClassName: 'Posts' }),
+    ];
+    const sql = generateFullSchemaSql(tables);
+    assert.ok(sql.includes('CREATE TABLE "users"'));
+    assert.ok(sql.includes('CREATE TABLE "posts"'));
+  });
+
+  it('should return empty string for empty input', () => {
+    assert.strictEqual(generateFullSchemaSql([]), '');
+  });
+
+  it('should handle table with no columns', () => {
+    const tables = [dartTable({ columns: [] })];
+    const sql = generateFullSchemaSql(tables);
+    assert.ok(sql.includes('CREATE TABLE "users"'));
   });
 });

@@ -3,7 +3,11 @@
  * Uses VS Code theme CSS variables for light/dark support.
  */
 
-import { ISchemaDiffResult, ITableColumnDiff } from './schema-diff';
+import {
+  hasDifferences,
+  ISchemaDiffResult,
+  ITableColumnDiff,
+} from './schema-diff';
 import { IDartTable } from './dart-schema';
 import { TableMetadata } from '../api-client';
 
@@ -34,14 +38,9 @@ function renderSummary(diff: ISchemaDiffResult): string {
 </div>`;
 }
 
-function navLink(
-  label: string,
-  fileUri: string,
-  line: number,
-): string {
-  return `<a href="#" class="nav-link"
-    data-file="${esc(fileUri)}" data-line="${line}"
-    >${esc(label)}</a>`;
+function navLink(label: string, fileUri: string, line: number): string {
+  return `<a href="#" class="nav-link" `
+    + `data-file="${esc(fileUri)}" data-line="${line}">${esc(label)}</a>`;
 }
 
 function renderMatchedTable(td: ITableColumnDiff): string {
@@ -111,10 +110,18 @@ function renderDbOnlyTable(table: TableMetadata): string {
 </div>`;
 }
 
+function renderSqlBlock(title: string, action: string, sql: string): string {
+  return `<h3>${esc(title)}</h3>`
+    + `<div class="toolbar"><button class="copy-btn" data-action="${esc(action)}">`
+    + `Copy ${esc(title)}</button></div>`
+    + `<pre class="sql-block">${esc(sql)}</pre>`;
+}
+
 /** Build self-contained HTML for the schema diff panel. */
 export function buildSchemaDiffHtml(
   diff: ISchemaDiffResult,
   migrationSql: string,
+  fullSchemaSql: string,
 ): string {
   const sections: string[] = [];
 
@@ -147,13 +154,21 @@ export function buildSchemaDiffHtml(
     );
   }
 
-  // Migration SQL
+  // Generate Migration Code button (when diff has changes)
+  if (hasDifferences(diff)) {
+    sections.push(
+      '<div class="toolbar" style="margin-top:16px">'
+      + '<button class="copy-btn" data-action="generateMigration">'
+      + 'Generate Migration Code</button></div>',
+    );
+  }
+
+  // SQL blocks
   if (migrationSql) {
-    sections.push(`<h3>Migration SQL</h3>
-<div class="toolbar">
-  <button class="copy-btn" data-action="copyMigrationSql">Copy Migration SQL</button>
-</div>
-<pre class="sql-block">${esc(migrationSql)}</pre>`);
+    sections.push(renderSqlBlock('Migration SQL', 'copyMigrationSql', migrationSql));
+  }
+  if (fullSchemaSql) {
+    sections.push(renderSqlBlock('Full Schema SQL', 'copyFullSchemaSql', fullSchemaSql));
   }
 
   // No differences
@@ -188,94 +203,29 @@ function wrapHtml(body: string): string {
   h2 { margin-top: 0; }
   h3 { margin-top: 20px; }
   .summary { margin-bottom: 16px; }
-  .badge {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 10px;
-    font-size: 12px;
-    font-weight: 600;
-    margin-right: 8px;
-  }
+  .badge { display:inline-block; padding:3px 10px; border-radius:10px; font-size:12px; font-weight:600; margin-right:8px; }
   .badge.ok { background: rgba(40,167,69,0.15); color: #28a745; }
   .badge.warn { background: rgba(255,193,7,0.25); color: #e0a800; }
   .badge.err { background: rgba(220,53,69,0.15); color: #dc3545; }
   .toolbar { margin-bottom: 8px; }
-  .copy-btn {
-    background: var(--vscode-button-background, #0e639c);
-    color: var(--vscode-button-foreground, #fff);
-    border: none;
-    padding: 4px 10px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 12px;
-  }
-  .copy-btn:hover {
-    background: var(--vscode-button-hoverBackground, #1177bb);
-  }
-  .sql-block {
-    background: var(--vscode-editor-inactiveSelectionBackground, #333);
-    padding: 8px 12px;
-    border-radius: 4px;
-    font-family: var(--vscode-editor-font-family, monospace);
-    font-size: 13px;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-  details {
-    margin: 4px 0;
-    padding: 8px 12px;
-    border-radius: 4px;
-  }
-  summary {
-    cursor: pointer;
-    font-family: var(--vscode-editor-font-family, monospace);
-    font-size: 13px;
-  }
+  .copy-btn { background:var(--vscode-button-background,#0e639c); color:var(--vscode-button-foreground,#fff); border:none; padding:4px 10px; border-radius:3px; cursor:pointer; font-size:12px; }
+  .copy-btn:hover { background: var(--vscode-button-hoverBackground, #1177bb); }
+  .sql-block { background:var(--vscode-editor-inactiveSelectionBackground,#333); padding:8px 12px; border-radius:4px; font-family:var(--vscode-editor-font-family,monospace); font-size:13px; white-space:pre-wrap; word-break:break-word; }
+  details { margin: 4px 0; padding: 8px 12px; border-radius: 4px; }
+  summary { cursor:pointer; font-family:var(--vscode-editor-font-family,monospace); font-size:13px; }
   .row-ok { border-left: 4px solid #28a745; background: rgba(40,167,69,0.08); }
   .row-warn { border-left: 4px solid #e0a800; background: rgba(224,168,0,0.08); }
-  .row-err {
-    border-left: 4px solid #dc3545;
-    background: rgba(220,53,69,0.08);
-    padding: 8px 12px;
-    border-radius: 4px;
-    margin: 4px 0;
-    font-family: var(--vscode-editor-font-family, monospace);
-    font-size: 13px;
-  }
-  .col-count {
-    opacity: 0.6;
-    margin-left: 12px;
-    font-size: 12px;
-  }
-  .status {
-    float: right;
-    font-size: 12px;
-    font-weight: 600;
-  }
-  .details {
-    margin-top: 6px;
-    padding-left: 16px;
-  }
-  .detail {
-    font-size: 12px;
-    margin: 2px 0;
-    font-family: var(--vscode-editor-font-family, monospace);
-  }
+  .row-err { border-left:4px solid #dc3545; background:rgba(220,53,69,0.08); padding:8px 12px; border-radius:4px; margin:4px 0; font-family:var(--vscode-editor-font-family,monospace); font-size:13px; }
+  .col-count { opacity: 0.6; margin-left: 12px; font-size: 12px; }
+  .status { float: right; font-size: 12px; font-weight: 600; }
+  .details { margin-top: 6px; padding-left: 16px; }
+  .detail { font-size:12px; margin:2px 0; font-family:var(--vscode-editor-font-family,monospace); }
   .detail.warn { color: #e0a800; }
   .detail.err { color: #dc3545; }
-  .nav-link {
-    color: var(--vscode-textLink-foreground, #3794ff);
-    text-decoration: none;
-    cursor: pointer;
-  }
+  .nav-link { color:var(--vscode-textLink-foreground,#3794ff); text-decoration:none; cursor:pointer; }
   .nav-link:hover { text-decoration: underline; }
-  .table-name {
-    font-family: var(--vscode-editor-font-family, monospace);
-  }
-  .empty {
-    opacity: 0.6;
-    font-style: italic;
-  }
+  .table-name { font-family: var(--vscode-editor-font-family, monospace); }
+  .empty { opacity: 0.6; font-style: italic; }
 </style>
 </head>
 <body>

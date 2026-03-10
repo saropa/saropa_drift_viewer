@@ -317,6 +317,11 @@
         "title": "Drift Viewer: Toggle Data Breakpoint"
       },
       {
+        "command": "driftViewer.generateMigration",
+        "title": "Drift Viewer: Generate Migration Code",
+        "icon": "$(file-code)"
+      },
+      {
         "command": "driftViewer.constraintWizard",
         "title": "Drift Viewer: Constraint Wizard",
         "icon": "$(shield)"

@@ -31,6 +31,18 @@ export interface ISchemaDiffResult {
   tableDiffs: ITableColumnDiff[];
 }
 
+/** Whether the diff contains any actionable differences. */
+export function hasDifferences(diff: ISchemaDiffResult): boolean {
+  if (diff.tablesOnlyInCode.length > 0) return true;
+  if (diff.tablesOnlyInDb.length > 0) return true;
+  return diff.tableDiffs.some(
+    (td) =>
+      td.columnsOnlyInCode.length > 0
+      || td.columnsOnlyInDb.length > 0
+      || td.typeMismatches.length > 0,
+  );
+}
+
 /** Compare parsed Dart tables against runtime schema metadata. */
 export function computeSchemaDiff(
   codeTables: IDartTable[],
@@ -162,4 +174,20 @@ export function generateMigrationSql(diff: ISchemaDiffResult): string {
   }
 
   return lines.join('\n');
+}
+
+/** Generate CREATE TABLE statements for all Dart-defined tables. */
+export function generateFullSchemaSql(
+  codeTables: IDartTable[],
+): string {
+  if (codeTables.length === 0) return '';
+
+  return codeTables
+    .map((table) => {
+      const cols = table.columns
+        .map((c) => `  "${c.sqlName}" ${c.sqlType}`)
+        .join(',\n');
+      return `CREATE TABLE "${table.sqlTableName}" (\n${cols}\n);`;
+    })
+    .join('\n\n');
 }
