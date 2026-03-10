@@ -19,10 +19,6 @@ dependencies:
   # https://pub.dev/packages/crypto/changelog
   crypto: ^3.0.3
 
-  # Annotations for dart_code_metrics / custom_lint.
-  # https://pub.dev/packages/dart_code_metrics_annotations/changelog
-  dart_code_metrics_annotations: ^1.1.0
-
   # Flutter SDK.
   # https://docs.flutter.dev/release/release-notes
   flutter:

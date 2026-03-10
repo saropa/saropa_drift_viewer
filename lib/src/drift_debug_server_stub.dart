@@ -2,8 +2,6 @@
 // drift_debug_server.dart selects this file on web and drift_debug_server_io.dart on VM.
 // Typedefs are duplicated here so the stub is self-contained and the public API is identical.
 
-import 'package:dart_code_metrics_annotations/annotations.dart';
-
 /// Callback that runs a single SQL query and returns rows as list of maps (column name → value).
 typedef DriftDebugQuery = Future<List<Map<String, dynamic>>> Function(
     String sql);
@@ -36,7 +34,6 @@ mixin DriftDebugServer {
   /// Stub: always throws [UnsupportedError].
   ///
   /// Throws [UnsupportedError] because dart:io is not available on web.
-  @Throws({UnsupportedError})
   static Future<void> start({
     required DriftDebugQuery query,
     bool enabled = true,
