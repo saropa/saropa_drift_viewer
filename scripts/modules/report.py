@@ -109,10 +109,19 @@ def print_report_path(report: str | None) -> None:
         ok(f"Report: {C.WHITE}{rel}{C.RESET}")
 
 
-def print_success_banner(version: str, vsix_path: str) -> None:
-    """Print the final success summary with links."""
+def print_success_banner(version: str, vsix_path: str | None = None, config=None) -> None:
+    """Print the final success summary with links.
+
+    When *config* is provided with name ``'dart'``, shows pub.dev links.
+    Otherwise shows VS Code Marketplace / Open VSX links (legacy behavior).
+    """
+    if config is not None and config.name == "dart":
+        _print_dart_success_banner(version)
+        return
+
     tag = f"{TAG_PREFIX}{version}"
     heading("Published Successfully!")
+    vsix_name = os.path.basename(vsix_path) if vsix_path else "(none)"
     print(f"""
   {C.GREEN}{C.BOLD}v{version} is live!{C.RESET}
 
@@ -126,10 +135,27 @@ def print_success_banner(version: str, vsix_path: str) -> None:
     {C.WHITE}{REPO_URL}/releases/tag/{tag}{C.RESET}
 
   {C.CYAN}VSIX:{C.RESET}
-    {C.WHITE}{os.path.basename(vsix_path)}{C.RESET}
+    {C.WHITE}{vsix_name}{C.RESET}
 """)
     if sys.stdin.isatty():
         try:
             webbrowser.open(MARKETPLACE_URL)
         except Exception:
             pass
+
+
+def _print_dart_success_banner(version: str) -> None:
+    """Print Dart package publish success summary."""
+    heading("Published Successfully!")
+    print(f"""
+  {C.GREEN}{C.BOLD}v{version} is live!{C.RESET}
+
+  {C.CYAN}pub.dev:{C.RESET}
+    {C.WHITE}https://pub.dev/packages/saropa_drift_viewer{C.RESET}
+
+  {C.CYAN}GitHub Release:{C.RESET}
+    {C.WHITE}{REPO_URL}/releases/tag/v{version}{C.RESET}
+
+  {C.CYAN}GitHub Actions:{C.RESET}
+    {C.WHITE}{REPO_URL}/actions{C.RESET}
+""")
