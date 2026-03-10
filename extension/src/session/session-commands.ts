@@ -37,10 +37,10 @@ export async function openSession(
     prompt: 'Enter session ID',
     placeHolder: 'e.g. abc123def',
   });
-  if (!id) return;
+  if (!id?.trim()) return;
 
   try {
-    const session = await client.sessionGet(id);
+    const session = await client.sessionGet(id.trim());
     const content = JSON.stringify(session, null, 2);
     const doc = await vscode.workspace.openTextDocument({
       content,
@@ -62,17 +62,17 @@ export async function annotateSession(
     prompt: 'Enter session ID',
     placeHolder: 'e.g. abc123def',
   });
-  if (!id) return;
+  if (!id?.trim()) return;
 
   const text = await vscode.window.showInputBox({
     title: 'Annotate Session (2/2)',
     prompt: 'Enter annotation text',
     placeHolder: 'Found issue in users table',
   });
-  if (!text) return;
+  if (!text?.trim()) return;
 
   try {
-    await client.sessionAnnotate(id, text, 'vscode-user');
+    await client.sessionAnnotate(id.trim(), text.trim(), 'vscode-user');
     vscode.window.showInformationMessage('Annotation added.');
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
