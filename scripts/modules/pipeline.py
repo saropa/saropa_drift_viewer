@@ -26,9 +26,20 @@ def _validate_version_step(
     step_label: str,
 ) -> tuple[str, bool]:
     """Run version validation for a target. Returns (version, ok)."""
-    from modules.checks_version import validate_version_changelog
+    from modules.checks_version import apply_bump, validate_version_changelog
 
     heading(step_label)
+
+    # Apply --bump before validation so the bumped version is what gets validated.
+    bump = getattr(args, "bump", None)
+    if bump:
+        if not run_step(
+            f"{config.display_name} bump",
+            lambda: apply_bump(bump, config),
+            results,
+        ):
+            return "", False
+
     if getattr(args, "yes", False):
         os.environ["PUBLISH_YES"] = "1"
     t0 = time.time()

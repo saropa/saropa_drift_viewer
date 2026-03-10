@@ -4,7 +4,7 @@
 import os
 
 from modules.constants import C, MAX_FILE_LINES, EXTENSION_DIR, REPO_ROOT
-from modules.display import fail, fix, info, ok, print_cmd_output, warn
+from modules.display import fail, fix, info, ok, print_cmd_output
 from modules.utils import run
 
 
@@ -66,7 +66,7 @@ def step_test() -> bool:
 
 
 def check_file_line_limits() -> bool:
-    """Warn on .ts files exceeding the line limit (non-blocking)."""
+    """Block on .ts files exceeding the line limit."""
     src_dir = os.path.join(EXTENSION_DIR, "src")
     violations: list[str] = []
 
@@ -82,10 +82,10 @@ def check_file_line_limits() -> bool:
                 violations.append(f"{rel} ({count} lines)")
 
     if violations:
-        warn(f"{len(violations)} file(s) exceed {MAX_FILE_LINES}-line limit:")
+        fail(f"{len(violations)} file(s) exceed {MAX_FILE_LINES}-line limit:")
         for v in violations:
             print(f"         {C.RED}{v}{C.RESET}")
-        return True
+        return False
 
     ok(f"All .ts files are within the {MAX_FILE_LINES}-line limit")
     return True

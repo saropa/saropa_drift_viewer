@@ -10,6 +10,7 @@ Usage:
     python scripts/publish.py extension           # Extension pipeline
     python scripts/publish.py all                 # Both targets
     python scripts/publish.py dart --analyze-only # Analysis only (no publish)
+    python scripts/publish.py dart --bump minor   # Bump minor before validation
 
 Exit codes match the ExitCode enum in modules/constants.py.
 """
@@ -62,6 +63,12 @@ def parse_args() -> argparse.Namespace:
         "target",
         choices=["dart", "extension", "all"],
         help="Which target to build/publish.",
+    )
+    parser.add_argument(
+        "--bump",
+        choices=["patch", "minor", "major"],
+        default=None,
+        help="Bump version before validation (patch, minor, or major).",
     )
     for flag, help_text in _CLI_FLAGS:
         parser.add_argument(flag, action="store_true", help=help_text)

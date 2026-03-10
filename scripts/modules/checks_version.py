@@ -62,10 +62,38 @@ def _get_changelog_max_version(
     return max(versions, key=_parse_semver)
 
 
-def _bump_patch(version: str) -> str:
-    """Increment the patch component of a semver string."""
+def _bump_version(version: str, level: str = "patch") -> str:
+    """Bump a semver string by the given level (patch, minor, or major)."""
     major, minor, patch = version.split(".")
+    if level == "major":
+        return f"{int(major) + 1}.0.0"
+    if level == "minor":
+        return f"{major}.{int(minor) + 1}.0"
     return f"{major}.{minor}.{int(patch) + 1}"
+
+
+def apply_bump(
+    bump: str,
+    config: TargetConfig | None = None,
+) -> bool:
+    """Apply a --bump (patch|minor|major) to the version file.
+
+    Reads the current version, bumps it, writes it back, and reports.
+    Returns True on success.
+    """
+    from modules.target_config import EXTENSION, read_version
+    cfg = config if config is not None else EXTENSION
+    current = read_version(cfg)
+    label = _version_file_label(cfg)
+    if current == "unknown":
+        fail(f"Could not read version from {label}")
+        return False
+
+    new_ver = _bump_version(current, bump)
+    if not _write_version(new_ver, cfg):
+        return False
+    fix(f"{label}: {current} -> {C.WHITE}{new_ver}{C.RESET} ({bump} bump)")
+    return True
 
 
 # ── User Prompts ──────────────────────────────────────────
@@ -185,6 +213,24 @@ def _ensure_unreleased_section(
     return True
 
 
+_LIST_ITEM_RE = re.compile(r'^[-*]|\d+\.')
+
+
+def _unreleased_section_has_content(content: str) -> bool:
+    """Check whether the [Unreleased] section has bullet-point content."""
+    match = _UNPUBLISHED_HEADING_RE.search(content)
+    if not match:
+        return False
+    after = content[match.end():]
+    for line in after.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            break
+        if _LIST_ITEM_RE.match(stripped):
+            return True
+    return False
+
+
 def _stamp_changelog(
     version: str,
     config: TargetConfig | None = None,
@@ -197,6 +243,12 @@ def _stamp_changelog(
     except OSError:
         fail("Could not read CHANGELOG.md")
         return False
+
+    if not _unreleased_section_has_content(content):
+        warn("The [Unreleased] section in CHANGELOG.md has no entries.")
+        if not ask_yn("Stamp empty changelog section?", default=False):
+            fail("Add changelog entries before publishing.")
+            return False
 
     today = datetime.datetime.now().strftime("%Y-%m-%d")
     replacement = f'## [{version}] - {today}'
@@ -238,7 +290,7 @@ def _ensure_untagged_version(
     prefix = _tag_prefix_for(config)
     original = version
     while _is_tagged(version, config):
-        next_ver = _bump_patch(version)
+        next_ver = _bump_version(version)
         warn(f"Tag '{prefix}{version}' already exists.")
         if not ask_yn(f"Bump to {next_ver}?", default=True):
             fail("Version already tagged. Bump manually.")
@@ -296,7 +348,7 @@ def _resolve_stale_version(
 
     *result* is True/False for early return, or None to continue.
     """
-    next_ver = _bump_patch(max_cl)
+    next_ver = _bump_version(max_cl)
 
     if _is_tagged(pkg_version, config):
         return _resolve_tagged_stale(pkg_version, next_ver, max_cl, config)
