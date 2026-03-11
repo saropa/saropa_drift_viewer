@@ -53,6 +53,28 @@ _CLI_FLAGS = [
 ]
 
 
+_TARGETS = ["dart", "extension", "all"]
+
+
+def _prompt_target() -> str:
+    """Interactively ask the user which target to publish."""
+    print(f"\n  {C.BOLD}Which target do you want to build/publish?{C.RESET}\n")
+    for i, name in enumerate(_TARGETS, 1):
+        print(f"    {C.CYAN}{i}{C.RESET}) {name}")
+    print()
+    while True:
+        try:
+            choice = input(f"  {C.YELLOW}Enter choice (1-{len(_TARGETS)}): {C.RESET}").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            sys.exit(ExitCode.USER_CANCELLED)
+        if choice in {str(i) for i in range(1, len(_TARGETS) + 1)}:
+            return _TARGETS[int(choice) - 1]
+        if choice.lower() in _TARGETS:
+            return choice.lower()
+        print(f"  {C.RED}Invalid choice. Please enter 1-{len(_TARGETS)} or a target name.{C.RESET}")
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
@@ -61,8 +83,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "target",
-        choices=["dart", "extension", "all"],
-        help="Which target to build/publish.",
+        nargs="?",
+        choices=_TARGETS,
+        default=None,
+        help="Which target to build/publish (prompted if omitted).",
     )
     parser.add_argument(
         "--bump",
@@ -72,7 +96,10 @@ def parse_args() -> argparse.Namespace:
     )
     for flag, help_text in _CLI_FLAGS:
         parser.add_argument(flag, action="store_true", help=help_text)
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.target is None:
+        args.target = _prompt_target()
+    return args
 
 
 # ── Target Info ──────────────────────────────────────────────
