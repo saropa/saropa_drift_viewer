@@ -342,6 +342,11 @@
         "icon": "$(shield)"
       },
       {
+        "command": "driftViewer.analyzeRowImpact",
+        "title": "Saropa Drift Advisor: Analyze Row Impact",
+        "icon": "$(type-hierarchy)"
+      },
+      {
         "command": "driftViewer.isarToDrift",
         "title": "Saropa Drift Advisor: Generate Drift from Isar Schema",
         "icon": "$(arrow-swap)"
@@ -364,6 +369,11 @@
         "command": "driftViewer.unpinTable",
         "title": "Unpin Table",
         "icon": "$(pinned)"
+      },
+      {
+        "command": "driftViewer.healthScore",
+        "title": "Saropa Drift Advisor: Database Health Score",
+        "icon": "$(heart)"
       }
     ],
     "menus": {
@@ -420,6 +430,11 @@
         },
         {
           "command": "driftViewer.openSnippetLibrary",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "navigation"
+        },
+        {
+          "command": "driftViewer.healthScore",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
           "group": "navigation"
         }
@@ -501,6 +516,11 @@
           "command": "driftViewer.constraintWizard",
           "when": "viewItem == driftTable || viewItem == driftTablePinned",
           "group": "9_constraints"
+        },
+        {
+          "command": "driftViewer.analyzeRowImpact",
+          "when": "viewItem == driftTable || viewItem == driftTablePinned",
+          "group": "5_analysis"
         },
         {
           "command": "driftViewer.annotateTable",
@@ -704,6 +724,20 @@
           "type": "boolean",
           "default": true,
           "description": "Show foreign key values as clickable links in table data views."
+        },
+        "driftViewer.impact.maxDepth": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Maximum FK traversal depth for row impact analysis."
+        },
+        "driftViewer.impact.maxRowsPerTable": {
+          "type": "number",
+          "default": 100,
+          "minimum": 10,
+          "maximum": 1000,
+          "description": "Maximum rows to fetch per table branch in impact analysis."
         },
         "driftViewer.seeder.defaultRowCount": {
           "type": "number",

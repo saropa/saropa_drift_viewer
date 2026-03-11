@@ -24,6 +24,7 @@ import { AnnotationStore } from './annotations/annotation-store';
 import { registerAnnotationCommands } from './annotations/annotation-commands';
 import { registerSeederCommands } from './seeder/seeder-commands';
 import { registerConstraintWizardCommands } from './constraint-wizard/constraint-commands';
+import { registerImpactCommands } from './impact/impact-commands';
 import { registerIsarGenCommands } from './isar-gen/isar-gen-commands';
 import { registerMigrationGenCommands } from './migration-gen/migration-gen-commands';
 import { registerDataManagementCommands } from './data-management/data-management-commands';
@@ -38,6 +39,7 @@ import { registerSnapshotCommands } from './timeline/snapshot-commands';
 import { registerEditingCommands } from './editing/editing-commands';
 import { registerDataBreakpointCommands } from './data-breakpoint/data-breakpoint-commands';
 import { registerDebugCommands } from './debug/debug-commands';
+import { registerHealthCommands } from './health/health-commands';
 import { updateStatusBar } from './status-bar';
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -289,7 +291,9 @@ export function activate(context: vscode.ExtensionContext): void {
   registerAnnotationCommands(context, annotationStore, treeProvider);
   registerSeederCommands(context, client);
   registerConstraintWizardCommands(context, client);
+  registerImpactCommands(context, client);
   registerIsarGenCommands(context);
+  registerHealthCommands(context, client);
   registerDebugCommands(context, {
     client, treeProvider, treeView, hoverCache, linter,
     logBridge, discovery, serverManager, watcher, codeLensProvider,

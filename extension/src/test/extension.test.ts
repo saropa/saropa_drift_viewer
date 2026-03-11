@@ -90,8 +90,10 @@ describe('Extension activation', () => {
     // FK navigation: fkNavigator (1)
     // Schema search: schemaSearchViewProvider (1)
     // Pin store: pinTable, unpinTable, onDidChange, dispose (4)
-    // Total = 100
-    assert.strictEqual(subscriptions.length, 100, `expected 100 disposables, got ${subscriptions.length}`);
+    // Health score: healthScore (1)
+    // Impact analysis: analyzeRowImpact (1)
+    // Total = 102
+    assert.strictEqual(subscriptions.length, 102, `expected 102 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {
