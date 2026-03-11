@@ -5,7 +5,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **pub.dev** — [saropa_drift_advisor](https://pub.dev/packages/saropa_drift_advisor)
 
-## [Unreleased]
+## [0.4.1]
 
 ### Added
 
