@@ -48,7 +48,7 @@ export class LogCaptureBridge {
     const slowMs = cfg.get<number>('performance.slowThresholdMs', 500) ?? 500;
 
     const reg = this._api.registerIntegrationProvider({
-      id: 'saropa-drift-viewer',
+      id: 'saropa-drift-advisor',
       isEnabled: () => true,
       onSessionStartSync: () => [
         {

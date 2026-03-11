@@ -1,9 +1,9 @@
-![Saropa Drift Viewer - SQLite/Drift](https://raw.githubusercontent.com/saropa/saropa_drift_viewer/main/assets/banner_v2.png)
+![Saropa Drift Viewer - SQLite/Drift](https://raw.githubusercontent.com/saropa/saropa_drift_advisor/main/assets/banner_v2.png)
 
 <!-- # Saropa Drift Viewer -->
 
-[![pub package](https://img.shields.io/pub/v/saropa_drift_viewer.svg)](https://pub.dev/packages/saropa_drift_viewer)
-[![CI](https://github.com/saropa/saropa_drift_viewer/actions/workflows/main.yaml/badge.svg)](https://github.com/saropa/saropa_drift_viewer/actions/workflows/main.yaml)
+[![pub package](https://img.shields.io/pub/v/saropa_drift_advisor.svg)](https://pub.dev/packages/saropa_drift_advisor)
+[![CI](https://github.com/saropa/saropa_drift_advisor/actions/workflows/main.yaml/badge.svg)](https://github.com/saropa/saropa_drift_advisor/actions/workflows/main.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 Debug-only HTTP server + VS Code extension for inspecting SQLite/Drift databases in Flutter and Dart apps. Two ways to access your data — a browser-based web UI and a full-featured VS Code extension with IDE integration.
@@ -51,7 +51,7 @@ Open **http://127.0.0.1:8642** in any browser. No install required.
 
 ## Flutter overlay (optional)
 
-In debug builds, wrap your app with [DriftViewerOverlay](https://pub.dev/documentation/saropa_drift_viewer/latest/flutter/DriftViewerOverlay-class.html) to show a floating button that opens the viewer in the browser or in an in-app WebView. See [Flutter overlay](#4-flutter-overlay-optional) below.
+In debug builds, wrap your app with [DriftViewerOverlay](https://pub.dev/documentation/saropa_drift_advisor/latest/flutter/DriftViewerOverlay-class.html) to show a floating button that opens the viewer in the browser or in an in-app WebView. See [Flutter overlay](#4-flutter-overlay-optional) below.
 
 ---
 
@@ -64,15 +64,15 @@ In debug builds, wrap your app with [DriftViewerOverlay](https://pub.dev/documen
 ```yaml
 # pubspec.yaml
 dependencies:
-  saropa_drift_viewer: ^0.1.0
+  saropa_drift_advisor: ^0.1.0
 ```
 
 **Path dependency (local or monorepo):**
 
 ```yaml
 dependencies:
-  saropa_drift_viewer:
-    path: ../path/to/saropa_drift_viewer
+  saropa_drift_advisor:
+    path: ../path/to/saropa_drift_advisor
 ```
 
 Run `flutter pub get` or `dart pub get`.
@@ -82,7 +82,7 @@ Run `flutter pub get` or `dart pub get`.
 **Drift (one line):**
 
 ```dart
-import 'package:saropa_drift_viewer/saropa_drift_viewer.dart';
+import 'package:saropa_drift_advisor/saropa_drift_advisor.dart';
 
 await myDb.startDriftViewer(enabled: kDebugMode);
 ```
@@ -92,7 +92,7 @@ This package does **not** depend on `drift`; it uses runtime wiring (`customSele
 **Callback API (Drift or raw SQLite):**
 
 ```dart
-import 'package:saropa_drift_viewer/saropa_drift_viewer.dart';
+import 'package:saropa_drift_advisor/saropa_drift_advisor.dart';
 
 await DriftDebugServer.start(
   query: (String sql) async {
@@ -116,7 +116,7 @@ await DriftDebugServer.start(
 In Flutter apps, add a floating button in debug builds that opens the viewer in the browser or in an in-app WebView:
 
 ```dart
-import 'package:saropa_drift_viewer/flutter.dart';
+import 'package:saropa_drift_advisor/flutter.dart';
 
 void main() {
   runApp(DriftViewerOverlay(
@@ -125,7 +125,7 @@ void main() {
 }
 ```
 
-Start the server as usual (e.g. `await myDb.startDriftViewer(enabled: kDebugMode);`). The overlay shows a small button (e.g. bottom-right); tap it for a menu: **Open in browser** or **Open in WebView**. The button is only visible when `kDebugMode` is true and the server is running. For custom layout, use [DriftViewerFloatingButton](https://pub.dev/documentation/saropa_drift_viewer/latest/flutter/DriftViewerFloatingButton-class.html) inside your own `Stack`.
+Start the server as usual (e.g. `await myDb.startDriftViewer(enabled: kDebugMode);`). The overlay shows a small button (e.g. bottom-right); tap it for a menu: **Open in browser** or **Open in WebView**. The button is only visible when `kDebugMode` is true and the server is running. For custom layout, use [DriftViewerFloatingButton](https://pub.dev/documentation/saropa_drift_advisor/latest/flutter/DriftViewerFloatingButton-class.html) inside your own `Stack`.
 
 ---
 
@@ -188,4 +188,4 @@ python scripts/publish_pub_dev.py
 
 **Manual:** Bump version in `pubspec.yaml`, then `git tag v0.1.0` and `git push origin v0.1.0`. GitHub Actions publishes to pub.dev.
 
-- [Package on pub.dev](https://pub.dev/packages/saropa_drift_viewer)
+- [Package on pub.dev](https://pub.dev/packages/saropa_drift_advisor)

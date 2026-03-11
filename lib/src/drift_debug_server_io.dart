@@ -10,7 +10,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
-import 'package:saropa_drift_viewer/src/drift_debug_session.dart';
+import 'package:saropa_drift_advisor/src/drift_debug_session.dart';
 
 import 'server/router.dart';
 import 'server/server_constants.dart';

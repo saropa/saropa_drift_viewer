@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 
-import 'package:saropa_drift_viewer/saropa_drift_viewer.dart';
+import 'package:saropa_drift_advisor/saropa_drift_advisor.dart';
 
 void main() {
   test('start with enabled: false is a no-op and does not throw', () async {

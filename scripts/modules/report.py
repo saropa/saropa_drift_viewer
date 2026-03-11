@@ -164,7 +164,7 @@ def _print_dart_success_banner(version: str) -> None:
   {C.GREEN}{C.BOLD}v{version} is live!{C.RESET}
 
   {C.CYAN}pub.dev:{C.RESET}
-    {C.WHITE}https://pub.dev/packages/saropa_drift_viewer{C.RESET}
+    {C.WHITE}https://pub.dev/packages/saropa_drift_advisor{C.RESET}
 
   {C.CYAN}GitHub Release:{C.RESET}
     {C.WHITE}{REPO_URL}/releases/tag/v{version}{C.RESET}

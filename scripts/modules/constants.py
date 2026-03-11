@@ -27,7 +27,7 @@ MARKETPLACE_URL = (
     "https://marketplace.visualstudio.com"
     f"/items?itemName={MARKETPLACE_EXTENSION_ID}"
 )
-REPO_URL = "https://github.com/saropa/saropa_drift_viewer"
+REPO_URL = "https://github.com/saropa/saropa_drift_advisor"
 OPENVSX_URL = "https://open-vsx.org/extension/saropa/drift-viewer"
 
 # cspell:ignore urrent startfile unpushed

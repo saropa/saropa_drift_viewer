@@ -47,7 +47,7 @@
 ///
 /// See the package README for HTTP endpoints, UI
 /// features, and optional auth for dev tunnels.
-library saropa_drift_viewer;
+library saropa_drift_advisor;
 
 export 'src/drift_debug_server.dart';
 export 'src/error_logger.dart';

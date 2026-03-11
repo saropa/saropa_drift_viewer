@@ -3,7 +3,7 @@
 
 import 'dart:io';
 
-import 'package:saropa_drift_viewer/src/drift_debug_session.dart';
+import 'package:saropa_drift_advisor/src/drift_debug_session.dart';
 
 import 'analytics_handler.dart';
 import 'auth_handler.dart';

@@ -2,7 +2,7 @@
 
 ## Overview
 
-63 features for saropa_drift_viewer. **34 implemented**, 29 remaining. Plans are in `extension/plans/`.
+63 features for saropa_drift_advisor. **34 implemented**, 29 remaining. Plans are in `extension/plans/`.
 
 ## Remaining Features
 

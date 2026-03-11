@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Unified publish pipeline for saropa_drift_viewer.
+"""Unified publish pipeline for saropa_drift_advisor.
 
 Supports both the Dart package (pub.dev) and VS Code extension
 (Marketplace / Open VSX) from a single entry point.

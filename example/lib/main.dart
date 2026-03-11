@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:saropa_drift_viewer/flutter.dart';
+import 'package:saropa_drift_advisor/flutter.dart';
 
 import 'database/app_database.dart';
 import 'ui/viewer_status.dart';

@@ -5,7 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:saropa_drift_viewer/src/drift_debug_import.dart';
+import 'package:saropa_drift_advisor/src/drift_debug_import.dart';
 
 import 'server_constants.dart';
 import 'server_context.dart';

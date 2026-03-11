@@ -15,7 +15,7 @@ def package_on_pub_dev(package_name: str) -> bool:
     try:
         req = urllib.request.Request(
             f"https://pub.dev/packages/{package_name}",
-            headers={"User-Agent": "saropa_drift_viewer_publish_script/1.0"},
+            headers={"User-Agent": "saropa_drift_advisor_publish_script/1.0"},
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             return resp.status == 200

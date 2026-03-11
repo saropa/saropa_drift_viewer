@@ -128,7 +128,7 @@ describe('DocsMdRenderer', () => {
 
   it('footer includes Drift Viewer link', () => {
     const md = renderer.render(docsData());
-    assert.ok(md.includes('saropa_drift_viewer'));
+    assert.ok(md.includes('saropa_drift_advisor'));
   });
 
   it('escapes pipe characters in column names', () => {

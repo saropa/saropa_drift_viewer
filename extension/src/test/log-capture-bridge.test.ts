@@ -63,7 +63,7 @@ describe('LogCaptureBridge', () => {
 
     it('should register an integration provider', () => {
       assert.ok(registeredProvider);
-      assert.strictEqual(registeredProvider.id, 'saropa-drift-viewer');
+      assert.strictEqual(registeredProvider.id, 'saropa-drift-advisor');
     });
 
     it('should report enabled', () => {

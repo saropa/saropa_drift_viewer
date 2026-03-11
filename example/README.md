@@ -1,6 +1,6 @@
-# Example: Drift app with saropa_drift_viewer
+# Example: Drift app with saropa_drift_advisor
 
-This Flutter app shows how to use [saropa_drift_viewer](https://pub.dev/packages/saropa_drift_viewer) with a [Drift](https://pub.dev/packages/drift) database.
+This Flutter app shows how to use [saropa_drift_advisor](https://pub.dev/packages/saropa_drift_advisor) with a [Drift](https://pub.dev/packages/drift) database.
 
 ## Run the example
 

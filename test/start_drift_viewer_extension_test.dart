@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:saropa_drift_viewer/saropa_drift_viewer.dart';
+import 'package:saropa_drift_advisor/saropa_drift_advisor.dart';
 import 'package:test/test.dart';
 
 class _FakeRow {

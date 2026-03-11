@@ -1,10 +1,10 @@
 # Drift Viewer — VS Code Extension
 
-Full IDE integration for [saropa_drift_viewer](https://pub.dev/packages/saropa_drift_viewer), the debug-only SQLite/Drift database inspector for Flutter and Dart apps.
+Full IDE integration for [saropa_drift_advisor](https://pub.dev/packages/saropa_drift_advisor), the debug-only SQLite/Drift database inspector for Flutter and Dart apps.
 
 ## Requirements
 
-Your Flutter/Dart app must be running with the Drift debug server started. See the [Dart package README](https://pub.dev/packages/saropa_drift_viewer) for setup (two lines of code).
+Your Flutter/Dart app must be running with the Drift debug server started. See the [Dart package README](https://pub.dev/packages/saropa_drift_advisor) for setup (two lines of code).
 
 ## Features
 

@@ -3,11 +3,15 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-**pub.dev** — [saropa_drift_viewer](https://pub.dev/packages/saropa_drift_viewer)
+**pub.dev** — [saropa_drift_advisor](https://pub.dev/packages/saropa_drift_advisor)
 
 ## [0.3.0] - Unreleased
 
-This release improves everyday usability with a visual query builder, smarter data formatting, per-table state persistence, and one-click cell copying.
+**Package renamed from `saropa_drift_viewer` to `saropa_drift_advisor`.**
+Update your `pubspec.yaml` dependency and replace `package:saropa_drift_viewer/`
+imports with `package:saropa_drift_advisor/`. All APIs are unchanged.
+
+This release also improves everyday usability with a visual query builder, smarter data formatting, per-table state persistence, and one-click cell copying.
 
 ### Added
 
