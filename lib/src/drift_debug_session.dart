@@ -1,4 +1,3 @@
-import 'package:collection/collection.dart';
 
 /// In-memory session store for collaborative debug sessions.
 ///
@@ -62,7 +61,8 @@ final class DriftDebugSessionStore {
 
     // Evict oldest sessions when at capacity.
     while (_sessions.length >= maxSessions) {
-      final oldest = _sessions.keys.firstOrNull;
+      final oldest =
+          _sessions.keys.isEmpty ? null : _sessions.keys.first;
       if (oldest == null) {
         break;
       }

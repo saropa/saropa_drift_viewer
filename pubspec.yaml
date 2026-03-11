@@ -11,38 +11,17 @@ environment:
   sdk: ">=3.3.0 <4.0.0"
 
 dependencies:
-  # Collection utilities (equality, ordering, etc.).
-  # https://pub.dev/packages/collection/changelog
-  collection: ^1.18.0
+  # !! KEEP THIS LIST MINIMAL !!
+  # This package ships inside consumer apps. Every
+  # dependency here increases their install size and
+  # attack surface. Add features to the VS Code
+  # extension (extension/) instead of adding packages
+  # here. Before adding a dependency, exhaust
+  # dart:* standard library alternatives first.
 
   # Cryptographic hashes and codes.
   # https://pub.dev/packages/crypto/changelog
   crypto: ^3.0.3
-
-  # Flutter SDK.
-  # https://docs.flutter.dev/release/release-notes
-  flutter:
-    sdk: flutter
-
-  # Internationalization and date/number formatting.
-  # https://pub.dev/packages/intl/changelog
-  intl: ^0.20.2
-
-  # Annotations and meta-programming (e.g. @immutable).
-  # https://pub.dev/packages/meta/changelog
-  meta: ^1.17.0
-
-  # Launch URLs in browser or app.
-  # https://pub.dev/packages/url_launcher/changelog
-  url_launcher: ^6.2.0
-
-  # Platform webview widget.
-  # https://pub.dev/packages/webview_flutter/changelog
-  webview_flutter: ^4.13.0
-
-  # Android implementation for webview_flutter.
-  # https://pub.dev/packages/webview_flutter_android/changelog
-  webview_flutter_android: ^4.10.0
 
 dev_dependencies:
   # Saropa custom lints; use custom_lint CLI.

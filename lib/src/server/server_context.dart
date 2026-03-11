@@ -6,7 +6,6 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 
-import 'package:collection/collection.dart';
 
 import 'server_constants.dart';
 import 'server_types.dart';
@@ -377,7 +376,7 @@ final class ServerContext {
   static int extractCountFromRows(
     List<Map<String, dynamic>> rows,
   ) {
-    final firstRow = rows.firstOrNull;
+    final firstRow = rows.isEmpty ? null : rows.first;
 
     if (firstRow == null ||
         firstRow[ServerConstants.jsonKeyCountColumn] == null) {

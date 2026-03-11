@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.1] - Unreleased
 
+### Removed
+
+- **In-app Flutter overlay** — Removed `DriftViewerOverlay`, `DriftViewerFloatingButton`, and `lib/flutter.dart`. The VS Code extension and browser already provide the same functionality without shipping native code in consumer APKs.
+- **6 dependencies** — Removed `webview_flutter`, `webview_flutter_android`, `url_launcher`, `intl`, `meta`, `collection`, and the `flutter` SDK dependency. The package is now pure Dart with a single dependency (`crypto`).
+
+### Changed
+
 - Added MIT license for Open VSX release.
 - Refactored extension source to enforce 300-line file limit: split `extension.ts` (1359→300 lines) into 9 command modules plus a status-bar utility, split `vscode-mock.ts` (719→299 lines) into 3 files, extracted `seeder-html-shell.ts` from `seeder-html.ts`, and extracted shared test fixtures from 7 test files.
 - Renamed all user-facing display text from "Drift Viewer" to "Saropa Drift Advisor" across extension commands, activity bar, status bar, generated code comments, documentation, and example app.
