@@ -1,4 +1,4 @@
-# Feature 43: Query Cost Analyzer
+# Feature 43: Query Cost Analyzer [DONE]
 
 ## What It Does
 

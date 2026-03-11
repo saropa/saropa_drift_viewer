@@ -33,15 +33,18 @@ export const clipboardMock = {
 let _saveDialogResult: any = undefined;
 let _infoMessageResult: string | undefined = undefined;
 let _quickPickResult: string | undefined = undefined;
+let _inputBoxResult: string | undefined = undefined;
 
 export const dialogMock = {
   set saveResult(uri: any) { _saveDialogResult = uri; },
   set infoMessageResult(v: string | undefined) { _infoMessageResult = v; },
   set quickPickResult(v: string | undefined) { _quickPickResult = v; },
+  set inputBoxResult(v: string | undefined) { _inputBoxResult = v; },
   reset() {
     _saveDialogResult = undefined;
     _infoMessageResult = undefined;
     _quickPickResult = undefined;
+    _inputBoxResult = undefined;
   },
 };
 
@@ -102,6 +105,7 @@ export const window = {
     messageMock.errors.push(msg);
   },
   showQuickPick: async (_items: any[], _options?: any) => _quickPickResult,
+  showInputBox: async (_options?: any) => _inputBoxResult,
   showTextDocument: async (_doc: any, _column?: any) => { /* no-op */ },
   registerFileDecorationProvider: (provider: any) => {
     registeredFileDecorationProviders.push(provider);
