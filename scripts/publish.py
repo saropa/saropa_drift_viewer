@@ -56,7 +56,7 @@ _CLI_FLAGS = [
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="Drift Viewer -- Unified Publish Pipeline",
+        description="Saropa Drift Advisor -- Unified Publish Pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(

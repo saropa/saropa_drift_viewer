@@ -6,7 +6,7 @@ Smart data exploration beyond simple `SELECT * LIMIT N`. Draw stratified random 
 
 ## User Experience
 
-1. Right-click a table → "Explore Data Sample" or command palette → "Drift Viewer: Data Sampling Explorer"
+1. Right-click a table → "Explore Data Sample" or command palette → "Saropa Drift Advisor: Data Sampling Explorer"
 2. Sampling configuration panel:
 
 ```
@@ -306,7 +306,7 @@ None.
     "commands": [
       {
         "command": "driftViewer.dataSampling",
-        "title": "Drift Viewer: Data Sampling Explorer",
+        "title": "Saropa Drift Advisor: Data Sampling Explorer",
         "icon": "$(filter)"
       }
     ],

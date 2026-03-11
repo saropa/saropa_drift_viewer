@@ -224,7 +224,7 @@ None. Uses existing `POST /api/sql` to fetch row data.
     "commands": [
       {
         "command": "driftViewer.compareRows",
-        "title": "Drift Viewer: Compare Two Rows",
+        "title": "Saropa Drift Advisor: Compare Two Rows",
         "icon": "$(diff)"
       }
     ],

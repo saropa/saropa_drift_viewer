@@ -136,7 +136,7 @@ describe('mapIssuesToDiagnostics', () => {
     assert.ok(diags, 'should have diagnostics for the file');
     assert.strictEqual(diags.length, 1);
     assert.strictEqual(diags[0].range.start.line, 4); // line of `get email =>`
-    assert.strictEqual(diags[0].source, 'Drift Viewer');
+    assert.strictEqual(diags[0].source, 'Saropa Drift Advisor');
     assert.strictEqual(diags[0].code, 'index-suggestion');
     assert.ok(diags[0].relatedInformation);
     assert.strictEqual(diags[0].relatedInformation!.length, 1);

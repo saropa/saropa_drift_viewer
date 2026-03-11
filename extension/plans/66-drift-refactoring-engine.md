@@ -6,7 +6,7 @@ Analyze the live database schema and suggest concrete refactorings: normalize re
 
 ## User Experience
 
-1. Command palette → "Drift Viewer: Suggest Schema Refactorings"
+1. Command palette → "Saropa Drift Advisor: Suggest Schema Refactorings"
 2. Extension analyzes schema structure, data patterns, and FK relationships
 3. Results displayed in a webview with actionable suggestions
 
@@ -385,7 +385,7 @@ None. Uses existing schema, FK, and SQL endpoints.
     "commands": [
       {
         "command": "driftViewer.suggestRefactorings",
-        "title": "Drift Viewer: Suggest Schema Refactorings",
+        "title": "Saropa Drift Advisor: Suggest Schema Refactorings",
         "icon": "$(wrench)"
       }
     ]

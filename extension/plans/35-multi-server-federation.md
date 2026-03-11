@@ -28,7 +28,7 @@ DRIFT VIEWER — DATABASE EXPLORER
 
 ### 2. Cross-Server Query
 
-Command palette → "Drift Viewer: Cross-Server Query"
+Command palette → "Saropa Drift Advisor: Cross-Server Query"
 
 ```
 ╔═══════════════════════════════════════════════════════════╗
@@ -57,7 +57,7 @@ Command palette → "Drift Viewer: Cross-Server Query"
 
 ### 3. Schema Comparison
 
-Command palette → "Drift Viewer: Compare Server Schemas"
+Command palette → "Saropa Drift Advisor: Compare Server Schemas"
 
 ```
 ╔═══════════════════════════════════════════════════════════╗
@@ -339,16 +339,16 @@ None. Each server is queried independently via the existing API. The federation 
     "commands": [
       {
         "command": "driftViewer.crossServerQuery",
-        "title": "Drift Viewer: Cross-Server Query",
+        "title": "Saropa Drift Advisor: Cross-Server Query",
         "icon": "$(server-environment)"
       },
       {
         "command": "driftViewer.compareServerSchemas",
-        "title": "Drift Viewer: Compare Server Schemas"
+        "title": "Saropa Drift Advisor: Compare Server Schemas"
       },
       {
         "command": "driftViewer.labelServer",
-        "title": "Drift Viewer: Label Server"
+        "title": "Saropa Drift Advisor: Label Server"
       }
     ],
     "menus": {

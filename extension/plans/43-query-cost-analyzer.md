@@ -7,7 +7,7 @@ Run any SQL query and see its SQLite execution plan visualized as a tree. Highli
 ## User Experience
 
 1. Run any SQL query → click "Explain" in the result panel header
-2. Or: command palette → "Drift Viewer: Analyze Query Cost"
+2. Or: command palette → "Saropa Drift Advisor: Analyze Query Cost"
 3. Analysis panel:
 
 ```
@@ -316,7 +316,7 @@ None. Uses existing `sql()` endpoint with `EXPLAIN QUERY PLAN` prefix.
     "commands": [
       {
         "command": "driftViewer.analyzeQueryCost",
-        "title": "Drift Viewer: Analyze Query Cost",
+        "title": "Saropa Drift Advisor: Analyze Query Cost",
         "icon": "$(pulse)"
       }
     ]

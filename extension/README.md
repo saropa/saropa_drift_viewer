@@ -1,4 +1,4 @@
-# Drift Viewer — VS Code Extension
+# Saropa Drift Advisor — VS Code Extension
 
 Full IDE integration for [saropa_drift_advisor](https://pub.dev/packages/saropa_drift_advisor), the debug-only SQLite/Drift database inspector for Flutter and Dart apps.
 
@@ -84,7 +84,7 @@ Works in Dart files with Drift table definitions:
 
 ## Server Discovery
 
-The extension automatically scans ports 8642-8649 for running debug servers. When multiple servers are found, use **Drift Viewer: Select Server** from the command palette. The status bar shows connection state:
+The extension automatically scans ports 8642-8649 for running debug servers. When multiple servers are found, use **Saropa Drift Advisor: Select Server** from the command palette. The status bar shows connection state:
 
 - **Drift: :8642** — connected to a single server
 - **Drift: 3 servers** — multiple servers found (click to select)

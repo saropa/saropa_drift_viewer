@@ -7,7 +7,7 @@ Click any row in a table and see a visual graph of every related row across all 
 ## User Experience
 
 1. Right-click a row in the table data viewer → "Analyze Row Impact"
-2. Or: command palette → "Drift Viewer: Analyze Row Impact" → pick table → enter PK value
+2. Or: command palette → "Saropa Drift Advisor: Analyze Row Impact" → pick table → enter PK value
 3. A webview panel opens showing an interactive impact tree:
 
 ```
@@ -259,7 +259,7 @@ function generateDeleteSql(root: IImpactNode): string {
     "commands": [
       {
         "command": "driftViewer.analyzeRowImpact",
-        "title": "Drift Viewer: Analyze Row Impact",
+        "title": "Saropa Drift Advisor: Analyze Row Impact",
         "icon": "$(type-hierarchy)"
       }
     ],

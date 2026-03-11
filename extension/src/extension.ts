@@ -210,7 +210,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // --- Data Editing (review workflow) ---
 
   const editOutputChannel = vscode.window.createOutputChannel(
-    'Drift Viewer: Data Edits',
+    'Saropa Drift Advisor: Data Edits',
   );
   context.subscriptions.push(editOutputChannel);
   const changeTracker = new ChangeTracker(editOutputChannel);

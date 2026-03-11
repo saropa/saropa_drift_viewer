@@ -349,16 +349,16 @@ Panel shows SQL + before/after state
     "commands": [
       {
         "command": "driftViewer.openDvr",
-        "title": "Drift Viewer: Open Query Replay DVR",
+        "title": "Saropa Drift Advisor: Open Query Replay DVR",
         "icon": "$(record)"
       },
       {
         "command": "driftViewer.dvrStartRecording",
-        "title": "Drift Viewer: Start DVR Recording"
+        "title": "Saropa Drift Advisor: Start DVR Recording"
       },
       {
         "command": "driftViewer.dvrStopRecording",
-        "title": "Drift Viewer: Stop DVR Recording"
+        "title": "Saropa Drift Advisor: Stop DVR Recording"
       }
     ],
     "menus": {

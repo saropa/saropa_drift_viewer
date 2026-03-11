@@ -6,7 +6,7 @@ Select any Drift migration step and auto-generate the reverse migration — both
 
 ## User Experience
 
-1. Command palette → "Drift Viewer: Generate Migration Rollback"
+1. Command palette → "Saropa Drift Advisor: Generate Migration Rollback"
 2. QuickPick lists recent schema changes (from Schema Evolution Timeline, Feature 41)
 3. Select a change → extension generates the reverse SQL and Dart code
 4. Preview panel shows both with copy buttons
@@ -239,7 +239,7 @@ None. Uses existing `schemaDump()` and schema tracker workspace state.
     "commands": [
       {
         "command": "driftViewer.migrationRollback",
-        "title": "Drift Viewer: Generate Migration Rollback",
+        "title": "Saropa Drift Advisor: Generate Migration Rollback",
         "icon": "$(discard)"
       }
     ]

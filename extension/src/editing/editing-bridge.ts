@@ -117,7 +117,7 @@ export class EditingBridge implements vscode.Disposable {
 }
 
 /**
- * Inline JS injected into the Drift Viewer webview to enable cell editing.
+ * Inline JS injected into the Saropa Drift Advisor webview to enable cell editing.
  * Kept as a single template string so it can be injected via <script> tag.
  */
 const EDITING_SCRIPT = `

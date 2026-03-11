@@ -6,7 +6,7 @@ Generates Drift table class definitions (Dart code) from the live SQLite schema.
 
 ## User Experience
 
-1. Command palette: "Drift Viewer: Generate Dart from Schema"
+1. Command palette: "Saropa Drift Advisor: Generate Dart from Schema"
 2. Extension fetches runtime schema from the running server
 3. If schema-diff data is available, only db-only tables are offered (no duplicates)
 4. User picks which tables to generate (Quick Pick, multi-select)
@@ -100,7 +100,7 @@ class TableName extends Table {
   "contributes": {
     "commands": [{
       "command": "driftViewer.generateDart",
-      "title": "Drift Viewer: Generate Dart from Schema"
+      "title": "Saropa Drift Advisor: Generate Dart from Schema"
     }]
   }
 }

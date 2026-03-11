@@ -38,10 +38,10 @@ describe('DriftTaskProvider', () => {
       assert.strictEqual(indexCoverage.definition.check, 'indexCoverage');
     });
 
-    it('should set source to Drift Viewer', () => {
+    it('should set source to Saropa Drift Advisor', () => {
       const tasks = provider.provideTasks();
       for (const task of tasks) {
-        assert.strictEqual(task.source, 'Drift Viewer');
+        assert.strictEqual(task.source, 'Saropa Drift Advisor');
       }
     });
 
@@ -88,7 +88,7 @@ describe('DriftTaskProvider', () => {
         { type: 'drift', check: 'anomalyScan' },
         TaskScope.Workspace,
         'Anomaly Scan',
-        'Drift Viewer',
+        'Saropa Drift Advisor',
       );
       inputTask.detail = 'Scan for data anomalies';
       const resolved = provider.resolveTask(inputTask as any);
@@ -113,7 +113,7 @@ describe('DriftTaskProvider', () => {
         { type: 'drift' },
         TaskScope.Workspace,
         'Bad Task',
-        'Drift Viewer',
+        'Saropa Drift Advisor',
       );
       const resolved = provider.resolveTask(inputTask as any);
       assert.strictEqual(resolved, undefined);

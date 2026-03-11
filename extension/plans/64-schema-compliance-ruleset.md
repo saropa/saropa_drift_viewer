@@ -321,7 +321,7 @@ None. Uses existing schema metadata and FK endpoints.
     "commands": [
       {
         "command": "driftViewer.runCompliance",
-        "title": "Drift Viewer: Check Schema Compliance"
+        "title": "Saropa Drift Advisor: Check Schema Compliance"
       }
     ],
     "configuration": {

@@ -1,4 +1,4 @@
-# Saropa Drift Viewer — WOW Features Roadmap
+# Saropa Drift Advisor — WOW Features Roadmap
 
 14 planned features to transform the debug viewer into a best-in-class database inspection tool.
 

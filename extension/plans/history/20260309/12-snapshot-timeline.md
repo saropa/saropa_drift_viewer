@@ -205,8 +205,8 @@ Row diff uses the same algorithm as Feature 4 (Live Watch) — PK-based matching
 {
   "contributes": {
     "commands": [
-      { "command": "driftViewer.captureSnapshot", "title": "Drift Viewer: Capture Snapshot" },
-      { "command": "driftViewer.showSnapshotDiff", "title": "Drift Viewer: Show Snapshot Diff" }
+      { "command": "driftViewer.captureSnapshot", "title": "Saropa Drift Advisor: Capture Snapshot" },
+      { "command": "driftViewer.showSnapshotDiff", "title": "Saropa Drift Advisor: Show Snapshot Diff" }
     ],
     "configuration": {
       "properties": {

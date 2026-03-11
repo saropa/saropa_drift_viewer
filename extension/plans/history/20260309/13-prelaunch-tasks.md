@@ -90,7 +90,7 @@ class DriftTaskProvider implements vscode.TaskProvider {
       definition,
       vscode.TaskScope.Workspace,
       `Drift: ${name}`,
-      'Drift Viewer',
+      'Saropa Drift Advisor',
       new vscode.CustomExecution(async () => new HealthCheckTerminal(check)),
     );
     task.detail = detail;

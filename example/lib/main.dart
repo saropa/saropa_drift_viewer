@@ -3,14 +3,14 @@ import 'dart:io';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:saropa_drift_advisor/flutter.dart';
+import 'package:saropa_drift_advisor/saropa_drift_advisor.dart';
 
 import 'database/app_database.dart';
 import 'ui/viewer_status.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const DriftViewerOverlay(child: ExampleApp()));
+  runApp(const ExampleApp());
 }
 
 class ExampleApp extends StatelessWidget {
@@ -19,20 +19,12 @@ class ExampleApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Drift Viewer Example',
+      title: 'Saropa Drift Advisor Example',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
-      onGenerateRoute: (RouteSettings settings) {
-        if (settings.name != null &&
-            settings.name!
-                .startsWith(DriftViewerFloatingButton.webViewRouteName)) {
-          return DriftViewerFloatingButton.buildWebViewRoute(settings);
-        }
-        return null;
-      },
-      home: const HomePage(title: 'Drift Viewer Example'),
+      home: const HomePage(title: 'Saropa Drift Advisor Example'),
     );
   }
 }
@@ -138,7 +130,7 @@ class _HomePageState extends State<HomePage> {
       });
     }
 
-    // Start the Drift debug viewer (debug only). Open http://127.0.0.1:8642 in a browser.
+    // Start Saropa Drift Advisor (debug only). Open http://127.0.0.1:8642 in a browser.
     await DriftDebugServer.start(
       query: (String sql) async {
         final rows = await db.customSelect(sql).get();

@@ -249,7 +249,7 @@ Configurable via settings:
       }]
     },
     "commands": [
-      { "command": "driftViewer.clearPerformance", "title": "Drift Viewer: Clear Query Stats", "icon": "$(trash)" },
+      { "command": "driftViewer.clearPerformance", "title": "Saropa Drift Advisor: Clear Query Stats", "icon": "$(trash)" },
       { "command": "driftViewer.refreshPerformance", "title": "Refresh", "icon": "$(refresh)" }
     ],
     "menus": {

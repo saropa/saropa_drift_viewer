@@ -187,8 +187,8 @@ async function validateDriftServer(host: string, port: number): Promise<boolean>
 {
   "contributes": {
     "commands": [
-      { "command": "driftViewer.selectServer", "title": "Drift Viewer: Select Server" },
-      { "command": "driftViewer.retryDiscovery", "title": "Drift Viewer: Retry Server Discovery" }
+      { "command": "driftViewer.selectServer", "title": "Saropa Drift Advisor: Select Server" },
+      { "command": "driftViewer.retryDiscovery", "title": "Saropa Drift Advisor: Retry Server Discovery" }
     ],
     "configuration": {
       "properties": {

@@ -6,7 +6,7 @@ An interactive SQL editor panel inside VS Code — schema-aware autocomplete, so
 
 ## User Experience
 
-1. Command palette: "Drift Viewer: Open SQL Notebook"
+1. Command palette: "Saropa Drift Advisor: Open SQL Notebook"
 2. A webview panel opens with:
    - SQL text area with schema-aware autocomplete (table/column names)
    - Ctrl+Enter to execute
@@ -125,7 +125,7 @@ Tabs are purely client-side (webview state). `retainContextWhenHidden: true` pre
   "contributes": {
     "commands": [{
       "command": "driftViewer.openSqlNotebook",
-      "title": "Drift Viewer: Open SQL Notebook",
+      "title": "Saropa Drift Advisor: Open SQL Notebook",
       "icon": "$(terminal)"
     }],
     "keybindings": [{

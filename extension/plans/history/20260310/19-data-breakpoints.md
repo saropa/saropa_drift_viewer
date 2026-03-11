@@ -225,16 +225,16 @@ DataBreakpointChecker.evaluate(bp)
     "commands": [
       {
         "command": "driftViewer.addDataBreakpoint",
-        "title": "Drift Viewer: Add Data Breakpoint",
+        "title": "Saropa Drift Advisor: Add Data Breakpoint",
         "icon": "$(debug-breakpoint-data)"
       },
       {
         "command": "driftViewer.removeDataBreakpoint",
-        "title": "Drift Viewer: Remove Data Breakpoint"
+        "title": "Saropa Drift Advisor: Remove Data Breakpoint"
       },
       {
         "command": "driftViewer.toggleDataBreakpoint",
-        "title": "Drift Viewer: Toggle Data Breakpoint"
+        "title": "Saropa Drift Advisor: Toggle Data Breakpoint"
       }
     ],
     "menus": {

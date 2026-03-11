@@ -9,7 +9,7 @@ Shows inline annotations above Drift table class definitions in Dart files. Each
 In any `.dart` file containing a Drift table:
 
 ```dart
-// $(database) 42 rows | View in Drift Viewer | Run Query
+// $(database) 42 rows | View in Saropa Drift Advisor | Run Query
 class Users extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text()();
@@ -17,7 +17,7 @@ class Users extends Table {
 ```
 
 - **"42 rows"** — live count from the running server, updates when data changes
-- **"View in Drift Viewer"** — opens the webview panel filtered to that table
+- **"View in Saropa Drift Advisor"** — opens the webview panel filtered to that table
 - **"Run Query"** — runs `SELECT * FROM users` and shows results in a JSON editor tab
 - If the server is offline, shows "not connected" instead of a count
 
@@ -79,7 +79,7 @@ Three lenses per table class:
 | Lens | Command | Behavior |
 |------|---------|----------|
 | `$(database) 42 rows` | `driftViewer.refreshTree` | Refreshes data |
-| `View in Drift Viewer` | `driftViewer.viewTableInPanel` | Opens webview filtered to table |
+| `View in Saropa Drift Advisor` | `driftViewer.viewTableInPanel` | Opens webview filtered to table |
 | `Run Query` | `driftViewer.runTableQuery` | Opens JSON results in editor tab |
 
 ## package.json Contributions
@@ -89,8 +89,8 @@ Three lenses per table class:
   "activationEvents": ["onLanguage:dart"],
   "contributes": {
     "commands": [
-      { "command": "driftViewer.viewTableInPanel", "title": "Drift Viewer: View Table" },
-      { "command": "driftViewer.runTableQuery", "title": "Drift Viewer: Run Table Query" }
+      { "command": "driftViewer.viewTableInPanel", "title": "Saropa Drift Advisor: View Table" },
+      { "command": "driftViewer.runTableQuery", "title": "Saropa Drift Advisor: Run Table Query" }
     ]
   }
 }

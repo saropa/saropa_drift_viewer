@@ -126,7 +126,7 @@ describe('DocsMdRenderer', () => {
     assert.ok(md.includes('\u2713'));
   });
 
-  it('footer includes Drift Viewer link', () => {
+  it('footer includes Saropa Drift Advisor link', () => {
     const md = renderer.render(docsData());
     assert.ok(md.includes('saropa_drift_advisor'));
   });

@@ -7,7 +7,7 @@ Generate a human-readable story of what changed between two snapshots. Instead o
 ## User Experience
 
 1. Open the Timeline panel → select two snapshots → "Generate Changelog"
-2. Or: command palette → "Drift Viewer: Generate Snapshot Changelog" → pick two snapshots
+2. Or: command palette → "Saropa Drift Advisor: Generate Snapshot Changelog" → pick two snapshots
 3. A Markdown document opens:
 
 ```markdown
@@ -337,7 +337,7 @@ None. Uses existing snapshot data stored by the timeline feature.
     "commands": [
       {
         "command": "driftViewer.snapshotChangelog",
-        "title": "Drift Viewer: Generate Snapshot Changelog",
+        "title": "Saropa Drift Advisor: Generate Snapshot Changelog",
         "icon": "$(list-ordered)"
       }
     ]

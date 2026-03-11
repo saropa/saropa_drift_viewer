@@ -82,10 +82,10 @@ export class DriftCodeLensProvider implements vscode.CodeLensProvider {
         );
       }
 
-      // Lens 2: View in Drift Viewer
+      // Lens 2: View in Saropa Drift Advisor
       lenses.push(
         new vscode.CodeLens(range, {
-          title: 'View in Drift Viewer',
+          title: 'View in Saropa Drift Advisor',
           command: 'driftViewer.viewTableInPanel',
           arguments: [sqlName ?? dartClassName],
         }),

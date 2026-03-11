@@ -154,7 +154,7 @@ None. Filters are built as SQL and executed via existing `sql()` endpoint.
     "commands": [
       {
         "command": "driftViewer.saveFilter",
-        "title": "Drift Viewer: Save Current Filter"
+        "title": "Saropa Drift Advisor: Save Current Filter"
       }
     ]
   }

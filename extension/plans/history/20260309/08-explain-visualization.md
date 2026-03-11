@@ -7,7 +7,7 @@ Right-click any SQL string in Dart code or the SQL notebook → "Explain Query P
 ## User Experience
 
 1. Select a SQL string in a Dart file (e.g., `'SELECT * FROM users WHERE email = ?'`)
-2. Right-click → "Drift Viewer: Explain Query Plan"
+2. Right-click → "Saropa Drift Advisor: Explain Query Plan"
 3. A panel opens with a tree visualization:
 
 ```
@@ -137,7 +137,7 @@ When a `SCAN TABLE tablename` node is found, cross-reference with `/api/index-su
   "contributes": {
     "commands": [{
       "command": "driftViewer.explainQuery",
-      "title": "Drift Viewer: Explain Query Plan"
+      "title": "Saropa Drift Advisor: Explain Query Plan"
     }],
     "menus": {
       "editor/context": [{

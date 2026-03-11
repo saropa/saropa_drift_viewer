@@ -6,7 +6,7 @@ Search for any value across every table and every column in the database simulta
 
 ## User Experience
 
-1. Command palette → "Drift Viewer: Search All Tables" or keyboard shortcut (Ctrl+Shift+D)
+1. Command palette → "Saropa Drift Advisor: Search All Tables" or keyboard shortcut (Ctrl+Shift+D)
 2. Quick input for the search term, then results appear in a webview:
 
 ```
@@ -214,7 +214,7 @@ None. Uses existing `schemaMetadata()` and `sql()`.
     "commands": [
       {
         "command": "driftViewer.globalSearch",
-        "title": "Drift Viewer: Search All Tables",
+        "title": "Saropa Drift Advisor: Search All Tables",
         "icon": "$(search)"
       }
     ],

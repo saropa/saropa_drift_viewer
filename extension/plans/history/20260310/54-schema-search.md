@@ -8,7 +8,7 @@ This complements Feature 39 (Global Search), which searches *data values*. This 
 
 ## User Experience
 
-1. Command palette → "Drift Viewer: Search Schema" or click search icon in tree view title
+1. Command palette → "Saropa Drift Advisor: Search Schema" or click search icon in tree view title
 2. QuickPick with live filtering across tables and columns
 3. Results grouped by table, showing matching tables and columns
 4. Select a result → reveal it in the tree view
@@ -220,7 +220,7 @@ None. Uses existing `schemaMetadata()` and `tableFkMeta()`.
     "commands": [
       {
         "command": "driftViewer.schemaSearch",
-        "title": "Drift Viewer: Search Schema",
+        "title": "Saropa Drift Advisor: Search Schema",
         "icon": "$(search)"
       }
     ],

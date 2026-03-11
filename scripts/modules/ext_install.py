@@ -45,9 +45,9 @@ def print_install_instructions(vsix_path: str) -> None:
 
   {opt}After installing:{rst}
 
-    - Press {key}Ctrl+Shift+P{rst} and type {key}"Drift Viewer"{rst} to see all commands
-    - Use {key}"Drift Viewer: Open in Browser"{rst} to open the debug viewer
-    - Use {key}"Drift Viewer: Open in Editor Panel"{rst} for an embedded panel
+    - Press {key}Ctrl+Shift+P{rst} and type {key}"Saropa Drift Advisor"{rst} to see all commands
+    - Use {key}"Saropa Drift Advisor: Open in Browser"{rst} to open the debug viewer
+    - Use {key}"Saropa Drift Advisor: Open in Editor Panel"{rst} for an embedded panel
 """)
 
 

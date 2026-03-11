@@ -6,7 +6,7 @@ A live scrolling feed of every INSERT, UPDATE, and DELETE happening in the datab
 
 ## User Experience
 
-1. Command palette → "Drift Viewer: Open Mutation Stream" or click the stream icon in the tree view toolbar
+1. Command palette → "Saropa Drift Advisor: Open Mutation Stream" or click the stream icon in the tree view toolbar
 2. A webview panel opens showing a real-time feed:
 
 ```
@@ -265,7 +265,7 @@ MutationStreamPanel renders event cards
     "commands": [
       {
         "command": "driftViewer.openMutationStream",
-        "title": "Drift Viewer: Open Mutation Stream",
+        "title": "Saropa Drift Advisor: Open Mutation Stream",
         "icon": "$(pulse)"
       }
     ],

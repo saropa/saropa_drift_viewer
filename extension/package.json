@@ -1,9 +1,10 @@
 {
   "name": "drift-viewer",
-  "displayName": "Drift Viewer",
-  "description": "Open the Drift debug viewer (saropa_drift_advisor) in the browser.",
+  "displayName": "Saropa Drift Advisor",
+  "description": "Debug SQLite/Drift databases in VS Code with Saropa Drift Advisor.",
   "version": "0.3.0",
   "publisher": "saropa",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -13,13 +14,14 @@
   "activationEvents": [
     "onLanguage:dart"
   ],
+  "icon": "icon.png",
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
           "id": "driftViewer",
-          "title": "Drift Viewer",
+          "title": "Saropa Drift Advisor",
           "icon": "$(database)"
         }
       ]
@@ -29,16 +31,19 @@
         {
           "id": "driftViewer.schemaSearch",
           "name": "Schema Search",
+          "icon": "$(search)",
           "type": "webview",
           "when": "driftViewer.serverConnected"
         },
         {
           "id": "driftViewer.databaseExplorer",
-          "name": "Database"
+          "name": "Database",
+          "icon": "$(database)"
         },
         {
           "id": "driftViewer.pendingChanges",
           "name": "Pending Changes",
+          "icon": "$(edit)",
           "when": "driftViewer.hasEdits"
         }
       ],
@@ -46,6 +51,7 @@
         {
           "id": "driftViewer.queryPerformance",
           "name": "Drift Queries",
+          "icon": "$(dashboard)",
           "when": "inDebugMode && driftViewer.serverConnected"
         }
       ]
@@ -53,11 +59,11 @@
     "commands": [
       {
         "command": "driftViewer.openInBrowser",
-        "title": "Drift Viewer: Open in Browser"
+        "title": "Saropa Drift Advisor: Open in Browser"
       },
       {
         "command": "driftViewer.openInPanel",
-        "title": "Drift Viewer: Open in Editor Panel"
+        "title": "Saropa Drift Advisor: Open in Editor Panel"
       },
       {
         "command": "driftViewer.refreshTree",
@@ -87,11 +93,11 @@
       },
       {
         "command": "driftViewer.viewTableInPanel",
-        "title": "Drift Viewer: View Table"
+        "title": "Saropa Drift Advisor: View Table"
       },
       {
         "command": "driftViewer.runTableQuery",
-        "title": "Drift Viewer: Run Table Query"
+        "title": "Saropa Drift Advisor: Run Table Query"
       },
       {
         "command": "driftViewer.refreshPerformance",
@@ -100,44 +106,44 @@
       },
       {
         "command": "driftViewer.clearPerformance",
-        "title": "Drift Viewer: Clear Query Stats",
+        "title": "Saropa Drift Advisor: Clear Query Stats",
         "icon": "$(trash)"
       },
       {
         "command": "driftViewer.showQueryDetail",
-        "title": "Drift Viewer: Show Query Detail"
+        "title": "Saropa Drift Advisor: Show Query Detail"
       },
       {
         "command": "driftViewer.runLinter",
-        "title": "Drift Viewer: Run Schema Linter"
+        "title": "Saropa Drift Advisor: Run Schema Linter"
       },
       {
         "command": "driftViewer.copySuggestedSql",
-        "title": "Drift Viewer: Copy Suggested SQL"
+        "title": "Saropa Drift Advisor: Copy Suggested SQL"
       },
       {
         "command": "driftViewer.selectServer",
-        "title": "Drift Viewer: Select Server"
+        "title": "Saropa Drift Advisor: Select Server"
       },
       {
         "command": "driftViewer.retryDiscovery",
-        "title": "Drift Viewer: Retry Server Discovery"
+        "title": "Saropa Drift Advisor: Retry Server Discovery"
       },
       {
         "command": "driftViewer.showAllTables",
-        "title": "Drift Viewer: Show All Tables"
+        "title": "Saropa Drift Advisor: Show All Tables"
       },
       {
         "command": "driftViewer.captureSnapshot",
-        "title": "Drift Viewer: Capture Snapshot"
+        "title": "Saropa Drift Advisor: Capture Snapshot"
       },
       {
         "command": "driftViewer.showSnapshotDiff",
-        "title": "Drift Viewer: Show Snapshot Diff"
+        "title": "Saropa Drift Advisor: Show Snapshot Diff"
       },
       {
         "command": "driftViewer.explainQuery",
-        "title": "Drift Viewer: Explain Query Plan"
+        "title": "Saropa Drift Advisor: Explain Query Plan"
       },
       {
         "command": "driftViewer.watchTable",
@@ -146,33 +152,33 @@
       },
       {
         "command": "driftViewer.watchQuery",
-        "title": "Drift Viewer: Watch Query"
+        "title": "Saropa Drift Advisor: Watch Query"
       },
       {
         "command": "driftViewer.openWatchPanel",
-        "title": "Drift Viewer: Open Watch Panel"
+        "title": "Saropa Drift Advisor: Open Watch Panel"
       },
       {
         "command": "driftViewer.generateSql",
-        "title": "Drift Viewer: Generate SQL from Edits",
+        "title": "Saropa Drift Advisor: Generate SQL from Edits",
         "icon": "$(file-code)"
       },
       {
         "command": "driftViewer.discardAllEdits",
-        "title": "Drift Viewer: Discard All Edits",
+        "title": "Saropa Drift Advisor: Discard All Edits",
         "icon": "$(trash)"
       },
       {
         "command": "driftViewer.undoEdit",
-        "title": "Drift Viewer: Undo Edit"
+        "title": "Saropa Drift Advisor: Undo Edit"
       },
       {
         "command": "driftViewer.redoEdit",
-        "title": "Drift Viewer: Redo Edit"
+        "title": "Saropa Drift Advisor: Redo Edit"
       },
       {
         "command": "driftViewer.toggleEditing",
-        "title": "Drift Viewer: Toggle Editing Mode"
+        "title": "Saropa Drift Advisor: Toggle Editing Mode"
       },
       {
         "command": "driftViewer.removeChange",
@@ -181,112 +187,112 @@
       },
       {
         "command": "driftViewer.openSqlNotebook",
-        "title": "Drift Viewer: Open SQL Notebook",
+        "title": "Saropa Drift Advisor: Open SQL Notebook",
         "icon": "$(terminal)"
       },
       {
         "command": "driftViewer.schemaDiff",
-        "title": "Drift Viewer: Schema Diff (Code vs Runtime)"
+        "title": "Saropa Drift Advisor: Schema Diff (Code vs Runtime)"
       },
       {
         "command": "driftViewer.generateDart",
-        "title": "Drift Viewer: Generate Dart from Schema"
+        "title": "Saropa Drift Advisor: Generate Dart from Schema"
       },
       {
         "command": "driftViewer.exportDump",
-        "title": "Drift Viewer: Export SQL Dump"
+        "title": "Saropa Drift Advisor: Export SQL Dump"
       },
       {
         "command": "driftViewer.downloadDatabase",
-        "title": "Drift Viewer: Download Database File"
+        "title": "Saropa Drift Advisor: Download Database File"
       },
       {
         "command": "driftViewer.migrationPreview",
-        "title": "Drift Viewer: Preview Migration SQL"
+        "title": "Saropa Drift Advisor: Preview Migration SQL"
       },
       {
         "command": "driftViewer.compareReport",
-        "title": "Drift Viewer: Compare Databases"
+        "title": "Saropa Drift Advisor: Compare Databases"
       },
       {
         "command": "driftViewer.schemaDiagram",
-        "title": "Drift Viewer: Schema Diagram"
+        "title": "Saropa Drift Advisor: Schema Diagram"
       },
       {
         "command": "driftViewer.sizeAnalytics",
-        "title": "Drift Viewer: Database Size Analytics"
+        "title": "Saropa Drift Advisor: Database Size Analytics"
       },
       {
         "command": "driftViewer.generateSchemaDocs",
-        "title": "Drift Viewer: Generate Schema Documentation",
+        "title": "Saropa Drift Advisor: Generate Schema Documentation",
         "icon": "$(book)"
       },
       {
         "command": "driftViewer.importData",
-        "title": "Drift Viewer: Import Data"
+        "title": "Saropa Drift Advisor: Import Data"
       },
       {
         "command": "driftViewer.shareSession",
-        "title": "Drift Viewer: Share Debug Session"
+        "title": "Saropa Drift Advisor: Share Debug Session"
       },
       {
         "command": "driftViewer.openSession",
-        "title": "Drift Viewer: Open Shared Session"
+        "title": "Saropa Drift Advisor: Open Shared Session"
       },
       {
         "command": "driftViewer.annotateSession",
-        "title": "Drift Viewer: Annotate Session"
+        "title": "Saropa Drift Advisor: Annotate Session"
       },
       {
         "command": "driftViewer.seedTable",
-        "title": "Drift Viewer: Seed Test Data",
+        "title": "Saropa Drift Advisor: Seed Test Data",
         "icon": "$(beaker)"
       },
       {
         "command": "driftViewer.seedAllTables",
-        "title": "Drift Viewer: Seed All Tables"
+        "title": "Saropa Drift Advisor: Seed All Tables"
       },
       {
         "command": "driftViewer.clearTable",
-        "title": "Drift Viewer: Clear Table Data",
+        "title": "Saropa Drift Advisor: Clear Table Data",
         "icon": "$(trash)"
       },
       {
         "command": "driftViewer.clearAllTables",
-        "title": "Drift Viewer: Clear All Table Data"
+        "title": "Saropa Drift Advisor: Clear All Table Data"
       },
       {
         "command": "driftViewer.clearTableGroup",
-        "title": "Drift Viewer: Clear Table Group"
+        "title": "Saropa Drift Advisor: Clear Table Group"
       },
       {
         "command": "driftViewer.importDataset",
-        "title": "Drift Viewer: Import Dataset",
+        "title": "Saropa Drift Advisor: Import Dataset",
         "icon": "$(cloud-download)"
       },
       {
         "command": "driftViewer.exportDataset",
-        "title": "Drift Viewer: Export Current Data as Dataset",
+        "title": "Saropa Drift Advisor: Export Current Data as Dataset",
         "icon": "$(cloud-upload)"
       },
       {
         "command": "driftViewer.globalSearch",
-        "title": "Drift Viewer: Search All Tables",
+        "title": "Saropa Drift Advisor: Search All Tables",
         "icon": "$(search)"
       },
       {
         "command": "driftViewer.compareRows",
-        "title": "Drift Viewer: Compare Two Rows",
+        "title": "Saropa Drift Advisor: Compare Two Rows",
         "icon": "$(diff)"
       },
       {
         "command": "driftViewer.profileColumn",
-        "title": "Drift Viewer: Profile Column",
+        "title": "Saropa Drift Advisor: Profile Column",
         "icon": "$(graph)"
       },
       {
         "command": "driftViewer.snapshotChangelog",
-        "title": "Drift Viewer: Generate Snapshot Changelog",
+        "title": "Saropa Drift Advisor: Generate Snapshot Changelog",
         "icon": "$(list-ordered)"
       },
       {
@@ -301,16 +307,16 @@
       },
       {
         "command": "driftViewer.openBookmarks",
-        "title": "Drift Viewer: Open Bookmarks",
+        "title": "Saropa Drift Advisor: Open Bookmarks",
         "icon": "$(bookmark)"
       },
       {
         "command": "driftViewer.exportAnnotations",
-        "title": "Drift Viewer: Export Annotations"
+        "title": "Saropa Drift Advisor: Export Annotations"
       },
       {
         "command": "driftViewer.importAnnotations",
-        "title": "Drift Viewer: Import Annotations"
+        "title": "Saropa Drift Advisor: Import Annotations"
       },
       {
         "command": "driftViewer.addDataBreakpoint",
@@ -319,35 +325,35 @@
       },
       {
         "command": "driftViewer.removeDataBreakpoint",
-        "title": "Drift Viewer: Remove Data Breakpoint"
+        "title": "Saropa Drift Advisor: Remove Data Breakpoint"
       },
       {
         "command": "driftViewer.toggleDataBreakpoint",
-        "title": "Drift Viewer: Toggle Data Breakpoint"
+        "title": "Saropa Drift Advisor: Toggle Data Breakpoint"
       },
       {
         "command": "driftViewer.generateMigration",
-        "title": "Drift Viewer: Generate Migration Code",
+        "title": "Saropa Drift Advisor: Generate Migration Code",
         "icon": "$(file-code)"
       },
       {
         "command": "driftViewer.constraintWizard",
-        "title": "Drift Viewer: Constraint Wizard",
+        "title": "Saropa Drift Advisor: Constraint Wizard",
         "icon": "$(shield)"
       },
       {
         "command": "driftViewer.isarToDrift",
-        "title": "Drift Viewer: Generate Drift from Isar Schema",
+        "title": "Saropa Drift Advisor: Generate Drift from Isar Schema",
         "icon": "$(arrow-swap)"
       },
       {
         "command": "driftViewer.openSnippetLibrary",
-        "title": "Drift Viewer: Open SQL Snippet Library",
+        "title": "Saropa Drift Advisor: Open SQL Snippet Library",
         "icon": "$(notebook)"
       },
       {
         "command": "driftViewer.saveAsSnippet",
-        "title": "Drift Viewer: Save Query as Snippet"
+        "title": "Saropa Drift Advisor: Save Query as Snippet"
       },
       {
         "command": "driftViewer.pinTable",
@@ -569,7 +575,7 @@
       }
     ],
     "configuration": {
-      "title": "Drift Viewer",
+      "title": "Saropa Drift Advisor",
       "properties": {
         "driftViewer.authToken": {
           "type": "string",

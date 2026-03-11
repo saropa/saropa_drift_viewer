@@ -104,7 +104,7 @@ export class DriftCodeActionProvider implements vscode.CodeActionProvider {
   ): vscode.CodeAction[] {
     const actions: vscode.CodeAction[] = [];
     for (const diag of context.diagnostics) {
-      if (diag.source !== 'Drift Viewer') continue;
+      if (diag.source !== 'Saropa Drift Advisor') continue;
       if (diag.code !== 'index-suggestion') continue;
       if (!diag.relatedInformation?.[0]) continue;
 

@@ -21,7 +21,7 @@ export class DriftViewerPanel {
     }
     const panel = vscode.window.createWebviewPanel(
       'driftViewer',
-      'Drift Viewer',
+      'Saropa Drift Advisor',
       column,
       {
         enableScripts: true,
@@ -80,7 +80,7 @@ export class DriftViewerPanel {
     // Show loading state immediately
     this._panel.webview.html = `
       <html><body style="padding:2rem;font-family:system-ui;color:#ccc;">
-        <h2>Loading Drift Viewer\u2026</h2>
+        <h2>Loading Saropa Drift Advisor\u2026</h2>
         <p>Connecting to <code>${baseUrl}</code></p>
       </body></html>`;
 

@@ -1,5 +1,5 @@
 /**
- * Inline JS injected into the Drift Viewer webview to render FK links.
+ * Inline JS injected into the Saropa Drift Advisor webview to render FK links.
  * Kept as a single template string so it can be injected via <script> tag.
  *
  * Extracted to its own file to keep fk-navigator.ts under 300 lines.

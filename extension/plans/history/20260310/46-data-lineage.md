@@ -7,7 +7,7 @@ Click any cell in any table and trace its data lineage: follow FK references ups
 ## User Experience
 
 1. Right-click any row in the data viewer → "Trace Data Lineage"
-2. Or: command palette → "Drift Viewer: Trace Data Lineage" → pick table → pick row
+2. Or: command palette → "Saropa Drift Advisor: Trace Data Lineage" → pick table → pick row
 3. Lineage panel:
 
 ```
@@ -379,7 +379,7 @@ None.
     "commands": [
       {
         "command": "driftViewer.traceLineage",
-        "title": "Drift Viewer: Trace Data Lineage",
+        "title": "Saropa Drift Advisor: Trace Data Lineage",
         "icon": "$(git-merge)"
       }
     ],

@@ -6,6 +6,6 @@ void main() {
   testWidgets('ExampleApp loads and shows home', (WidgetTester tester) async {
     await tester.pumpWidget(const ExampleApp());
 
-    expect(find.text('Drift Viewer Example'), findsWidgets);
+    expect(find.text('Saropa Drift Advisor Example'), findsWidgets);
   });
 }

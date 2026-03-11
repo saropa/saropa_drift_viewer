@@ -143,9 +143,9 @@ if (config.get('watch.notifications', false) && diff.hasChanges) {
 {
   "contributes": {
     "commands": [
-      { "command": "driftViewer.watchTable", "title": "Drift Viewer: Watch Table" },
-      { "command": "driftViewer.watchQuery", "title": "Drift Viewer: Watch Query" },
-      { "command": "driftViewer.openWatchPanel", "title": "Drift Viewer: Open Watch Panel" }
+      { "command": "driftViewer.watchTable", "title": "Saropa Drift Advisor: Watch Table" },
+      { "command": "driftViewer.watchQuery", "title": "Saropa Drift Advisor: Watch Query" },
+      { "command": "driftViewer.openWatchPanel", "title": "Saropa Drift Advisor: Open Watch Panel" }
     ],
     "menus": {
       "view/item/context": [{

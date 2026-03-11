@@ -7,7 +7,7 @@ Click cells in the webview data grid to edit values. Changes accumulate in a "Pe
 ## User Experience
 
 ### 1. Edit in Grid
-In the Drift Viewer webview panel, cells become editable:
+In the Saropa Drift Advisor webview panel, cells become editable:
 - Click a cell → inline editor appears
 - Type new value → cell turns yellow (pending)
 - Right-click row → "Delete Row" (row turns red, strikethrough)
@@ -33,7 +33,7 @@ PENDING CHANGES (5)
 ### 3. Generate SQL
 Click "Generate SQL" → opens a new `.sql` editor tab:
 ```sql
--- Drift Viewer: Generated SQL (5 changes)
+-- Saropa Drift Advisor: Generated SQL (5 changes)
 -- Review carefully before executing!
 
 -- users: 3 changes
@@ -162,7 +162,7 @@ class ChangeTracker implements vscode.Disposable {
 class SqlGenerator {
   generate(changes: PendingChange[]): string {
     const lines: string[] = [
-      `-- Drift Viewer: Generated SQL (${changes.length} changes)`,
+      `-- Saropa Drift Advisor: Generated SQL (${changes.length} changes)`,
       '-- Review carefully before executing!',
       '',
     ];
@@ -285,11 +285,11 @@ Recommended: **Option B** — keeps the Dart server read-only and editing is an 
       }]
     },
     "commands": [
-      { "command": "driftViewer.generateSql", "title": "Drift Viewer: Generate SQL from Edits", "icon": "$(file-code)" },
-      { "command": "driftViewer.discardAllEdits", "title": "Drift Viewer: Discard All Edits", "icon": "$(trash)" },
-      { "command": "driftViewer.undoEdit", "title": "Drift Viewer: Undo Edit" },
-      { "command": "driftViewer.redoEdit", "title": "Drift Viewer: Redo Edit" },
-      { "command": "driftViewer.toggleEditing", "title": "Drift Viewer: Toggle Editing Mode" }
+      { "command": "driftViewer.generateSql", "title": "Saropa Drift Advisor: Generate SQL from Edits", "icon": "$(file-code)" },
+      { "command": "driftViewer.discardAllEdits", "title": "Saropa Drift Advisor: Discard All Edits", "icon": "$(trash)" },
+      { "command": "driftViewer.undoEdit", "title": "Saropa Drift Advisor: Undo Edit" },
+      { "command": "driftViewer.redoEdit", "title": "Saropa Drift Advisor: Redo Edit" },
+      { "command": "driftViewer.toggleEditing", "title": "Saropa Drift Advisor: Toggle Editing Mode" }
     ],
     "keybindings": [
       { "command": "driftViewer.undoEdit", "key": "ctrl+z", "when": "driftViewer.editingActive" },

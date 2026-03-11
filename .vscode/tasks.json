@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Open Drift Viewer",
+      "label": "Open Saropa Drift Advisor",
       "type": "shell",
       "command": "start",
       "args": ["http://127.0.0.1:8642"],

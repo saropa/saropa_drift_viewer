@@ -142,7 +142,7 @@ export function mapIssuesToDiagnostics(
         issue.source === 'anomaly' ? anomalySeverity : undefined;
       const severity = mapSeverity(issue.severity, overrideSev);
       const diag = new vscode.Diagnostic(range, issue.message, severity);
-      diag.source = 'Drift Viewer';
+      diag.source = 'Saropa Drift Advisor';
       diag.code = issue.source;
 
       if (issue.suggestedSql) {

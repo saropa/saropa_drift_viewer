@@ -259,7 +259,7 @@ None. Uses existing `schemaMetadata()`, `tableFkMeta()`, and `sql()`.
     "commands": [
       {
         "command": "driftViewer.narrateRow",
-        "title": "Drift Viewer: Tell This Row's Story",
+        "title": "Saropa Drift Advisor: Tell This Row's Story",
         "icon": "$(book)"
       }
     ],

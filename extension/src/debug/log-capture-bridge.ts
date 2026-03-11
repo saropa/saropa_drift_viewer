@@ -54,7 +54,7 @@ export class LogCaptureBridge {
         {
           kind: 'header',
           lines: [
-            `Drift Viewer: ${client.baseUrl}`,
+            `Saropa Drift Advisor: ${client.baseUrl}`,
             `Slow query threshold: ${slowMs}ms`,
           ],
         },

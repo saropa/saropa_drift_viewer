@@ -31,9 +31,9 @@ export function updateStatusBar(
     item.tooltip = 'Scanning for Drift debug servers\u2026';
     item.backgroundColor = undefined;
   } else if (!discoveryEnabled) {
-    item.text = '$(database) Drift Viewer';
+    item.text = '$(database) Saropa Drift Advisor';
     item.command = 'driftViewer.openInPanel';
-    item.tooltip = 'Open Drift Viewer in editor panel';
+    item.tooltip = 'Open Saropa Drift Advisor in editor panel';
     item.backgroundColor = undefined;
   } else {
     item.text = '$(circle-slash) Drift: Offline';

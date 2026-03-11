@@ -252,21 +252,21 @@ None.
     "commands": [
       {
         "command": "driftViewer.addAnnotation",
-        "title": "Drift Viewer: Add Annotation",
+        "title": "Saropa Drift Advisor: Add Annotation",
         "icon": "$(note)"
       },
       {
         "command": "driftViewer.showBookmarks",
-        "title": "Drift Viewer: Show Bookmarks",
+        "title": "Saropa Drift Advisor: Show Bookmarks",
         "icon": "$(bookmark)"
       },
       {
         "command": "driftViewer.exportAnnotations",
-        "title": "Drift Viewer: Export Annotations"
+        "title": "Saropa Drift Advisor: Export Annotations"
       },
       {
         "command": "driftViewer.importAnnotations",
-        "title": "Drift Viewer: Import Annotations"
+        "title": "Saropa Drift Advisor: Import Annotations"
       }
     ],
     "menus": {

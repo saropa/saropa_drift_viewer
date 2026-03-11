@@ -15,7 +15,7 @@ This is a prerequisite for Feature 20 (Test Data Seeder), Feature 28 (PII Anonym
 
 ### Reset
 
-1. Right-click a table → "Clear Table" or command palette → "Drift Viewer: Reset Data"
+1. Right-click a table → "Clear Table" or command palette → "Saropa Drift Advisor: Reset Data"
 2. Quick pick with scope options:
 
 ```
@@ -45,7 +45,7 @@ Reset Data
 
 ### Import Dataset
 
-1. Command palette → "Drift Viewer: Import Dataset"
+1. Command palette → "Saropa Drift Advisor: Import Dataset"
 2. Offer workspace datasets (from `.drift-datasets.json`) then file picker as fallback
 3. Import options:
 
@@ -67,7 +67,7 @@ Import Dataset: test-commerce.drift-dataset.json
 
 ### Export Dataset
 
-1. Command palette → "Drift Viewer: Export Current Data as Dataset"
+1. Command palette → "Saropa Drift Advisor: Export Current Data as Dataset"
 2. Pick tables → enter dataset name → save as `.drift-dataset.json`
 
 ### Dataset File Format
@@ -473,25 +473,25 @@ None. Uses existing `schemaMetadata()`, `tableFkMeta()`, `sql()`, and `importDat
     "commands": [
       {
         "command": "driftViewer.clearTable",
-        "title": "Drift Viewer: Clear Table Data",
+        "title": "Saropa Drift Advisor: Clear Table Data",
         "icon": "$(trash)"
       },
       {
         "command": "driftViewer.clearAllTables",
-        "title": "Drift Viewer: Clear All Table Data"
+        "title": "Saropa Drift Advisor: Clear All Table Data"
       },
       {
         "command": "driftViewer.clearTableGroup",
-        "title": "Drift Viewer: Clear Table Group"
+        "title": "Saropa Drift Advisor: Clear Table Group"
       },
       {
         "command": "driftViewer.importDataset",
-        "title": "Drift Viewer: Import Dataset",
+        "title": "Saropa Drift Advisor: Import Dataset",
         "icon": "$(cloud-download)"
       },
       {
         "command": "driftViewer.exportDataset",
-        "title": "Drift Viewer: Export Current Data as Dataset",
+        "title": "Saropa Drift Advisor: Export Current Data as Dataset",
         "icon": "$(cloud-upload)"
       }
     ],

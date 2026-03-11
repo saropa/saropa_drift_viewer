@@ -6,7 +6,7 @@ Track and visualize how the database schema changes over time. Every time the ge
 
 ## User Experience
 
-1. Command palette → "Drift Viewer: Show Schema Timeline" or status bar click
+1. Command palette → "Saropa Drift Advisor: Show Schema Timeline" or status bar click
 2. A webview panel shows the evolution timeline:
 
 ```
@@ -325,7 +325,7 @@ None.
     "commands": [
       {
         "command": "driftViewer.showSchemaTimeline",
-        "title": "Drift Viewer: Show Schema Timeline",
+        "title": "Saropa Drift Advisor: Show Schema Timeline",
         "icon": "$(history)"
       }
     ],

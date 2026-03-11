@@ -204,12 +204,12 @@ None. This feature is extension-only — it uses the existing `schemaMetadata()`
     "commands": [
       {
         "command": "driftViewer.askNaturalLanguage",
-        "title": "Drift Viewer: Ask in English",
+        "title": "Saropa Drift Advisor: Ask in English",
         "icon": "$(comment-discussion)"
       },
       {
         "command": "driftViewer.nlSqlHistory",
-        "title": "Drift Viewer: NL Query History"
+        "title": "Saropa Drift Advisor: NL Query History"
       }
     ],
     "menus": {

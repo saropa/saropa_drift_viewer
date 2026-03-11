@@ -226,7 +226,7 @@ None. Uses existing snapshot data captured by `DriftTimelineProvider`.
     "commands": [
       {
         "command": "driftViewer.timeTravel",
-        "title": "Drift Viewer: Time Travel",
+        "title": "Saropa Drift Advisor: Time Travel",
         "icon": "$(history)"
       }
     ],

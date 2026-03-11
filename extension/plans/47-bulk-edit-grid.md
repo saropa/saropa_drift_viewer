@@ -6,7 +6,7 @@ A spreadsheet-like inline editor for table data. Click any cell to edit its valu
 
 ## User Experience
 
-1. Right-click a table → "Edit Data" or command palette → "Drift Viewer: Edit Table Data"
+1. Right-click a table → "Edit Data" or command palette → "Saropa Drift Advisor: Edit Table Data"
 2. Spreadsheet-style grid opens:
 
 ```
@@ -381,7 +381,7 @@ None directly, but requires the existing `sql()` endpoint to support write opera
     "commands": [
       {
         "command": "driftViewer.editTableData",
-        "title": "Drift Viewer: Edit Table Data",
+        "title": "Saropa Drift Advisor: Edit Table Data",
         "icon": "$(edit)"
       }
     ],

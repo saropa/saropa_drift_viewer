@@ -6,7 +6,7 @@ Send the entire database schema to an LLM and receive a structured review: norma
 
 ## User Experience
 
-1. Command palette → "Drift Viewer: Review Schema with AI"
+1. Command palette → "Saropa Drift Advisor: Review Schema with AI"
 2. Extension collects schema metadata + FK relationships + index info
 3. Sends to LLM via VS Code's Language Model API (Copilot Chat)
 4. Results displayed in a webview report panel
@@ -248,7 +248,7 @@ None. Uses existing schema and metadata endpoints.
     "commands": [
       {
         "command": "driftViewer.aiSchemaReview",
-        "title": "Drift Viewer: Review Schema with AI",
+        "title": "Saropa Drift Advisor: Review Schema with AI",
         "icon": "$(sparkle)"
       }
     ],

@@ -29,7 +29,7 @@ def _build_report_lines(
     kind = "Publish" if is_publish else "Analysis"
 
     lines = [
-        f"Drift Viewer {target_label} -- {kind} Report",
+        f"Saropa Drift Advisor {target_label} -- {kind} Report",
         f"Generated: {datetime.datetime.now().isoformat()}",
         f"Version: {version}",
         "",
@@ -83,7 +83,7 @@ def save_report(
     os.makedirs(reports_dir, exist_ok=True)
 
     kind = "publish" if is_publish else "analyze"
-    report_name = f"{now:%Y%m%d_%H%M%S}_drift_viewer_{target_slug}_{kind}_report.log"
+    report_name = f"{now:%Y%m%d_%H%M%S}_drift_advisor_{target_slug}_{kind}_report.log"
     report_path = os.path.join(reports_dir, report_name)
 
     lines = _build_report_lines(results, version, is_publish, target_label)

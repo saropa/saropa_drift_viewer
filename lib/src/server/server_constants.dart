@@ -118,7 +118,7 @@ abstract final class ServerConstants {
   static const String authSchemeBasic = 'Basic ';
   static const String headerContentDisposition = 'Content-Disposition';
   static const String headerWwwAuthenticate = 'WWW-Authenticate';
-  static const String realmDriftDebug = 'Drift Debug Viewer';
+  static const String realmDriftDebug = 'Saropa Drift Advisor';
   static const String sqlSchemaMaster =
       "SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY type, name";
   static const String authRequiredMessage =

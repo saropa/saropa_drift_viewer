@@ -7,7 +7,7 @@ Save, organize, and reuse frequently-used SQL queries. Tag snippets by category,
 ## User Experience
 
 1. After running any SQL query, a "Save as Snippet" button appears in the result panel
-2. Command palette → "Drift Viewer: Open Snippet Library"
+2. Command palette → "Saropa Drift Advisor: Open Snippet Library"
 3. Library panel:
 
 ```
@@ -294,12 +294,12 @@ None.
     "commands": [
       {
         "command": "driftViewer.openSnippetLibrary",
-        "title": "Drift Viewer: Open SQL Snippet Library",
+        "title": "Saropa Drift Advisor: Open SQL Snippet Library",
         "icon": "$(notebook)"
       },
       {
         "command": "driftViewer.saveAsSnippet",
-        "title": "Drift Viewer: Save Query as Snippet"
+        "title": "Saropa Drift Advisor: Save Query as Snippet"
       }
     ],
     "menus": {

@@ -6,7 +6,7 @@ One-click anonymize sensitive data in the debug database. Auto-detect PII column
 
 ## User Experience
 
-1. Command palette → "Drift Viewer: Anonymize Database" or right-click snapshot → "Export Anonymized"
+1. Command palette → "Saropa Drift Advisor: Anonymize Database" or right-click snapshot → "Export Anonymized"
 2. A configuration panel opens showing detected PII columns:
 
 ```
@@ -351,7 +351,7 @@ None. Uses existing `schemaMetadata()`, `tableFkMeta()`, and `sql()` endpoints. 
     "commands": [
       {
         "command": "driftViewer.anonymizeDatabase",
-        "title": "Drift Viewer: Anonymize Database",
+        "title": "Saropa Drift Advisor: Anonymize Database",
         "icon": "$(shield)"
       }
     ],

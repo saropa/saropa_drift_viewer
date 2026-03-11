@@ -252,11 +252,11 @@ None. Uses existing `/api/analytics/performance` endpoint.
     "commands": [
       {
         "command": "driftViewer.resetPerfBaseline",
-        "title": "Drift Viewer: Reset Performance Baseline"
+        "title": "Saropa Drift Advisor: Reset Performance Baseline"
       },
       {
         "command": "driftViewer.resetAllPerfBaselines",
-        "title": "Drift Viewer: Reset All Performance Baselines"
+        "title": "Saropa Drift Advisor: Reset All Performance Baselines"
       }
     ],
     "configuration": {

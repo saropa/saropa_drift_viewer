@@ -87,7 +87,7 @@ function updateDiagnostics(issues: ServerIssue[], parsedFiles: DartTable[]): voi
     const severity = mapSeverity(issue.severity);
 
     const diag = new vscode.Diagnostic(range, issue.message, severity);
-    diag.source = 'Drift Viewer';
+    diag.source = 'Saropa Drift Advisor';
     diag.code = issue.source;
 
     // Attach quick fix if there's suggested SQL
@@ -135,7 +135,7 @@ class DriftCodeActionProvider implements vscode.CodeActionProvider {
   provideCodeActions(document, range, context): vscode.CodeAction[] {
     const actions: vscode.CodeAction[] = [];
     for (const diag of context.diagnostics) {
-      if (diag.source !== 'Drift Viewer') continue;
+      if (diag.source !== 'Saropa Drift Advisor') continue;
 
       if (diag.code === 'index-suggestion' && diag.relatedInformation?.[0]) {
         const action = new vscode.CodeAction(
@@ -169,8 +169,8 @@ class DriftCodeActionProvider implements vscode.CodeActionProvider {
 {
   "contributes": {
     "commands": [
-      { "command": "driftViewer.runLinter", "title": "Drift Viewer: Run Schema Linter" },
-      { "command": "driftViewer.copySuggestedSql", "title": "Drift Viewer: Copy Suggested SQL" }
+      { "command": "driftViewer.runLinter", "title": "Saropa Drift Advisor: Run Schema Linter" },
+      { "command": "driftViewer.copySuggestedSql", "title": "Saropa Drift Advisor: Copy Suggested SQL" }
     ],
     "configuration": {
       "properties": {

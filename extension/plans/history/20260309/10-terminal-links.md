@@ -180,7 +180,7 @@ No special contributions needed — `TerminalLinkProvider` is registered program
   "contributes": {
     "commands": [{
       "command": "driftViewer.showAllTables",
-      "title": "Drift Viewer: Show All Tables"
+      "title": "Saropa Drift Advisor: Show All Tables"
     }]
   }
 }

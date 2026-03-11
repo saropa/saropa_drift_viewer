@@ -6,7 +6,7 @@ A webview panel with a configurable grid layout where users drag-and-drop widget
 
 ## User Experience
 
-1. Command palette → "Drift Viewer: Open Dashboard" or activity bar icon
+1. Command palette → "Saropa Drift Advisor: Open Dashboard" or activity bar icon
 2. First launch shows an empty dashboard with an "Add Widget" button:
 
 ```
@@ -360,16 +360,16 @@ None. Uses existing API endpoints based on widget type.
     "commands": [
       {
         "command": "driftViewer.openDashboard",
-        "title": "Drift Viewer: Open Dashboard",
+        "title": "Saropa Drift Advisor: Open Dashboard",
         "icon": "$(dashboard)"
       },
       {
         "command": "driftViewer.saveDashboard",
-        "title": "Drift Viewer: Save Dashboard Layout"
+        "title": "Saropa Drift Advisor: Save Dashboard Layout"
       },
       {
         "command": "driftViewer.loadDashboard",
-        "title": "Drift Viewer: Load Dashboard Layout"
+        "title": "Saropa Drift Advisor: Load Dashboard Layout"
       }
     ],
     "menus": {

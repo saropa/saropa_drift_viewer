@@ -6,7 +6,7 @@ Auto-generate an interactive ER diagram from the live schema. Tables render as b
 
 ## User Experience
 
-1. Command palette → "Drift Viewer: Show ER Diagram" or click the diagram icon in the tree view title bar
+1. Command palette → "Saropa Drift Advisor: Show ER Diagram" or click the diagram icon in the tree view title bar
 2. A webview panel opens with an interactive diagram:
 
 ```
@@ -333,7 +333,7 @@ None. Uses existing `schemaMetadata()` and `tableFkMeta()`.
     "commands": [
       {
         "command": "driftViewer.showErDiagram",
-        "title": "Drift Viewer: Show ER Diagram",
+        "title": "Saropa Drift Advisor: Show ER Diagram",
         "icon": "$(type-hierarchy)"
       }
     ],

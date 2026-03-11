@@ -6,7 +6,7 @@ A drag-and-drop webview panel where users build SQL queries visually: pick table
 
 ## User Experience
 
-1. Command palette → "Drift Viewer: Visual Query Builder" or right-click table → "Build Query From…"
+1. Command palette → "Saropa Drift Advisor: Visual Query Builder" or right-click table → "Build Query From…"
 2. A webview panel opens with three zones:
 
 ```
@@ -254,12 +254,12 @@ None. Uses existing `schemaMetadata()`, `tableFkMeta()`, and `sql()` endpoints.
     "commands": [
       {
         "command": "driftViewer.openQueryBuilder",
-        "title": "Drift Viewer: Visual Query Builder",
+        "title": "Saropa Drift Advisor: Visual Query Builder",
         "icon": "$(layout)"
       },
       {
         "command": "driftViewer.buildQueryFromTable",
-        "title": "Drift Viewer: Build Query From Table"
+        "title": "Saropa Drift Advisor: Build Query From Table"
       }
     ],
     "menus": {

@@ -10,11 +10,11 @@ function sqlLiteral(value: unknown): string {
 /** Generate reviewed SQL from pending changes, grouped by table. */
 export function generateSql(changes: readonly PendingChange[]): string {
   if (changes.length === 0) {
-    return '-- Drift Viewer: No pending changes.\n';
+    return '-- Saropa Drift Advisor: No pending changes.\n';
   }
 
   const lines: string[] = [
-    `-- Drift Viewer: Generated SQL (${changes.length} change(s))`,
+    `-- Saropa Drift Advisor: Generated SQL (${changes.length} change(s))`,
     '-- Review carefully before executing!',
     '',
   ];

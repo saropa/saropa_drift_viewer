@@ -6,7 +6,7 @@ A single-pane dashboard showing an overall letter grade (A–F) for the database
 
 ## User Experience
 
-1. Command palette → "Drift Viewer: Database Health Score" or activity bar icon
+1. Command palette → "Saropa Drift Advisor: Database Health Score" or activity bar icon
 2. A webview panel opens with the dashboard:
 
 ```
@@ -372,7 +372,7 @@ None. Uses existing endpoints: `indexSuggestions()`, `anomalies()`, `performance
     "commands": [
       {
         "command": "driftViewer.healthScore",
-        "title": "Drift Viewer: Database Health Score",
+        "title": "Saropa Drift Advisor: Database Health Score",
         "icon": "$(heart)"
       }
     ],

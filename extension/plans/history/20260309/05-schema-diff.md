@@ -6,7 +6,7 @@ Compares the Drift table definitions in your Dart source code against the actual
 
 ## User Experience
 
-1. Command palette: "Drift Viewer: Schema Diff (Code vs Runtime)"
+1. Command palette: "Saropa Drift Advisor: Schema Diff (Code vs Runtime)"
 2. Extension scans all `.dart` files for `class ... extends Table` definitions
 3. Fetches the live schema from the running server
 4. Opens a webview panel showing a structured diff:
@@ -166,7 +166,7 @@ Custom webview panel (follows existing `DriftViewerPanel` singleton pattern):
   "contributes": {
     "commands": [{
       "command": "driftViewer.schemaDiff",
-      "title": "Drift Viewer: Schema Diff (Code vs Runtime)"
+      "title": "Saropa Drift Advisor: Schema Diff (Code vs Runtime)"
     }]
   }
 }

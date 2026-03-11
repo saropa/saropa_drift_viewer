@@ -8,7 +8,7 @@ Analyze the live schema and generate realistic test data respecting FK relations
 
 ## User Experience
 
-1. Right-click a table → "Seed Test Data…" or command palette → "Drift Viewer: Seed All Tables"
+1. Right-click a table → "Seed Test Data…" or command palette → "Saropa Drift Advisor: Seed All Tables"
 2. Configuration panel:
 
 ```
@@ -228,12 +228,12 @@ None. Uses existing `schemaMetadata()`, `tableFkMeta()`, and `sql()`.
     "commands": [
       {
         "command": "driftViewer.seedTable",
-        "title": "Drift Viewer: Seed Test Data for Table",
+        "title": "Saropa Drift Advisor: Seed Test Data for Table",
         "icon": "$(beaker)"
       },
       {
         "command": "driftViewer.seedAllTables",
-        "title": "Drift Viewer: Seed All Tables"
+        "title": "Saropa Drift Advisor: Seed All Tables"
       }
     ],
     "menus": {

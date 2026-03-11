@@ -30,7 +30,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Drift debug viewer is running'), findsOneWidget);
+    expect(find.text('Saropa Drift Advisor is running'), findsOneWidget);
     expect(find.text('Copy URL'), findsOneWidget);
   });
 
@@ -91,7 +91,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Drift debug viewer is running'), findsOneWidget);
+    expect(find.text('Saropa Drift Advisor is running'), findsOneWidget);
     final copyButton = find.byType(FilledButton);
     expect(copyButton, findsOneWidget);
     final widget = tester.widget<FilledButton>(copyButton);

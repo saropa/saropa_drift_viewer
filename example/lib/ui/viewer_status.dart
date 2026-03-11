@@ -79,10 +79,10 @@ class ReadyView extends StatelessWidget {
         const SizedBox(height: 24),
         Text(
           init.running
-              ? 'Drift debug viewer is running'
+              ? 'Saropa Drift Advisor is running'
               : (init.enabled
-                  ? 'Viewer failed to start'
-                  : 'Viewer disabled (release build)'),
+                  ? 'Advisor failed to start'
+                  : 'Advisor disabled (release build)'),
           style: Theme.of(context).textTheme.headlineSmall,
           textAlign: TextAlign.center,
         ),

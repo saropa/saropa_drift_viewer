@@ -340,7 +340,7 @@ None. All queries use existing `POST /api/sql`.
     "commands": [
       {
         "command": "driftViewer.profileColumn",
-        "title": "Drift Viewer: Profile Column",
+        "title": "Saropa Drift Advisor: Profile Column",
         "icon": "$(graph)"
       }
     ],

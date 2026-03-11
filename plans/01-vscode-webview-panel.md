@@ -4,7 +4,7 @@
 
 ## Overview
 
-Embed the Drift Viewer UI directly inside a VS Code editor panel using the Webview API instead of opening an external browser. Developers can inspect their database side-by-side with code without context switching. The server already serves full HTML at `GET /`; the extension loads it into a `WebviewPanel`.
+Embed the Saropa Drift Advisor UI directly inside a VS Code editor panel using the Webview API instead of opening an external browser. Developers can inspect their database side-by-side with code without context switching. The server already serves full HTML at `GET /`; the extension loads it into a `WebviewPanel`.
 
 **User value:** No more alt-tabbing to a browser. The viewer becomes a native IDE experience — open it like any editor tab, dock it, split it.
 
@@ -37,7 +37,7 @@ No changes.
 ```json
 {
   "command": "driftViewer.openInPanel",
-  "title": "Drift Viewer: Open in Editor Panel"
+  "title": "Saropa Drift Advisor: Open in Editor Panel"
 }
 ```
 
@@ -70,7 +70,7 @@ export class DriftViewerPanel {
     }
     const panel = vscode.window.createWebviewPanel(
       "driftViewer",
-      "Drift Viewer",
+      "Saropa Drift Advisor",
       column,
       {
         enableScripts: true,
@@ -180,9 +180,9 @@ const statusItem = vscode.window.createStatusBarItem(
   vscode.StatusBarAlignment.Right,
   100,
 );
-statusItem.text = "$(database) Drift Viewer";
+statusItem.text = "$(database) Saropa Drift Advisor";
 statusItem.command = "driftViewer.openInPanel";
-statusItem.tooltip = "Open Drift Viewer in editor panel";
+statusItem.tooltip = "Open Saropa Drift Advisor in editor panel";
 statusItem.show();
 context.subscriptions.push(statusItem);
 ```
@@ -205,7 +205,7 @@ context.subscriptions.push(statusItem);
 
 ## Testing Strategy
 
-1. **Manual**: Open VS Code, run "Drift Viewer: Open in Editor Panel" command
+1. **Manual**: Open VS Code, run "Saropa Drift Advisor: Open in Editor Panel" command
    - Verify tables load and are browsable
    - Verify SQL runner works (POST requests through CSP)
    - Verify live refresh long-poll works

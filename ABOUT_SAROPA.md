@@ -62,8 +62,8 @@ _Production-hardened tools for VS Code, Dart, and Flutter._
 
 - **[Saropa Log Capture](https://marketplace.visualstudio.com/items?itemName=Saropa.saropa-log-capture)**
   - _The Debugger's Safety Net:_ Automatically saves all Debug Console output to persistent log files. No setup required—just hit F5 and your logs are safe.
-- **[Saropa Drift Viewer](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer)**
-  - _SQLite/Drift at a glance:_ Run a task to open the Drift Viewer in your browser and inspect tables, run read-only SQL, export schema or data, and compare snapshots—without leaving the editor.
+- **[Saropa Drift Advisor](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer)**
+  - _SQLite/Drift at a glance:_ Run a task to open the Saropa Drift Advisor in your browser and inspect tables, run read-only SQL, export schema or data, and compare snapshots—without leaving the editor.
 - **[Saropa Claude Guard](https://marketplace.visualstudio.com/items?itemName=Saropa.saropa-claude-guard)**
   - _AI Governance:_ Tracks Claude API costs in real-time by tailing local logs. Enforce daily/monthly budgets and monitor spend directly from the status bar.
 

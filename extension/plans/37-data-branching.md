@@ -17,7 +17,7 @@ Enter branch name: experiment-1
 
 ### 2. Branch Manager Panel
 
-Command palette → "Drift Viewer: Data Branches":
+Command palette → "Saropa Drift Advisor: Data Branches":
 
 ```
 ╔═══════════════════════════════════════════════════════════╗
@@ -482,29 +482,29 @@ class BranchHandler {
     "commands": [
       {
         "command": "driftViewer.createBranch",
-        "title": "Drift Viewer: Create Data Branch",
+        "title": "Saropa Drift Advisor: Create Data Branch",
         "icon": "$(git-branch)"
       },
       {
         "command": "driftViewer.openBranches",
-        "title": "Drift Viewer: Data Branches",
+        "title": "Saropa Drift Advisor: Data Branches",
         "icon": "$(git-branch)"
       },
       {
         "command": "driftViewer.diffBranch",
-        "title": "Drift Viewer: Diff Branch vs Current"
+        "title": "Saropa Drift Advisor: Diff Branch vs Current"
       },
       {
         "command": "driftViewer.restoreBranch",
-        "title": "Drift Viewer: Restore Branch"
+        "title": "Saropa Drift Advisor: Restore Branch"
       },
       {
         "command": "driftViewer.mergeBranchSql",
-        "title": "Drift Viewer: Generate Merge SQL"
+        "title": "Saropa Drift Advisor: Generate Merge SQL"
       },
       {
         "command": "driftViewer.deleteBranch",
-        "title": "Drift Viewer: Delete Branch"
+        "title": "Saropa Drift Advisor: Delete Branch"
       }
     ],
     "menus": {

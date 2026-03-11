@@ -8,7 +8,7 @@ Define data integrity rules ("every order has at least one line item", "user.ema
 
 ### 1. Define Rules
 
-Command palette → "Drift Viewer: Manage Data Invariants" → opens a rule editor:
+Command palette → "Saropa Drift Advisor: Manage Data Invariants" → opens a rule editor:
 
 ```
 ╔═══════════════════════════════════════════════════════════╗
@@ -293,7 +293,7 @@ class InvariantDiagnostics implements vscode.Disposable {
             ? vscode.DiagnosticSeverity.Warning
             : vscode.DiagnosticSeverity.Information,
       );
-      diag.source = 'Drift Viewer';
+      diag.source = 'Saropa Drift Advisor';
       diag.code = inv.id;
 
       const existing = this._collection.get(location.uri) ?? [];
@@ -338,16 +338,16 @@ None. Uses existing `POST /api/sql` and schema endpoints.
     "commands": [
       {
         "command": "driftViewer.manageInvariants",
-        "title": "Drift Viewer: Manage Data Invariants",
+        "title": "Saropa Drift Advisor: Manage Data Invariants",
         "icon": "$(shield)"
       },
       {
         "command": "driftViewer.addInvariant",
-        "title": "Drift Viewer: Add Data Invariant"
+        "title": "Saropa Drift Advisor: Add Data Invariant"
       },
       {
         "command": "driftViewer.runAllInvariants",
-        "title": "Drift Viewer: Run All Invariants"
+        "title": "Saropa Drift Advisor: Run All Invariants"
       }
     ],
     "menus": {

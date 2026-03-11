@@ -49,7 +49,7 @@ extension/src/test/
     "viewsContainers": {
       "activitybar": [{
         "id": "driftViewer",
-        "title": "Drift Viewer",
+        "title": "Saropa Drift Advisor",
         "icon": "$(database)"
       }]
     },
