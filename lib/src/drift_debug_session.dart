@@ -1,4 +1,3 @@
-
 /// In-memory session store for collaborative debug sessions.
 ///
 /// Provides create / get / annotate / cleanup semantics with a configurable
@@ -61,8 +60,7 @@ final class DriftDebugSessionStore {
 
     // Evict oldest sessions when at capacity.
     while (_sessions.length >= maxSessions) {
-      final oldest =
-          _sessions.keys.isEmpty ? null : _sessions.keys.first;
+      final oldest = _sessions.keys.isEmpty ? null : _sessions.keys.first;
       if (oldest == null) {
         break;
       }
