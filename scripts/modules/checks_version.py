@@ -164,6 +164,11 @@ _UNPUBLISHED_HEADING_RE = re.compile(
     r'^##\s*\[(?:Unreleased|Unpublished|Undefined)\]', re.IGNORECASE | re.MULTILINE
 )
 
+# Versioned but explicitly unreleased: ## [0.4.0] - Unreleased
+_VERSIONED_UNRELEASED_RE = re.compile(
+    r'^##\s*\[\d+\.\d+\.\d+\]\s*-\s*Unreleased', re.IGNORECASE | re.MULTILINE
+)
+
 # First release heading: ## [x.y.z] (so we know where to insert [Unreleased])
 _FIRST_RELEASE_HEADING_RE = re.compile(r'^##\s*\[\d+\.\d+\.\d+\]', re.MULTILINE)
 
@@ -171,12 +176,14 @@ _FIRST_RELEASE_HEADING_RE = re.compile(r'^##\s*\[\d+\.\d+\.\d+\]', re.MULTILINE)
 def _changelog_has_unpublished_heading(
     config: TargetConfig | None = None,
 ) -> bool:
-    """True if CHANGELOG has ## [Unreleased], [Unpublished], or [Undefined]."""
+    """True if CHANGELOG has ## [Unreleased] or ## [x.y.z] - Unreleased."""
     changelog_path = _changelog_for(config)
     try:
         with open(changelog_path, encoding="utf-8") as f:
             for line in f:
                 if _UNPUBLISHED_HEADING_RE.match(line):
+                    return True
+                if _VERSIONED_UNRELEASED_RE.match(line):
                     return True
     except OSError:
         pass
@@ -219,6 +226,8 @@ def _unreleased_section_has_content(content: str) -> bool:
     """Check whether the [Unreleased] section has bullet-point content."""
     match = _UNPUBLISHED_HEADING_RE.search(content)
     if not match:
+        match = _VERSIONED_UNRELEASED_RE.search(content)
+    if not match:
         return False
     after = content[match.end():]
     for line in after.splitlines():
@@ -240,11 +249,12 @@ def _stamp_changelog(
     version: str,
     config: TargetConfig | None = None,
 ) -> bool:
-    """Replace '## [Unreleased]' with '## [version]'.
+    """Stamp the CHANGELOG unreleased heading with *version*.
 
-    If ## [version] already exists and ## [Unreleased] is present,
-    the [Unreleased] section content is merged into the existing
-    version heading instead of creating a duplicate.
+    Handles three formats:
+    1. ``## [x.y.z] - Unreleased`` → ``## [x.y.z]`` (remove suffix)
+    2. ``## [Unreleased]`` + existing ``## [x.y.z]`` → merge sections
+    3. ``## [Unreleased]`` alone → ``## [x.y.z]``
     """
     changelog_path = _changelog_for(config)
     try:
@@ -255,24 +265,31 @@ def _stamp_changelog(
         return False
 
     if not _unreleased_section_has_content(content):
-        warn("The [Unreleased] section in CHANGELOG.md has no entries.")
-        if not ask_yn("Stamp empty changelog section?", default=False):
+        warn("CHANGELOG [Unreleased] section has no entries.")
+        if not ask_yn("Publish with empty changelog section?", default=False):
             fail("Add changelog entries before publishing.")
             return False
 
     stamped_heading = f'## [{version}]'
 
-    if _changelog_has_version(version, content):
-        # Version heading already exists — remove the [Unreleased] line
-        # so its content merges into the existing section below it.
+    # Case 1: ## [x.y.z] - Unreleased → just strip the suffix
+    versioned_unrel = re.compile(
+        rf'^(##\s*\[{re.escape(version)}\])\s*-\s*Unreleased\b[^\n]*',
+        re.IGNORECASE | re.MULTILINE,
+    )
+    updated, count = versioned_unrel.subn(stamped_heading, content, count=1)
+    if count:
+        ok(f"CHANGELOG: [{version}] - Unreleased -> [{version}]")
+    elif _changelog_has_version(version, content):
+        # Case 2: separate [Unreleased] heading + existing [version] heading
         updated, count = _UNPUBLISHED_HEADING_RE.subn('', content, count=1)
         if count == 0:
             fail("Could not find '## [Unreleased]' to merge into existing heading.")
             return False
-        # Clean up any extra blank lines left behind
         updated = re.sub(r'\n{3,}', '\n\n', updated)
         ok(f"CHANGELOG: merged [Unreleased] into existing [{version}]")
     else:
+        # Case 3: [Unreleased] → [version]
         updated, count = _UNPUBLISHED_HEADING_RE.subn(stamped_heading, content, count=1)
         if count == 0:
             fail("Could not find '## [Unreleased]' (or [Unpublished]/[Undefined]) in CHANGELOG.md")
@@ -365,32 +382,22 @@ def _resolve_stale_version(
     max_cl: str,
     config: TargetConfig | None,
 ) -> tuple[str, bool | None]:
-    """Handle version <= CHANGELOG max. Returns (version, result).
+    """Handle version < CHANGELOG max. Returns (version, result).
+
+    Auto-syncs the version file to match the CHANGELOG — the CHANGELOG
+    is the source of truth for the intended next version.
 
     *result* is True/False for early return, or None to continue.
     """
-    next_ver = _bump_version(max_cl)
-
     if _is_tagged(pkg_version, config):
-        return _resolve_tagged_stale(pkg_version, next_ver, max_cl, config)
+        return _resolve_tagged_stale(pkg_version, max_cl, max_cl, config)
 
+    # Auto-sync: version file is behind the CHANGELOG
     label = _version_file_label(config)
-    warn(f"{label} v{pkg_version} <= CHANGELOG max v{max_cl}")
-    pkg_version, bump_ok = _offer_bump_and_apply(
-        pkg_version, next_ver,
-        f"Set {label} version higher than {max_cl}",
-        config=config,
-    )
-    if not bump_ok:
-        if not ask_yn(
-            f"Publish v{pkg_version} as-is (no CHANGELOG stamp)?",
-            default=False,
-        ):
-            fail(f"Set {label} version higher than {max_cl}")
-            return pkg_version, False
-        ok(f"Publishing v{pkg_version} as-is")
-        return pkg_version, True
-    return pkg_version, None
+    if not _write_version(max_cl, config):
+        return pkg_version, False
+    fix(f"{label}: {pkg_version} -> {C.WHITE}{max_cl}{C.RESET} (synced to CHANGELOG)")
+    return max_cl, None
 
 
 def _confirm_version(
@@ -432,14 +439,13 @@ def validate_version_changelog(
         return pkg_version, False
 
     max_cl = _get_changelog_max_version(config)
-    if max_cl and _parse_semver(pkg_version) <= _parse_semver(max_cl):
+    if max_cl and _parse_semver(pkg_version) < _parse_semver(max_cl):
         pkg_version, result = _resolve_stale_version(pkg_version, max_cl, config)
         if result is not None:
             return pkg_version, result
 
-    if not _changelog_has_unpublished_heading(config):
-        # Only insert [Unreleased] if the version doesn't already have a heading.
-        # Otherwise _stamp_changelog would create a duplicate.
+    needs_stamp = _changelog_has_unpublished_heading(config)
+    if not needs_stamp:
         changelog_path = _changelog_for(config)
         try:
             with open(changelog_path, encoding="utf-8") as f:
@@ -449,8 +455,9 @@ def validate_version_changelog(
         if not _changelog_has_version(pkg_version, cl_content):
             if not _ensure_unreleased_section(config):
                 return pkg_version, False
+            needs_stamp = True
         else:
-            ok(f"CHANGELOG already has ## [{pkg_version}] — skipping [Unreleased] insert")
+            ok(f"CHANGELOG: ## [{pkg_version}] is ready")
 
     version, tag_ok = _ensure_untagged_version(pkg_version, config)
     if not tag_ok:
@@ -460,7 +467,7 @@ def validate_version_changelog(
     if not confirmed:
         return version, False
 
-    if not _stamp_changelog(version, config):
+    if needs_stamp and not _stamp_changelog(version, config):
         return version, False
 
     ok(f"Version {C.WHITE}{version}{C.RESET} validated")
@@ -468,17 +475,31 @@ def validate_version_changelog(
 
 
 def sync_package_json_to_pubspec() -> bool:
-    """Sync package.json version to match pubspec.yaml (for ``all`` mode)."""
+    """Sync package.json version to match the highest of pubspec / CHANGELOG.
+
+    The CHANGELOG is the source of truth for the intended next version.
+    If CHANGELOG is ahead, both files are synced up.
+    """
     from modules.target_config import DART, EXTENSION, read_version, write_version
     dart_ver = read_version(DART)
     if dart_ver == "unknown":
         fail("Could not read version from pubspec.yaml")
         return False
+
+    # Use the highest version across pubspec + CHANGELOG
+    max_cl = _get_changelog_max_version(DART)
+    target_ver = dart_ver
+    if max_cl and _parse_semver(max_cl) > _parse_semver(dart_ver):
+        if not write_version(DART, max_cl):
+            return False
+        fix(f"pubspec.yaml: {dart_ver} -> {C.WHITE}{max_cl}{C.RESET} (synced to CHANGELOG)")
+        target_ver = max_cl
+
     ext_ver = read_version(EXTENSION)
-    if ext_ver == dart_ver:
-        ok(f"package.json already at {dart_ver}")
+    if ext_ver == target_ver:
+        ok(f"package.json already at {target_ver}")
         return True
-    if not write_version(EXTENSION, dart_ver):
+    if not write_version(EXTENSION, target_ver):
         return False
-    fix(f"package.json: {ext_ver} -> {C.WHITE}{dart_ver}{C.RESET}")
+    fix(f"package.json: {ext_ver} -> {C.WHITE}{target_ver}{C.RESET}")
     return True
