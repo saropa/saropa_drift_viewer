@@ -65,7 +65,9 @@ export class HealthPanel {
     this._panel.webview.html = buildHealthHtml(this._score);
   }
 
-  private _handleMessage(msg: { command: string; id?: string }): void {
+  private _handleMessage(
+    msg: { command: string; id?: string; actionCommand?: string; args?: unknown },
+  ): void {
     switch (msg.command) {
       case 'refresh':
         this._refresh();
@@ -79,6 +81,11 @@ export class HealthPanel {
         vscode.env.clipboard.writeText(
           JSON.stringify(this._score, null, 2),
         );
+        break;
+      case 'executeAction':
+        if (msg.actionCommand) {
+          vscode.commands.executeCommand(msg.actionCommand, msg.args);
+        }
         break;
     }
   }

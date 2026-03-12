@@ -1,4 +1,6 @@
-import type { IHealthMetric, IHealthScore, IRecommendation } from './health-types';
+import type {
+  IHealthMetric, IHealthScore, IMetricAction, IRecommendation,
+} from './health-types';
 
 /** Build HTML for the health score dashboard webview panel. */
 export function buildHealthHtml(score: IHealthScore): string {
@@ -129,6 +131,49 @@ export function buildHealthHtml(score: IHealthScore): string {
     margin-left: auto;
     white-space: nowrap;
   }
+  .card-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  .action-btn {
+    padding: 3px 8px;
+    font-size: 11px;
+    border: 1px solid var(--vscode-button-border, var(--vscode-widget-border));
+    background: var(--vscode-button-secondaryBackground, var(--vscode-editor-background));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+    border-radius: 3px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .action-btn:hover {
+    background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
+  }
+  .action-btn.primary {
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border-color: var(--vscode-button-background);
+  }
+  .action-btn.primary:hover {
+    opacity: 0.9;
+  }
+  .rec-action {
+    padding: 2px 6px;
+    font-size: 10px;
+    border: 1px solid var(--vscode-button-border, var(--vscode-widget-border));
+    background: var(--vscode-button-secondaryBackground, var(--vscode-editor-background));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+    border-radius: 3px;
+    cursor: pointer;
+    margin-left: 8px;
+    flex-shrink: 0;
+  }
+  .rec-action:hover {
+    background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
+  }
 </style>
 </head>
 <body>
@@ -154,11 +199,25 @@ ${recs}
 <script>
   const vscode = acquireVsCodeApi();
   document.addEventListener('click', (e) => {
+    // Handle header button actions (refresh, copyReport)
     const btn = e.target.closest('[data-action]');
     if (btn) {
       vscode.postMessage({ command: btn.dataset.action });
       return;
     }
+    // Handle action buttons on cards and recommendations
+    const actionBtn = e.target.closest('[data-action-command]');
+    if (actionBtn) {
+      e.stopPropagation();
+      const cmd = actionBtn.dataset.actionCommand;
+      let args;
+      try {
+        args = actionBtn.dataset.args ? JSON.parse(actionBtn.dataset.args) : undefined;
+      } catch { args = undefined; }
+      vscode.postMessage({ command: 'executeAction', actionCommand: cmd, args });
+      return;
+    }
+    // Handle card click to open linked panel
     const card = e.target.closest('[data-command]');
     if (card) {
       vscode.postMessage({ command: 'openCommand', id: card.dataset.command });
@@ -172,12 +231,25 @@ ${recs}
 function buildMetricCard(m: IHealthMetric): string {
   const gc = gradeColorClass(m.grade);
   const cmdAttr = m.linkedCommand ? ` data-command="${esc(m.linkedCommand)}"` : '';
+  const actionsHtml = buildActions(m.actions);
   return `<div class="card"${cmdAttr}>
     <div class="card-header">${esc(m.name)}</div>
     <span class="card-score">${m.score}/100</span>
     <span class="card-grade ${gc}">${esc(m.grade)}</span>
     <div class="card-summary">${esc(m.summary)}</div>
+    ${actionsHtml}
   </div>`;
+}
+
+function buildActions(actions?: IMetricAction[]): string {
+  if (!actions || actions.length === 0) return '';
+  const buttons = actions.map((a, i) => {
+    const cls = i === 0 && a.label.toLowerCase().includes('fix') ? 'action-btn primary' : 'action-btn';
+    const icon = a.icon ? `${a.icon} ` : '';
+    const argsAttr = a.args ? ` data-args='${esc(JSON.stringify(a.args))}'` : '';
+    return `<button class="${cls}" data-action-command="${esc(a.command)}"${argsAttr}>${icon}${esc(a.label)}</button>`;
+  }).join('\n    ');
+  return `<div class="card-actions">\n    ${buttons}\n  </div>`;
 }
 
 function buildRecommendations(recs: IRecommendation[]): string {
@@ -187,13 +259,21 @@ function buildRecommendations(recs: IRecommendation[]): string {
   }
   const items = recs.map((r) => {
     const icon = r.severity === 'error' ? '\u2716' : r.severity === 'warning' ? '\u26A0' : '\u2139';
+    const actionBtn = buildRecAction(r.action);
     return `<div class="rec rec-${esc(r.severity)}">
       <span class="rec-icon">${icon}</span>
       <span>${esc(r.message)}</span>
+      ${actionBtn}
       <span class="rec-metric">${esc(r.metric)}</span>
     </div>`;
   }).join('\n');
   return `<div class="recs"><h2>Recommendations</h2>${items}</div>`;
+}
+
+function buildRecAction(action?: IMetricAction): string {
+  if (!action) return '';
+  const argsAttr = action.args ? ` data-args='${esc(JSON.stringify(action.args))}'` : '';
+  return `<button class="rec-action" data-action-command="${esc(action.command)}"${argsAttr}>Fix</button>`;
 }
 
 function gradeColorClass(grade: string): string {

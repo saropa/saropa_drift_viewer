@@ -3,7 +3,9 @@ import type {
   Anomaly, ForeignKey, IndexSuggestion,
   ISizeAnalytics, PerformanceData, TableMetadata,
 } from '../api-types';
-import type { IHealthMetric, IHealthScore, IRecommendation, MetricKey } from './health-types';
+import type {
+  IHealthMetric, IHealthScore, IMetricAction, IRecommendation, MetricKey,
+} from './health-types';
 
 /** Prefetched API data shared across all scoring methods. */
 interface PrefetchedData {
@@ -81,6 +83,21 @@ export class HealthScorer {
     const ratio = totalFkColumns > 0 ? indexedFkColumns / totalFkColumns : 1;
     const score = Math.round(ratio * 100);
 
+    const actions: IMetricAction[] = [];
+    if (data.suggestions.length > 0) {
+      actions.push({
+        label: 'View Missing',
+        icon: '🔍',
+        command: 'driftViewer.showIndexSuggestions',
+      });
+      actions.push({
+        label: 'Create All Indexes',
+        icon: '🔧',
+        command: 'driftViewer.createAllIndexes',
+        args: { indexes: data.suggestions },
+      });
+    }
+
     return {
       name: 'Index Coverage',
       key: 'indexCoverage',
@@ -92,12 +109,29 @@ export class HealthScorer {
         (s) => `Missing: ${s.table}.${s.column}`,
       ),
       linkedCommand: 'driftViewer.runLinter',
+      actions,
     };
   }
 
   private _scoreFkIntegrity(data: PrefetchedData): IHealthMetric {
     const errors = data.anomalies.filter((a) => a.severity === 'error');
     const score = Math.max(0, 100 - errors.length * 10);
+
+    const actions: IMetricAction[] = [];
+    if (errors.length > 0) {
+      actions.push({
+        label: 'View Issues',
+        icon: '🔍',
+        command: 'driftViewer.showAnomalies',
+        args: { filter: 'error' },
+      });
+      actions.push({
+        label: 'Generate Fix SQL',
+        icon: '🔧',
+        command: 'driftViewer.generateAnomalyFixes',
+        args: { anomalies: errors },
+      });
+    }
 
     return {
       name: 'FK Integrity',
@@ -108,6 +142,7 @@ export class HealthScorer {
       summary: `${errors.length} data integrity error(s)`,
       details: errors.map((e) => e.message),
       linkedCommand: 'driftViewer.runLinter',
+      actions,
     };
   }
 
@@ -116,12 +151,11 @@ export class HealthScorer {
   ): Promise<IHealthMetric> {
     let totalCells = 0;
     let nullCells = 0;
-    const highNullColumns: string[] = [];
+    const highNullColumns: { table: string; column: string; pct: number }[] = [];
 
     for (const table of data.userTables) {
       if (table.rowCount === 0) continue;
 
-      // Build a single query that counts nulls for every column in this table
       const nullExprs = table.columns.map(
         (c) => `SUM(CASE WHEN "${sqlId(c.name)}" IS NULL THEN 1 ELSE 0 END)`,
       );
@@ -139,15 +173,27 @@ export class HealthScorer {
 
         const pct = rowCount > 0 ? colNulls / rowCount : 0;
         if (pct > 0.5 && rowCount > 10) {
-          highNullColumns.push(
-            `${table.name}.${table.columns[i].name} (${(pct * 100).toFixed(0)}%)`,
-          );
+          highNullColumns.push({
+            table: table.name,
+            column: table.columns[i].name,
+            pct,
+          });
         }
       }
     }
 
     const nullPct = totalCells > 0 ? nullCells / totalCells : 0;
     const score = Math.round(Math.max(0, 100 - nullPct * 500)); // 20%+ null = 0
+
+    const actions: IMetricAction[] = [];
+    if (highNullColumns.length > 0) {
+      actions.push({
+        label: 'Analyze Columns',
+        icon: '📊',
+        command: 'driftViewer.profileColumn',
+        args: { table: highNullColumns[0].table, column: highNullColumns[0].column },
+      });
+    }
 
     return {
       name: 'Null Density',
@@ -156,7 +202,10 @@ export class HealthScorer {
       grade: toGrade(score),
       weight: HealthScorer.WEIGHTS.nullDensity,
       summary: `${(nullPct * 100).toFixed(1)}% null average`,
-      details: highNullColumns.map((c) => `High null: ${c}`),
+      details: highNullColumns.map(
+        (c) => `High null: ${c.table}.${c.column} (${(c.pct * 100).toFixed(0)}%)`,
+      ),
+      actions,
     };
   }
 
@@ -166,6 +215,24 @@ export class HealthScorer {
     const total = Math.max(perf.totalQueries, 1);
     const ratio = 1 - slowCount / total;
     const score = Math.round(Math.max(0, Math.min(100, ratio * 100)));
+
+    const actions: IMetricAction[] = [];
+    if (slowCount > 0) {
+      const slowestQuery = perf.slowQueries[0];
+      actions.push({
+        label: 'View Performance',
+        icon: '📊',
+        command: 'driftViewer.refreshPerformance',
+      });
+      if (slowestQuery) {
+        actions.push({
+          label: 'Analyze Slowest',
+          icon: '🔍',
+          command: 'driftViewer.analyzeQueryCost',
+          args: { sql: slowestQuery.sql },
+        });
+      }
+    }
 
     return {
       name: 'Query Performance',
@@ -178,6 +245,7 @@ export class HealthScorer {
         (q) => `${q.durationMs.toFixed(0)}ms: ${q.sql.substring(0, 60)}`,
       ),
       linkedCommand: 'driftViewer.refreshPerformance',
+      actions,
     };
   }
 
@@ -185,19 +253,38 @@ export class HealthScorer {
     const tables = data.size.tables ?? [];
     const totalRows = tables.reduce((s, t) => s + t.rowCount, 0);
     const details: string[] = [];
+    let largestTable: string | undefined;
 
     let maxPct = 0;
     for (const t of tables) {
       const pct = totalRows > 0 ? t.rowCount / totalRows : 0;
-      if (pct > maxPct) maxPct = pct;
+      if (pct > maxPct) {
+        maxPct = pct;
+        largestTable = t.table;
+      }
       if (pct > 0.5) {
         details.push(`${t.table} has ${(pct * 100).toFixed(0)}% of all rows`);
       }
     }
 
-    // 100 if balanced, drops as one table dominates
     const raw = Math.round((1 - Math.max(0, maxPct - 0.3) / 0.7) * 100);
     const score = Math.max(0, Math.min(100, raw));
+
+    const actions: IMetricAction[] = [
+      {
+        label: 'View Size Analytics',
+        icon: '📊',
+        command: 'driftViewer.sizeAnalytics',
+      },
+    ];
+    if (largestTable && maxPct > 0.5) {
+      actions.push({
+        label: `Sample ${largestTable}`,
+        icon: '🔍',
+        command: 'driftViewer.sampleTable',
+        args: { table: largestTable },
+      });
+    }
 
     return {
       name: 'Table Balance',
@@ -208,17 +295,20 @@ export class HealthScorer {
       summary: details.length > 0 ? details[0] : 'Data evenly distributed',
       details,
       linkedCommand: 'driftViewer.sizeAnalytics',
+      actions,
     };
   }
 
   private _scoreSchemaQuality(data: PrefetchedData): IHealthMetric {
     const details: string[] = [];
+    const tablesWithoutPk: string[] = [];
     let issues = 0;
 
     for (const table of data.userTables) {
       const hasPk = table.columns.some((c) => c.pk);
       if (!hasPk) {
         details.push(`${table.name}: no primary key`);
+        tablesWithoutPk.push(table.name);
         issues++;
       }
     }
@@ -227,6 +317,20 @@ export class HealthScorer {
     const score = totalTables > 0
       ? Math.round((1 - issues / totalTables) * 100)
       : 100;
+
+    const actions: IMetricAction[] = [];
+    if (issues > 0) {
+      actions.push({
+        label: 'View Schema Diff',
+        icon: '🔍',
+        command: 'driftViewer.schemaDiff',
+      });
+      actions.push({
+        label: 'Generate Migration',
+        icon: '🔧',
+        command: 'driftViewer.generateMigration',
+      });
+    }
 
     return {
       name: 'Schema Quality',
@@ -237,6 +341,7 @@ export class HealthScorer {
       summary: `${issues} schema issue(s)`,
       details,
       linkedCommand: 'driftViewer.runLinter',
+      actions,
     };
   }
 
@@ -244,11 +349,16 @@ export class HealthScorer {
     const recs: IRecommendation[] = [];
     for (const m of metrics) {
       for (const detail of m.details) {
-        recs.push({
+        const rec: IRecommendation = {
           severity: m.score < 50 ? 'error' : m.score < 80 ? 'warning' : 'info',
           message: detail,
           metric: m.name,
-        });
+        };
+        if (m.actions && m.actions.length > 0) {
+          rec.action = m.actions.find((a) => a.label.toLowerCase().includes('fix'))
+            ?? m.actions[0];
+        }
+        recs.push(rec);
       }
     }
     return recs.sort((a, b) => {
