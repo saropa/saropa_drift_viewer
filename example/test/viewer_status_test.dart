@@ -49,7 +49,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Viewer failed to start'), findsOneWidget);
+    expect(find.text('Advisor failed to start'), findsOneWidget);
     expect(find.textContaining('port 8642'), findsOneWidget);
   });
 
