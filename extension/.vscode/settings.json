@@ -1,23 +1,13 @@
 {
   // Enable TypeScript project-wide error reporting
-  // This shows ALL TypeScript errors in the Problems panel, not just open files
+  // Shows ALL TypeScript errors in the Problems panel, not just open files
   "typescript.tsserver.experimental.enableProjectDiagnostics": true,
   
   // Use the workspace TypeScript version (from node_modules)
   "typescript.tsdk": "node_modules/typescript/lib",
   
-  // Show errors immediately as you type
+  // Enable validation and suggestions
   "typescript.suggest.enabled": true,
   "typescript.validate.enable": true,
-  
-  // Auto-import suggestions
-  "typescript.suggest.autoImports": true,
-  
-  // Format on save (optional but recommended)
-  "editor.formatOnSave": true,
-  "editor.defaultFormatter": "vscode.typescript-language-features",
-  
-  // Show inlay hints for better code understanding
-  "typescript.inlayHints.parameterNames.enabled": "all",
-  "typescript.inlayHints.functionLikeReturnTypes.enabled": true
+  "typescript.suggest.autoImports": true
 }
