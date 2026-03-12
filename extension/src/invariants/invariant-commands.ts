@@ -70,6 +70,10 @@ export function registerInvariantCommands(
           table = pick.label;
         }
 
+        // Guard: table is now guaranteed to be a string
+        if (!table) return;
+        const selectedTable = table;
+
         // Fetch templates with progress indicator
         const allTemplates = await vscode.window.withProgress(
           {
@@ -79,8 +83,8 @@ export function registerInvariantCommands(
           },
           async () => {
             const templates = new InvariantTemplates(client);
-            const available = await templates.getTemplatesForTable(table);
-            const common = templates.getCommonTemplates(table);
+            const available = await templates.getTemplatesForTable(selectedTable);
+            const common = templates.getCommonTemplates(selectedTable);
             return [...available, ...common];
           },
         );
