@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **VS Code marketplace** - [marketplace.visualstudio.com / items ? itemName=Saropa.drift-viewer](https://marketplace.visualstudio.com/items?itemName=Saropa.drift-viewer)
 
+## [1.0.2]
+
+### Changed
+
+- **VS Code Marketplace metadata** — Added rich marketplace metadata: categories (Debuggers, Visualization), 15 searchable keywords (dart, drift, flutter, sqlite, database, orm, schema, debug, visualization, data viewer, moor, query, sql, table viewer, database explorer), homepage link, issues link, and gallery banner. The extension listing now shows Project Details with GitHub activity, and Resources links to Issues, Repository, Homepage, License, and Changelog.
+
 ## [1.0.1]
 
 ### Fixed
