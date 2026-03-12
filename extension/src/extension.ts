@@ -7,6 +7,9 @@ import { PendingChangesProvider } from './editing/pending-changes-provider';
 import { FilterBridge } from './filters/filter-bridge';
 import { FilterStore } from './filters/filter-store';
 import { DriftCodeActionProvider, SchemaDiagnostics } from './linter/schema-diagnostics';
+import { DataQualityProvider, DiagnosticCodeActionProvider, DiagnosticManager, PerformanceProvider, SchemaProvider } from './diagnostics';
+import { SchemaIntelligence } from './engines/schema-intelligence';
+import { QueryIntelligence } from './engines/query-intelligence';
 import { DriftCodeLensProvider } from './codelens/drift-codelens-provider';
 import { TableNameMapper } from './codelens/table-name-mapper';
 import { LogCaptureBridge } from './debug/log-capture-bridge';
@@ -47,6 +50,7 @@ import { registerDashboardCommands } from './dashboard/dashboard-commands';
 import { DashboardPanel } from './dashboard/dashboard-panel';
 import { HealthScorer } from './health/health-scorer';
 import { updateStatusBar } from './status-bar';
+import { registerInvariantCommands } from './invariants';
 
 export function activate(context: vscode.ExtensionContext): void {
   const cfg = vscode.workspace.getConfiguration('driftViewer');
@@ -127,7 +131,7 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
 
-  // Schema linter (diagnostics on Drift tables)
+  // Schema linter (legacy diagnostics - kept for backward compatibility)
   const diagnosticCollection = vscode.languages.createDiagnosticCollection('drift-linter');
   context.subscriptions.push(diagnosticCollection);
   const linter = new SchemaDiagnostics(client, diagnosticCollection);
@@ -135,6 +139,30 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.languages.registerCodeActionsProvider(
       { language: 'dart', scheme: 'file' },
       new DriftCodeActionProvider(),
+      { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] },
+    ),
+  );
+
+  // Intelligence engines (cached schema and query analysis)
+  const schemaIntel = new SchemaIntelligence(client);
+  const queryIntel = new QueryIntelligence(client);
+  context.subscriptions.push(schemaIntel, queryIntel);
+
+  // New centralized diagnostic manager (drift-advisor collection)
+  const diagnosticManager = new DiagnosticManager(client, schemaIntel, queryIntel);
+  context.subscriptions.push(diagnosticManager);
+
+  // Register diagnostic providers
+  context.subscriptions.push(
+    diagnosticManager.registerProvider(new SchemaProvider()),
+    diagnosticManager.registerProvider(new PerformanceProvider()),
+    diagnosticManager.registerProvider(new DataQualityProvider()),
+  );
+
+  context.subscriptions.push(
+    vscode.languages.registerCodeActionsProvider(
+      { language: 'dart', scheme: 'file' },
+      new DiagnosticCodeActionProvider(diagnosticManager),
       { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] },
     ),
   );
@@ -190,6 +218,7 @@ export function activate(context: vscode.ExtensionContext): void {
     await codeLensProvider.refreshRowCounts();
     codeLensProvider.notifyChange();
     linter.refresh();
+    diagnosticManager.refresh().catch(() => { /* refresh failed */ });
     refreshBadges().catch(() => { /* server down */ });
     if (cfg.get<boolean>('timeline.autoCapture', true)) {
       snapshotStore.capture(client).catch(() => { /* server down */ });
@@ -204,6 +233,7 @@ export function activate(context: vscode.ExtensionContext): void {
   treeProvider.refresh(); // initial load
   codeLensProvider.refreshRowCounts(); // initial CodeLens load
   linter.refresh(); // initial linter scan
+  diagnosticManager.refresh().catch(() => { /* refresh failed */ }); // initial diagnostic scan
   refreshBadges().catch(() => { /* server down */ });
 
   context.subscriptions.push({ dispose: () => watcher.stop() });
@@ -278,6 +308,7 @@ export function activate(context: vscode.ExtensionContext): void {
       treeProvider.refresh();
       codeLensProvider.refreshRowCounts();
       linter.refresh();
+      diagnosticManager.refresh().catch(() => { /* refresh failed */ });
       refreshBadges().catch(() => { /* server down */ });
       watchManager.refresh().catch(() => { /* server down */ });
     }
@@ -308,6 +339,7 @@ export function activate(context: vscode.ExtensionContext): void {
   registerHealthCommands(context, client);
   registerQueryCostCommands(context, client);
   registerDashboardCommands(context, client, new HealthScorer());
+  registerInvariantCommands(context, client, watcher);
   registerDebugCommands(context, {
     client, treeProvider, treeView, hoverCache, linter,
     logBridge, discovery, serverManager, watcher, codeLensProvider,

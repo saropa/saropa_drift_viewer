@@ -1,5 +1,7 @@
 # Feature 27: Data Invariant Checker
 
+**Status: ✅ IMPLEMENTED** (2026-03-12)
+
 ## What It Does
 
 Define data integrity rules ("every order has at least one line item", "user.email is unique and non-null", "account.balance >= 0") and run them continuously during debug or on-demand. Violations surface as VS Code diagnostics on the Dart table definition files, with links to the offending rows.
@@ -459,6 +461,83 @@ if (continuous) {
   - Clears diagnostics when rules pass
   - Maps to correct Dart source file location
   - No diagnostics when no rules are defined
+
+## Integration Points
+
+### Shared Services Used
+
+| Service | Usage |
+|---------|-------|
+| SchemaIntelligence | `getTable()`, `getForeignKeys()` for template generation |
+| RelationshipEngine | FK integrity check templates use `walkDownstream()` |
+
+### Consumes From
+
+| Feature | Data/Action |
+|---------|-------------|
+| Schema Intelligence Cache (1.2) | Table/column metadata for rule templates |
+| Schema Linter (7) | Schema issues can suggest related data invariants |
+| Generation Watcher | Triggers invariant re-evaluation on DB change |
+
+### Produces For
+
+| Feature | Data/Action |
+|---------|-------------|
+| Health Score (30) | Invariant pass/fail ratio → "Data Quality" metric |
+| Dashboard Builder (36) | "Invariant Status" widget |
+| Pre-Launch Tasks (13) | Block launch if critical invariants fail |
+| Data Editing (16) | Warning when editing rows that would violate invariants |
+| Portable Report (25) | Include invariant status in exported report |
+
+### Cross-Feature Actions
+
+| From | Action | To |
+|------|--------|-----|
+| Invariant Violation | "View Violating Rows" | Table data viewer filtered to violations |
+| Invariant Violation | "Fix in Editor" | Bulk Edit Grid with violating rows pre-selected |
+| Invariant Violation | "Generate Fix SQL" | SQL to resolve violations |
+| Health Score | "Fix Data Quality" | Invariant panel with failed invariants |
+| Anomaly Detection | "Add as Invariant" | Create invariant from detected anomaly |
+
+### Health Score Contribution
+
+| Metric | Contribution |
+|--------|--------------|
+| Data Quality | `passingCount / totalEnabled` ratio |
+| Action | "View Invariants" → opens Invariant Manager |
+| Quick Fix | "Run All Invariants" to re-evaluate |
+
+### Unified Timeline Events
+
+| Event Type | Data |
+|------------|------|
+| `invariant-check` | `{ timestamp, passed, failed, violations[] }` |
+
+### Actionable Health Score Integration
+
+The Health Score "Data Quality" metric links directly to invariant actions:
+
+```
+Health Score Card: Data Quality — C (68%)
+  │
+  ├── "3 of 9 invariants failing"
+  ├── [View Details] → Invariant Manager panel
+  └── [Run Checks] → Re-evaluate all invariants
+```
+
+### Data Editing Guard
+
+When editing data in Bulk Edit Grid (Feature 47), changes are validated against active invariants before commit:
+
+```typescript
+// Before committing bulk edits
+const violations = await invariantManager.previewViolations(pendingChanges);
+if (violations.length > 0) {
+  // Show warning: "This change would violate 2 invariants"
+}
+```
+
+---
 
 ## Known Limitations
 

@@ -400,6 +400,19 @@
       {
         "command": "driftViewer.deleteDashboard",
         "title": "Saropa Drift Advisor: Delete Dashboard Layout"
+      },
+      {
+        "command": "driftViewer.manageInvariants",
+        "title": "Saropa Drift Advisor: Manage Data Invariants",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "driftViewer.addInvariant",
+        "title": "Saropa Drift Advisor: Add Data Invariant"
+      },
+      {
+        "command": "driftViewer.runAllInvariants",
+        "title": "Saropa Drift Advisor: Run All Invariants"
       }
     ],
     "menus": {
@@ -466,6 +479,11 @@
         },
         {
           "command": "driftViewer.openDashboard",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "navigation"
+        },
+        {
+          "command": "driftViewer.manageInvariants",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
           "group": "navigation"
         }
@@ -542,6 +560,11 @@
           "command": "driftViewer.addDataBreakpoint",
           "when": "viewItem == driftTable || viewItem == driftTablePinned",
           "group": "7_breakpoint"
+        },
+        {
+          "command": "driftViewer.addInvariant",
+          "when": "viewItem == driftTable || viewItem == driftTablePinned",
+          "group": "9_invariant"
         },
         {
           "command": "driftViewer.constraintWizard",
@@ -790,6 +813,17 @@
           "minimum": 10,
           "maximum": 1000,
           "description": "Maximum number of SQL queries to keep in history."
+        },
+        "driftViewer.invariants.continuous": {
+          "type": "boolean",
+          "default": false,
+          "description": "Re-evaluate invariants on every database change (may impact performance)."
+        },
+        "driftViewer.invariants.defaultSeverity": {
+          "type": "string",
+          "enum": ["error", "warning", "info"],
+          "default": "warning",
+          "description": "Default severity level for new invariant violations."
         }
       }
     }

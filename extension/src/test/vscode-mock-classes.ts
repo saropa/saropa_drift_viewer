@@ -184,6 +184,8 @@ export class DiagnosticRelatedInformation {
 export class MockDiagnosticCollection {
   readonly name: string;
   private _entries = new Map<string, Diagnostic[]>();
+  clearedCount = 0;
+  disposed = false;
 
   constructor(name: string) {
     this.name = name;
@@ -195,19 +197,26 @@ export class MockDiagnosticCollection {
 
   clear(): void {
     this._entries.clear();
+    this.clearedCount++;
   }
 
   get(uri: any): Diagnostic[] | undefined {
     return this._entries.get(uri.toString());
   }
 
-  /** Test helper: return all entries. */
+  /** Test helper: return all entries as a Map. */
   entries(): Map<string, Diagnostic[]> {
     return new Map(this._entries);
   }
 
+  /** Test helper: return all diagnostics. */
+  get diagnostics(): Map<string, Diagnostic[]> {
+    return this._entries;
+  }
+
   dispose(): void {
     this._entries.clear();
+    this.disposed = true;
   }
 }
 
@@ -261,5 +270,27 @@ export class MockTreeView {
   disposed = false;
   dispose() {
     this.disposed = true;
+  }
+}
+
+/** Mock vscode.Memento for workspace/global state storage. */
+export class MockMemento {
+  private _data = new Map<string, any>();
+
+  get<T>(key: string, defaultValue?: T): T | undefined {
+    return this._data.has(key) ? this._data.get(key) : defaultValue;
+  }
+
+  update(key: string, value: any): Thenable<void> {
+    this._data.set(key, value);
+    return Promise.resolve();
+  }
+
+  keys(): readonly string[] {
+    return Array.from(this._data.keys());
+  }
+
+  clear(): void {
+    this._data.clear();
   }
 }
