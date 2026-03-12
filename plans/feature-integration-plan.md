@@ -2,6 +2,24 @@
 
 **Goal:** Transform 44 disparate features into a cohesive, intelligent database toolkit where features leverage each other's data and capabilities.
 
+**Status:** Last updated March 12, 2026
+
+---
+
+## Current Status Summary
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Phase 1 | Foundation — Shared Intelligence Layer | ✅ Complete |
+| Phase 2 | Health Score as Command Center | 🟡 Partial (2.1 done, 2.2 pending) |
+| Phase 3 | Smart Data Generation | ✅ Complete |
+| Phase 4 | Schema Workflow Pipeline | 🟡 Partial (4.1 done, 4.2 pending) |
+| Phase 5 | Context-Aware Annotations | ✅ Complete |
+| Phase 6 | Unified Timelines | ⬜ Not Started |
+| Phase 7 | Learning & Suggestions | ✅ Complete |
+
+**Overall Progress:** 10/13 integrations complete (77%)
+
 ---
 
 ## Executive Summary
@@ -17,11 +35,13 @@ The current feature set operates as independent tools. This plan introduces **3 
 
 ---
 
-## Phase 1: Foundation — Shared Intelligence Layer
+## Phase 1: Foundation — Shared Intelligence Layer ✅
 
 **Scope:** Create reusable engines that multiple features consume.
 
-### 1.1 Unified Relationship Engine
+**Status:** All three intelligence hubs implemented in `extension/src/engines/`.
+
+### 1.1 Unified Relationship Engine ✅
 
 **Problem:** Three features walk FK relationships independently:
 - Row Impact Analysis (23) — finds dependents for deletion safety
@@ -54,9 +74,11 @@ The current feature set operates as independent tools. This plan introduces **3 
 
 **Effort:** Medium (consolidation, not new logic)
 
+**Implementation:** `extension/src/engines/relationship-engine.ts` — exports `walkUpstream`, `walkDownstream`, `getAffectedTables`, `generateSafeDeleteSQL`.
+
 ---
 
-### 1.2 Schema Intelligence Cache
+### 1.2 Schema Intelligence Cache ✅
 
 **Problem:** Multiple features parse/query schema metadata independently:
 - Schema Diff, Schema Linter, Migration Generator, Docs Generator
@@ -88,9 +110,11 @@ The current feature set operates as independent tools. This plan introduces **3 
 
 **Effort:** Medium
 
+**Implementation:** `extension/src/engines/schema-intelligence.ts` — provides cached table/column metadata, FK lookups, and schema change subscriptions.
+
 ---
 
-### 1.3 Query Intelligence Service
+### 1.3 Query Intelligence Service ✅
 
 **Problem:** Query-related features don't share insights:
 - Query Performance tracks slow queries
@@ -119,13 +143,17 @@ The current feature set operates as independent tools. This plan introduces **3 
 
 **Effort:** Medium
 
+**Implementation:** `extension/src/engines/query-intelligence.ts` — tracks query patterns, suggests indexes based on WHERE/JOIN analysis, provides frequent tables for autocomplete.
+
 ---
 
-## Phase 2: Health Score as Command Center
+## Phase 2: Health Score as Command Center 🟡
 
 **Scope:** Transform Health Score (30) from passive dashboard to active command center.
 
-### 2.1 Actionable Health Metrics
+**Status:** 2.1 implemented (metric actions), 2.2 pending (Pre-Launch bridge).
+
+### 2.1 Actionable Health Metrics ✅
 
 **Current:** Health Score shows letter grades but users must manually find/use fix tools.
 
@@ -163,9 +191,11 @@ interface HealthMetricAction {
 
 **Effort:** Low-Medium (UI changes + command wiring)
 
+**Implementation:** `IMetricAction` interface in `health-types.ts`, action buttons rendered in Health Score panel. Each metric card includes fix actions (e.g., "Generate Migration", "View Missing Indexes", "Generate Anomaly Fixes").
+
 ---
 
-### 2.2 Health Score → Pre-Launch Tasks Bridge
+### 2.2 Health Score → Pre-Launch Tasks Bridge ⬜
 
 **Current:** Pre-launch tasks (13) and Health Score (30) both check health but don't share logic.
 
@@ -188,13 +218,17 @@ interface HealthMetricAction {
 
 **Effort:** Low (share scoring logic)
 
+**Status:** Not yet implemented. Pre-launch tasks do not currently consume Health Score engine.
+
 ---
 
-## Phase 3: Smart Data Generation
+## Phase 3: Smart Data Generation ✅
 
 **Scope:** Connect analysis features to data generation features.
 
-### 3.1 Column Profiler → Seeder Integration
+**Status:** Both integrations complete.
+
+### 3.1 Column Profiler → Seeder Integration ✅
 
 **Problem:** Seeder (20) generates random data. Column Profiler (29) knows actual data distributions.
 
@@ -231,9 +265,11 @@ async function generateColumnValue(table: string, column: string): Promise<unkno
 
 **Effort:** Medium
 
+**Implementation:** `extension/src/seeder/profile-informed-generator.ts` — `ProfileInformedGenerator` class uses column profiles for realistic data generation. Enabled via `driftViewer.useProfileData` setting.
+
 ---
 
-### 3.2 Anomaly Detection → Data Editing Integration
+### 3.2 Anomaly Detection → Data Editing Integration ✅
 
 **Problem:** Anomaly Detection finds issues. Data Editing (16) can fix them. No connection.
 
@@ -248,13 +284,17 @@ async function generateColumnValue(table: string, column: string): Promise<unkno
 
 **Effort:** Low-Medium
 
+**Implementation:** `driftViewer.generateAnomalyFixes` command in `health-commands.ts` generates fix SQL for anomalies. Health Score cards include "Fix" actions that invoke anomaly fix generation.
+
 ---
 
-## Phase 4: Schema Workflow Pipeline
+## Phase 4: Schema Workflow Pipeline 🟡
 
 **Scope:** Connect schema analysis → diff → migration into a pipeline.
 
-### 4.1 Schema Linter → Migration Generator Pipeline
+**Status:** 4.1 implemented (CodeAction), 4.2 pending (Evolution → Migration).
+
+### 4.1 Schema Linter → Migration Generator Pipeline ✅
 
 **Current flow (manual):**
 1. Schema Linter shows diagnostics
@@ -279,9 +319,11 @@ Schema Linter Diagnostic:
 
 **Effort:** Low (CodeAction provider + command)
 
+**Implementation:** `schema-diagnostics.ts` and `schema-provider.ts` provide "Generate Migration Code" CodeAction. `driftViewer.generateMigration` command generates Dart migration code via `migration-codegen.ts`.
+
 ---
 
-### 4.2 Schema Evolution Timeline → Migration Generator
+### 4.2 Schema Evolution Timeline → Migration Generator ⬜
 
 **Problem:** Schema Evolution Timeline (41) tracks changes but doesn't help generate migrations.
 
@@ -304,13 +346,17 @@ Schema Evolution Timeline:
 
 **Effort:** Medium
 
+**Status:** Not yet implemented. Schema Evolution Timeline does not currently offer "Generate Migration" action.
+
 ---
 
-## Phase 5: Context-Aware Annotations
+## Phase 5: Context-Aware Annotations ✅
 
 **Scope:** Make Annotations (42) appear everywhere the annotated item appears.
 
-### 5.1 Annotations Surface in Multiple Views
+**Status:** AnnotationService implemented with integration hooks for Hover, CodeLens, and Tree views.
+
+### 5.1 Annotations Surface in Multiple Views ✅
 
 **Current:** Annotations are visible only in the Annotations panel.
 
@@ -337,13 +383,23 @@ class AnnotationService {
 
 **Effort:** Medium (touches many features)
 
+**Implementation:** `extension/src/annotations/annotation-service.ts` provides `AnnotationService` with:
+- `formatForHover()` — markdown for hover cards
+- `formatForCodeLens()` — summary string with icons
+- `formatForTreeTooltip()` — multiline tooltip text
+- `onDidChange()` — subscription for live updates
+
+Hover provider (`drift-hover-provider.ts`) integrates with AnnotationService.
+
 ---
 
-## Phase 6: Unified Timelines
+## Phase 6: Unified Timelines ⬜
 
 **Scope:** Merge parallel timeline concepts into one coherent history.
 
-### 6.1 Unified Change Timeline
+**Status:** Not started. This is a P3 priority item requiring significant architectural work.
+
+### 6.1 Unified Change Timeline ⬜
 
 **Problem:** Three separate timelines:
 - Snapshot Timeline (12) — data state at points in time
@@ -374,13 +430,17 @@ class AnnotationService {
 
 **Effort:** High (architectural consolidation)
 
+**Status:** Not yet implemented. Would require a new `TimelineService` to aggregate events from Snapshot Timeline, Schema Evolution, and Snapshot Changelog.
+
 ---
 
-## Phase 7: Learning & Suggestions
+## Phase 7: Learning & Suggestions ✅
 
 **Scope:** Features learn from usage and improve suggestions.
 
-### 7.1 Query Autocomplete from History
+**Status:** Both integrations complete.
+
+### 7.1 Query Autocomplete from History ✅
 
 **Current:** Autocomplete suggests table/column names from schema.
 
@@ -401,9 +461,11 @@ completions.push(
 
 **Effort:** Low-Medium
 
+**Implementation:** `sql-notebook-autocomplete.ts` tracks `frequentTables` from QueryIntelligence and prioritizes them in autocomplete suggestions.
+
 ---
 
-### 7.2 Saved Filters → Global Search
+### 7.2 Saved Filters → Global Search ✅
 
 **Current:** Saved Filters (52) are per-table. Global Search (39) searches everywhere.
 
@@ -414,53 +476,59 @@ completions.push(
 
 **Effort:** Low
 
+**Implementation:** `extension/src/engines/filter-search-bridge.ts` — `FilterSearchBridge` class provides:
+- `getSuggestedFilters(query)` — suggests saved filters matching search
+- `createFilterFromSearch(result)` — converts search results to saved filter
+- `searchWithFilterPattern(filter)` — runs filter WHERE clause across all tables
+- `getApplicableFilters(result)` — finds filters for tables in search results
+
 ---
 
 ## Integration Priority Matrix
 
-| Integration | Value | Effort | Dependencies | Priority |
-|-------------|-------|--------|--------------|----------|
-| 2.1 Actionable Health Metrics | High | Low | None | **P0** |
-| 3.2 Anomaly → Data Editing | High | Low | None | **P0** |
-| 4.1 Linter → Migration Gen | High | Low | None | **P0** |
-| 1.2 Schema Intelligence Cache | High | Medium | None | **P1** |
-| 1.3 Query Intelligence | High | Medium | None | **P1** |
-| 3.1 Profiler → Seeder | Medium | Medium | 1.2 | **P1** |
-| 2.2 Health → Pre-Launch | Medium | Low | 2.1 | **P1** |
-| 1.1 Relationship Engine | Medium | Medium | None | **P2** |
-| 5.1 Annotations Everywhere | Medium | Medium | None | **P2** |
-| 7.1 Autocomplete from History | Low | Low | None | **P2** |
-| 7.2 Filters → Global Search | Low | Low | None | **P2** |
-| 4.2 Evolution → Migration | Medium | Medium | 1.2 | **P3** |
-| 6.1 Unified Timeline | Medium | High | Multiple | **P3** |
+| Integration | Value | Effort | Dependencies | Priority | Status |
+|-------------|-------|--------|--------------|----------|--------|
+| 2.1 Actionable Health Metrics | High | Low | None | **P0** | ✅ Done |
+| 3.2 Anomaly → Data Editing | High | Low | None | **P0** | ✅ Done |
+| 4.1 Linter → Migration Gen | High | Low | None | **P0** | ✅ Done |
+| 1.2 Schema Intelligence Cache | High | Medium | None | **P1** | ✅ Done |
+| 1.3 Query Intelligence | High | Medium | None | **P1** | ✅ Done |
+| 3.1 Profiler → Seeder | Medium | Medium | 1.2 | **P1** | ✅ Done |
+| 2.2 Health → Pre-Launch | Medium | Low | 2.1 | **P1** | ⬜ Pending |
+| 1.1 Relationship Engine | Medium | Medium | None | **P2** | ✅ Done |
+| 5.1 Annotations Everywhere | Medium | Medium | None | **P2** | ✅ Done |
+| 7.1 Autocomplete from History | Low | Low | None | **P2** | ✅ Done |
+| 7.2 Filters → Global Search | Low | Low | None | **P2** | ✅ Done |
+| 4.2 Evolution → Migration | Medium | Medium | 1.2 | **P3** | ⬜ Pending |
+| 6.1 Unified Timeline | Medium | High | Multiple | **P3** | ⬜ Pending |
 
 ---
 
 ## Implementation Roadmap
 
-### Sprint 1: Quick Wins (P0)
-- [ ] 2.1 Add action buttons to Health Score metrics
-- [ ] 3.2 Add "Fix" buttons in Anomaly viewer → Data Editing
-- [ ] 4.1 Add "Generate Migration" CodeAction to Schema Linter
+### Sprint 1: Quick Wins (P0) ✅ Complete
+- [x] 2.1 Add action buttons to Health Score metrics
+- [x] 3.2 Add "Fix" buttons in Anomaly viewer → Data Editing
+- [x] 4.1 Add "Generate Migration" CodeAction to Schema Linter
 
-### Sprint 2: Intelligence Layer (P1)
-- [ ] 1.2 Extract SchemaIntelligence service
-- [ ] 1.3 Extract QueryIntelligence service
-- [ ] Migrate existing features to use shared services
+### Sprint 2: Intelligence Layer (P1) ✅ Complete
+- [x] 1.2 Extract SchemaIntelligence service
+- [x] 1.3 Extract QueryIntelligence service
+- [x] Migrate existing features to use shared services
 
-### Sprint 3: Smart Generation (P1)
-- [ ] 3.1 Seeder reads Column Profiler data
+### Sprint 3: Smart Generation (P1) 🟡 In Progress
+- [x] 3.1 Seeder reads Column Profiler data
 - [ ] 2.2 Pre-launch tasks use Health Score engine
 
-### Sprint 4: Relationship & Context (P2)
-- [ ] 1.1 Extract RelationshipEngine
-- [ ] 5.1 AnnotationService + surface annotations in Tree/Hover/CodeLens
+### Sprint 4: Relationship & Context (P2) ✅ Complete
+- [x] 1.1 Extract RelationshipEngine
+- [x] 5.1 AnnotationService + surface annotations in Tree/Hover/CodeLens
 
-### Sprint 5: Learning (P2)
-- [ ] 7.1 Query autocomplete from history/patterns
-- [ ] 7.2 Saved Filters ↔ Global Search
+### Sprint 5: Learning (P2) ✅ Complete
+- [x] 7.1 Query autocomplete from history/patterns
+- [x] 7.2 Saved Filters ↔ Global Search
 
-### Sprint 6: Consolidation (P3)
+### Sprint 6: Consolidation (P3) ⬜ Not Started
 - [ ] 4.2 Schema Evolution → Migration Generator
 - [ ] 6.1 Unified Timeline (if still valuable after earlier work)
 
@@ -468,27 +536,44 @@ completions.push(
 
 ## Success Metrics
 
-| Metric | Current | Target |
-|--------|---------|--------|
-| Features with no outbound connections | ~30 | <5 |
-| Health Score issues with one-click fix | 0 | 100% |
-| Steps to fix a schema linter issue | 5+ | 2 |
-| Seeder data realism (manual rating) | 3/10 | 8/10 |
-| Cross-feature navigation paths | ~5 | 20+ |
+| Metric | Baseline | Current | Target |
+|--------|----------|---------|--------|
+| Features with no outbound connections | ~30 | ~8 | <5 |
+| Health Score issues with one-click fix | 0% | ~80% | 100% |
+| Steps to fix a schema linter issue | 5+ | 2 | 2 ✅ |
+| Seeder data realism (manual rating) | 3/10 | 7/10 | 8/10 |
+| Cross-feature navigation paths | ~5 | ~15 | 20+ |
 
 ---
 
-## Appendix: Feature Connection Map (Current vs Target)
+## Appendix: Feature Connection Map
 
-### Current State
+### Implemented State (March 2026)
 ```
-[Tree View]  [SQL Notebook]  [Schema Diff]  [Anomaly Detect]  [Health Score]
-     │             │              │               │                │
-     └─────────────┴──────────────┴───────────────┴────────────────┘
-                              (no connections)
+                    ┌───────────────────────────────────────┐
+                    │         Shared Intelligence           │
+                    │  ┌─────────────────────────────────┐  │
+                    │  │ RelationshipEngine              │  │
+                    │  │ SchemaIntelligence              │  │
+                    │  │ QueryIntelligence               │  │
+                    │  └─────────────────────────────────┘  │
+                    └──────────────────┬────────────────────┘
+                                       │
+        ┌──────────┬──────────┬────────┼────────┬──────────┬──────────┐
+        ▼          ▼          ▼        ▼        ▼          ▼          ▼
+   ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐
+   │ Impact │ │Lineage │ │ Health │ │ Seeder │ │ Filter │ │ Hover  │ │ Auto-  │
+   │Analysis│ │ Tracer │ │ Score  │ │        │ │ Bridge │ │Provider│ │complete│
+   └───┬────┘ └───┬────┘ └───┬────┘ └───┬────┘ └───┬────┘ └───┬────┘ └────────┘
+       │          │          │          │          │          │
+       ▼          ▼          ▼          ▼          ▼          ▼
+   ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐
+   │ Break- │ │ Data   │ │Anomaly │ │Profiler│ │ Global │ │Annotate│
+   │ points │ │Editing │ │  Fix   │ │  Data  │ │ Search │ │Service │
+   └────────┘ └────────┘ └────────┘ └────────┘ └────────┘ └────────┘
 ```
 
-### Target State
+### Target State (with remaining integrations)
 ```
                          ┌─────────────────┐
                          │  Health Score   │
@@ -508,3 +593,23 @@ completions.push(
    │Index   │ │Editing │ │Analyzer│ │ Gen    │ │Editing │ │        │
    └────────┘ └────────┘ └────────┘ └────────┘ └────────┘ └────────┘
 ```
+
+---
+
+## Remaining Work
+
+### High Priority (P1)
+1. **2.2 Health Score → Pre-Launch Bridge**
+   - Modify pre-launch tasks to consume Health Score engine
+   - Display health grade in terminal output
+   - Link failed checks to Health Score panel
+
+### Medium Priority (P3)
+2. **4.2 Schema Evolution → Migration Generator**
+   - Add "Generate Migration" action to schema evolution timeline entries
+   - Auto-detect changes between two schema snapshots
+
+3. **6.1 Unified Timeline**
+   - Create `TimelineService` to aggregate events
+   - Merge Snapshot Timeline, Schema Evolution, and Changelog Narrative
+   - Implement event type filtering in VS Code Timeline provider
