@@ -218,6 +218,7 @@ export class ImportExecutor {
 
             const diff: { column: string; from: unknown; to: unknown }[] = [];
             for (const [col, val] of Object.entries(row)) {
+              if (matchColumns.includes(col)) continue;
               if (existing[col] !== val && val !== null && val !== undefined) {
                 diff.push({ column: col, from: existing[col], to: val });
               }

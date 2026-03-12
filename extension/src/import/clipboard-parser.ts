@@ -244,7 +244,7 @@ export function buildImportPayload(
     const record: Record<string, unknown> = {};
     for (const m of activeMappings) {
       const value = row[m.clipboardIndex];
-      record[m.tableColumn!] = value === '' ? null : value;
+      record[m.tableColumn!] = value === '' || value === undefined ? null : value;
     }
     return record;
   });

@@ -157,7 +157,7 @@ export class DataQualityProvider implements IDiagnosticProvider {
     for (const table of tableSizes) {
       const percentage = (table.rowCount / totalRows) * 100;
 
-      if (percentage >= DATA_SKEW_THRESHOLD) {
+      if (percentage > DATA_SKEW_THRESHOLD) {
         const dartFile = this._findDartFileForTable(dartFiles, table.table);
         if (!dartFile) continue;
 
