@@ -43,6 +43,9 @@ import { registerDataBreakpointCommands } from './data-breakpoint/data-breakpoin
 import { registerDebugCommands } from './debug/debug-commands';
 import { registerHealthCommands } from './health/health-commands';
 import { registerQueryCostCommands } from './query-cost/query-cost-commands';
+import { registerDashboardCommands } from './dashboard/dashboard-commands';
+import { DashboardPanel } from './dashboard/dashboard-panel';
+import { HealthScorer } from './health/health-scorer';
 import { updateStatusBar } from './status-bar';
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -193,6 +196,9 @@ export function activate(context: vscode.ExtensionContext): void {
     }
     watchManager.refresh().catch(() => { /* server down */ });
     dbpProvider.onGenerationChange().catch(() => { /* eval failed */ });
+    if (DashboardPanel.currentPanel) {
+      DashboardPanel.currentPanel.refreshAll().catch(() => { /* refresh failed */ });
+    }
   });
   watcher.start();
   treeProvider.refresh(); // initial load
@@ -301,6 +307,7 @@ export function activate(context: vscode.ExtensionContext): void {
   registerIsarGenCommands(context);
   registerHealthCommands(context, client);
   registerQueryCostCommands(context, client);
+  registerDashboardCommands(context, client, new HealthScorer());
   registerDebugCommands(context, {
     client, treeProvider, treeView, hoverCache, linter,
     logBridge, discovery, serverManager, watcher, codeLensProvider,

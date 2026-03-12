@@ -383,6 +383,23 @@
         "command": "driftViewer.healthScore",
         "title": "Saropa Drift Advisor: Database Health Score",
         "icon": "$(heart)"
+      },
+      {
+        "command": "driftViewer.openDashboard",
+        "title": "Saropa Drift Advisor: Open Dashboard",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "driftViewer.saveDashboard",
+        "title": "Saropa Drift Advisor: Save Dashboard Layout"
+      },
+      {
+        "command": "driftViewer.loadDashboard",
+        "title": "Saropa Drift Advisor: Load Dashboard Layout"
+      },
+      {
+        "command": "driftViewer.deleteDashboard",
+        "title": "Saropa Drift Advisor: Delete Dashboard Layout"
       }
     ],
     "menus": {
@@ -444,6 +461,11 @@
         },
         {
           "command": "driftViewer.healthScore",
+          "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
+          "group": "navigation"
+        },
+        {
+          "command": "driftViewer.openDashboard",
           "when": "view == driftViewer.databaseExplorer && driftViewer.serverConnected",
           "group": "navigation"
         }
