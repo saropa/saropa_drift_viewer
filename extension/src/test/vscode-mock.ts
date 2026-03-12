@@ -89,6 +89,7 @@ export const window = {
     tooltip: '',
     backgroundColor: undefined as any,
     show: () => { /* no-op */ },
+    hide: () => { /* no-op */ },
     dispose: () => { /* no-op */ },
   }),
   withProgress: async (_options: any, task: (progress: any) => Promise<any>) =>
@@ -156,6 +157,12 @@ export const workspace = {
     get: <T>(key: string, defaultValue?: T): T | undefined => defaultValue,
   }),
   onDidChangeConfiguration: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
+  onDidChangeTextDocument: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
+  onDidSaveTextDocument: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
+  onDidOpenTextDocument: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
+  onDidCloseTextDocument: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
+  onDidCreateFiles: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
+  onDidDeleteFiles: (_listener: any) => ({ dispose: () => { /* no-op */ } }),
   openTextDocument: async (options: any) => {
     if (options && typeof options === 'object' && 'content' in options) {
       createdTextDocuments.push(options);
