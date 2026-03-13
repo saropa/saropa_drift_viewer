@@ -72,7 +72,7 @@ export class DriftTreeProvider implements vscode.TreeDataProvider<TreeNode> {
         return [];
       }
       const status = new ConnectionStatusItem(
-        this._client.baseUrl,
+        this._client.connectionDisplayName,
         this._connected,
       );
       this._decorateTableItems();

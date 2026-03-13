@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import {
   DataNarrator, capitalize, formatValue, singularize,
-} from '../narrator/data-narrator';
+} from '../narrator';
 import type { IEntityGraph } from '../narrator/narrator-types';
 
 interface ISqlResult {

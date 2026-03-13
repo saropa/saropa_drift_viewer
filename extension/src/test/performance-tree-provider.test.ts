@@ -278,7 +278,7 @@ describe('PerformanceTreeProvider', () => {
         at: '',
       });
       assert.ok((item.label as string).length <= 50);
-      assert.ok((item.label as string).endsWith('\u2026'));
+      assert.ok((item.label as string).endsWith('...'), 'Truncated SQL should end with ellipsis');
     });
 
     it('should not truncate short SQL', () => {

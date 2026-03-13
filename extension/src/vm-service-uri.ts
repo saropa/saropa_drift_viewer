@@ -9,6 +9,17 @@ import * as vscode from 'vscode';
 const VM_SERVICE_URL_RE =
   /(?:https?|wss?):\/\/[0-9.]+:\d+\/[^\s'")\]]+(?:\/ws)?/gi;
 
+/** WebSocket URI format: ws(s)://host:port/path (path may end with /ws). Used to validate before connect. */
+const VM_WS_URI_RE = /^wss?:\/\/[^\s/]+:\d+\/[^\s]+$/;
+
+/**
+ * Returns true if [uri] looks like a valid VM Service WebSocket URI (ws:// or wss://, host:port, path).
+ * Use before attempting connect to avoid pointless failures and log clearer errors.
+ */
+export function isValidVmServiceUri(uri: string): boolean {
+  return typeof uri === 'string' && uri.length > 10 && VM_WS_URI_RE.test(uri.trim());
+}
+
 /**
  * Parse a line or chunk of debug output for a Dart VM Service URI.
  * Flutter often prints "available at: http://127.0.0.1:PORT/TOKEN/"; WebSocket is ws://HOST:PORT/TOKEN/ws.
@@ -72,14 +83,21 @@ export function getDartOrFlutterSession(): vscode.DebugSession | undefined {
     : undefined;
 }
 
+export interface VmServiceOutputListenerResult {
+  /** Add these to context.subscriptions. */
+  disposables: vscode.Disposable[];
+  /** Call when VM disconnects (e.g. hot restart) so the next URI from adapter output can trigger connect again. */
+  clearReported(sessionId: string): void;
+}
+
 /**
  * Register a listener that parses Dart/Flutter debug adapter output for VM Service URIs.
- * When one is found, calls onVmUriFound(session, wsUri). Use this when getVmServiceUri()
- * returns undefined (adapter doesn't expose URI). Add returned disposables to context.subscriptions.
+ * When one is found, calls onVmUriFound(session, wsUri). Use clearReported(sessionId) when
+ * the VM disconnects so a new URI printed after hot restart can trigger connect again.
  */
 export function registerVmServiceOutputListener(
   onVmUriFound: (session: vscode.DebugSession, wsUri: string) => void,
-): vscode.Disposable[] {
+): VmServiceOutputListenerResult {
   const reported = new Set<string>();
 
   const createTracker = (session: vscode.DebugSession) => {
@@ -107,5 +125,10 @@ export function registerVmServiceOutputListener(
       return createTracker(session);
     },
   });
-  return [dart, flutter];
+  return {
+    disposables: [dart, flutter],
+    clearReported(sessionId: string) {
+      reported.delete(sessionId);
+    },
+  };
 }
