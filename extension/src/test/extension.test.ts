@@ -95,7 +95,7 @@ describe('Extension activation', () => {
     // Impact analysis: analyzeRowImpact (1)
     // Query cost: analyzeQueryCost (1)
     // Total = 146 (count grows as new features are added)
-    assert.strictEqual(subscriptions.length, 150, `expected 150 disposables, got ${subscriptions.length}`);
+    assert.strictEqual(subscriptions.length, 151, `expected 151 disposables, got ${subscriptions.length}`);
   });
 
   it('should register driftViewer.viewTableInPanel command', () => {

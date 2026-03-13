@@ -29,7 +29,7 @@ export interface IndexSuggestion {
   column: string;
   reason: string;
   sql: string;
-  priority: 'high' | 'low';
+  priority: 'high' | 'medium' | 'low';
 }
 
 export interface Anomaly {

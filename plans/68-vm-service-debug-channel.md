@@ -7,14 +7,15 @@
 
 | Area | Status | Notes |
 |------|--------|--------|
-| **Dart VM extensions** | Done | `getHealth`, `getSchemaMetadata`, `getTableFkMeta`, `runSql`, `getGeneration`, **`getPerformance`**, **`clearPerformance`**, **`getAnomalies`**, **`explainSql`** — all delegate to existing handlers. |
-| **Extension VM client** | Done | WebSocket JSON-RPC client; calls all RPCs above. Status bar shows "VM Service" when connected via VM. |
+| **Dart VM extensions** | Done | `getHealth`, `getSchemaMetadata`, `getTableFkMeta`, `runSql`, `getGeneration`, **`getPerformance`**, **`clearPerformance`**, **`getAnomalies`**, **`explainSql`**, **`getIndexSuggestions`** — all delegate to existing handlers. |
+| **Extension VM client** | Done | WebSocket JSON-RPC client; calls all RPCs above (including `getIndexSuggestions` for VM-only Health/diagnostics). Status bar shows "VM Service" when connected via VM. |
 | **VM URI resolution** | Done | (1) `customRequest` and `session.configuration.vmServiceUri`; (2) **parsing debug adapter output** via `registerDebugAdapterTrackerFactory` for `dart`/`flutter`. Unit tests: `vm-service-uri.test.ts` for `parseVmServiceUriFromOutput`. |
 | **Debug lifecycle** | Done | On session start: VM first (URI from API or output), then HTTP discovery. On session end: clear VM client. **Hot restart**: on WebSocket close we clear VM client, setContext, refresh tree (no broken state). |
-| **API over VM** | Extended | Core + generation + **performance**, **anomalies**, **explainSql**, **clearPerformance** over VM. |
+| **API over VM** | Extended | Core + generation + **performance**, **anomalies**, **explainSql**, **clearPerformance**, **indexSuggestions** over VM. |
 | **Panel / Open in browser** | Done (fallback) | When **VM-only** (no HTTP): panel shows fallback message ("Use the Database tree…"); "Open in browser" shows an info message. When HTTP is available, behavior unchanged. |
+| **Connection robustness** | Done | VM URI validated before connect (`isValidVmServiceUri`); **Output > Saropa Drift Advisor** logs connection attempts, success, and failure reasons (timeout, no isolates, health failed, etc.); hot restart clears "reported" so next VM URI from debug output retriggers connect; welcome view points users to Output for troubleshooting. |
 
-So: **core path and nice-to-haves are implemented**. VM URI from output or API; tree and status bar show "VM Service"; hot restart clears state; panel and "Open in browser" show clear messaging when VM-only; extra APIs (performance, anomalies, explain) work over VM.
+So: **core path and nice-to-haves are implemented**. Defensive connection behavior: validation, detailed error logging, auto-retry after hot restart, and troubleshooting guidance. VM URI from output or API; tree and status bar show "VM Service"; hot restart clears state; panel and "Open in browser" show clear messaging when VM-only; extra APIs (performance, anomalies, explain) work over VM.
 
 ### Manual testing (VM Service path)
 

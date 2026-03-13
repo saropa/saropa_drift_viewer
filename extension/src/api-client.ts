@@ -131,13 +131,19 @@ export class DriftApiClient {
   }
 
   async indexSuggestions(): Promise<IndexSuggestion[]> {
+    if (this._vmClient?.connected) {
+      return this._vmClient.getIndexSuggestions();
+    }
     const resp = await fetch(`${this._baseUrl}/api/index-suggestions`, {
       headers: this._headers(),
     });
     if (!resp.ok) {
       throw new Error(`Index suggestions failed: ${resp.status}`);
     }
-    return resp.json() as Promise<IndexSuggestion[]>;
+    // Server returns { suggestions, tablesAnalyzed }; accept that or a top-level array.
+    const data = (await resp.json()) as { suggestions?: IndexSuggestion[] } | IndexSuggestion[];
+    if (Array.isArray(data)) return data;
+    return Array.isArray(data?.suggestions) ? data.suggestions : [];
   }
 
   async anomalies(): Promise<Anomaly[]> {

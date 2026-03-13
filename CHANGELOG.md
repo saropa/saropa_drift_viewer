@@ -10,18 +10,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Open VSX Registry** - [open-vsx.org / extension / saropa / drift-viewer](https://open-vsx.org/extension/saropa/drift-viewer)
 
 ---
-## [1.1.0]
+
+## [Unreleased]
+
+### Added
+
+- **Extension entry point modularization (Batch 5)** — `extension.ts` split into focused setup modules: `extension-providers.ts` (tree, language, file decoration providers), `extension-diagnostics.ts` (diagnostic manager and disable/clear/copy commands), `extension-editing.ts` (change tracker, editing bridge, pending changes), `extension-commands.ts` (all command registration). Main `extension.ts` stays ~125 lines; activate/deactivate orchestrate setup in sequence. Aligns with modularization plan Phase 5.
+- **Index suggestions over VM Service (Plan 68)** — When connected via VM only (e.g. emulator debug), Health Score, health commands, schema linter, and timeline no longer fail: `indexSuggestions()` now uses VM RPC `getIndexSuggestions`. Dart: `AnalyticsHandler.getIndexSuggestionsList()` + `Router.getIndexSuggestionsList()` + `VmServiceBridge` handler; extension: `VmServiceClient.getIndexSuggestions()`, `DriftApiClient` VM branch; HTTP response parsing fixed for `{ suggestions, tablesAnalyzed }` shape.
+
+### Changed
+
+- **Connection log disposal** — Output channel "Saropa Drift Advisor" is now registered in `context.subscriptions` so it is disposed on deactivate.
+
+---
+
+## [1.2.0]
 
 ### Added
 
 - **VM Service as debug channel (Plan 68)** — When a Dart or Flutter debug session is active, the extension tries to connect via the Dart VM Service WebSocket (same channel as the debugger) instead of HTTP port discovery. No adb forward or port scan needed on emulators: connection “just works” when debugging. The app registers `ext.saropa.drift.*` RPCs (getHealth, getSchemaMetadata, getTableFkMeta, runSql) that mirror the HTTP API; the extension uses them when the VM Service URI is available from the debug session. HTTP and discovery remain for “Open in browser” and when not debugging.
 - **VM Service nice-to-haves** — Status bar shows "VM Service" when connected via VM; hot restart clears VM state and refreshes UI (no stuck state); panel and "Open in browser" show a clear fallback/info message when only VM is reachable (no HTTP); performance, anomalies, and explain SQL work over VM; unit tests for `parseVmServiceUriFromOutput`; Plan 68 doc updated with manual test steps.
-- **Android emulator connection** — When no Drift server is found and a Flutter/Dart debug session is active, the extension automatically runs `adb forward tcp:8642 tcp:8642` (or the configured port) and retries discovery so the host can reach the server running inside the emulator. Throttled to one attempt per 60 seconds per workspace.
-- **Forward Port (Android Emulator) command** — Manual command and welcome-view link to run `adb forward` and retry discovery. Shows a progress notification while forwarding. Useful when auto-forward did not run or failed (e.g. adb not on PATH).
+- **Connection robustness (Plan 68)** — VM Service URI validated before connect; **Output > Saropa Drift Advisor** logs connection attempts, success, and failure reasons; after hot restart, next VM URI from debug output auto-retriggers connect; welcome view points to Output for troubleshooting when debugging Flutter/Dart.
 
 ### Fixed
 
 - **Anomaly scan (HTTP)** — Extension now calls `/api/analytics/anomalies` (matches server) and accepts both `{ anomalies: [...] }` and array responses.
+
+---
+
+## [1.1.0]
+
+### Added
+
+- **Android emulator connection** — When no Drift server is found and a Flutter/Dart debug session is active, the extension automatically runs `adb forward tcp:8642 tcp:8642` (or the configured port) and retries discovery so the host can reach the server running inside the emulator. Throttled to one attempt per 60 seconds per workspace.
+- **Forward Port (Android Emulator) command** — Manual command and welcome-view link to run `adb forward` and retry discovery. Shows a progress notification while forwarding. Useful when auto-forward did not run or failed (e.g. adb not on PATH).
 
 ### Changed
 

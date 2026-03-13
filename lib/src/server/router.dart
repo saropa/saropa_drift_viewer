@@ -394,6 +394,14 @@ final class Router {
   Future<Map<String, dynamic>> explainSqlResult(String sql) =>
       _sql.explainSqlResult(_ctx.instrumentedQuery, sql);
 
+  /// Returns index suggestions list for VM service RPC getIndexSuggestions.
+  Future<List<Map<String, dynamic>>> getIndexSuggestionsList() async {
+    final result =
+        await _analytics.getIndexSuggestionsList(_ctx.instrumentedQuery);
+    final list = result['suggestions'];
+    return list is List<Map<String, dynamic>> ? list : <Map<String, dynamic>>[];
+  }
+
   @override
   String toString() => 'Router()';
 }

@@ -99,6 +99,7 @@ export function activate(context: vscode.ExtensionContext): void {
   });
   discovery.onDidChangeServers(refreshStatusBar);
 
+  // On generation change: refresh tree, codelens, linter, diagnostics, badges, timeline, watch, dashboard. Fire-and-forget async to avoid blocking.
   watcher.onDidChange(async () => {
     providers.treeProvider.refresh();
     providers.definitionProvider.clearCache();

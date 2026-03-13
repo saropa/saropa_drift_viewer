@@ -14,118 +14,125 @@ final class AnalyticsHandler {
 
   final ServerContext _ctx;
 
-  /// Analyzes table schemas for missing indexes.
+  /// Returns index suggestions and table count (for HTTP and VM service RPC).
+  Future<Map<String, dynamic>> getIndexSuggestionsList(
+    DriftDebugQuery query,
+  ) async {
+    final tableNames = await ServerContext.getTableNames(query);
+    final suggestions = <Map<String, dynamic>>[];
+
+    for (final tableName in tableNames) {
+      final existingIndexRows = ServerContext.normalizeRows(
+        await query('PRAGMA index_list("$tableName")'),
+      );
+      final indexedColumns = <String>{};
+
+      for (final idx in existingIndexRows) {
+        final idxName = idx['name'] as String?;
+        if (idxName != null) {
+          final idxInfoRows = ServerContext.normalizeRows(
+            await query('PRAGMA index_info("$idxName")'),
+          );
+
+          for (final col in idxInfoRows) {
+            final colName = col['name'] as String?;
+            if (colName != null) indexedColumns.add(colName);
+          }
+        }
+      }
+
+      // Check foreign keys
+      final fkRows = ServerContext.normalizeRows(
+        await query('PRAGMA foreign_key_list("$tableName")'),
+      );
+
+      for (final fk in fkRows) {
+        final fromCol = fk['from'] as String?;
+
+        if (fromCol != null && !indexedColumns.contains(fromCol)) {
+          suggestions.add(<String, dynamic>{
+            'table': tableName,
+            'column': fromCol,
+            'reason': 'Foreign key without index '
+                '(references ${fk['table']}.${fk['to']})',
+            'sql': 'CREATE INDEX idx_${tableName}_$fromCol '
+                'ON "$tableName"("$fromCol");',
+            'priority': 'high',
+          });
+        }
+      }
+
+      // Check column naming patterns
+      final colInfoRows = ServerContext.normalizeRows(
+        await query('PRAGMA table_info("$tableName")'),
+      );
+
+      for (final col in colInfoRows) {
+        final colName = col['name'] as String?;
+        final pk = col['pk'];
+        if (colName != null &&
+            !(pk is int && pk > 0) &&
+            !indexedColumns.contains(colName)) {
+          final alreadySuggested = suggestions.any(
+            (s) => s['table'] == tableName && s['column'] == colName,
+          );
+
+          if (!alreadySuggested &&
+              ServerConstants.reIdSuffix.hasMatch(colName)) {
+            suggestions.add(<String, dynamic>{
+              'table': tableName,
+              'column': colName,
+              'reason': 'Column ending in _id \u2014 likely used in '
+                  'JOINs/WHERE',
+              'sql': 'CREATE INDEX idx_${tableName}_$colName '
+                  'ON "$tableName"("$colName");',
+              'priority': 'medium',
+            });
+          }
+
+          if (!alreadySuggested &&
+              ServerConstants.reDateTimeSuffix.hasMatch(colName)) {
+            suggestions.add(<String, dynamic>{
+              'table': tableName,
+              'column': colName,
+              'reason': 'Date/time column \u2014 often used in '
+                  'ORDER BY or range queries',
+              'sql': 'CREATE INDEX idx_${tableName}_$colName '
+                  'ON "$tableName"("$colName");',
+              'priority': 'low',
+            });
+          }
+        }
+      }
+    }
+
+    const priorityOrder = <String, int>{
+      'high': 0,
+      'medium': 1,
+      'low': 2,
+    };
+
+    suggestions.sort(
+      (a, b) => (priorityOrder[a['priority']] ?? 3)
+          .compareTo(priorityOrder[b['priority']] ?? 3),
+    );
+
+    return <String, dynamic>{
+      'suggestions': suggestions,
+      'tablesAnalyzed': tableNames.length,
+    };
+  }
+
+  /// Handles GET /api/index-suggestions (writes JSON to [response]).
   Future<void> handleIndexSuggestions(
     HttpResponse response,
     DriftDebugQuery query,
   ) async {
     final res = response;
-
     try {
-      final tableNames = await ServerContext.getTableNames(query);
-      final suggestions = <Map<String, dynamic>>[];
-
-      for (final tableName in tableNames) {
-        final existingIndexRows = ServerContext.normalizeRows(
-          await query('PRAGMA index_list("$tableName")'),
-        );
-        final indexedColumns = <String>{};
-
-        for (final idx in existingIndexRows) {
-          final idxName = idx['name'] as String?;
-          if (idxName != null) {
-            final idxInfoRows = ServerContext.normalizeRows(
-              await query('PRAGMA index_info("$idxName")'),
-            );
-
-            for (final col in idxInfoRows) {
-              final colName = col['name'] as String?;
-              if (colName != null) indexedColumns.add(colName);
-            }
-          }
-        }
-
-        // Check foreign keys
-        final fkRows = ServerContext.normalizeRows(
-          await query('PRAGMA foreign_key_list("$tableName")'),
-        );
-
-        for (final fk in fkRows) {
-          final fromCol = fk['from'] as String?;
-
-          if (fromCol != null && !indexedColumns.contains(fromCol)) {
-            suggestions.add(<String, dynamic>{
-              'table': tableName,
-              'column': fromCol,
-              'reason': 'Foreign key without index '
-                  '(references ${fk['table']}.${fk['to']})',
-              'sql': 'CREATE INDEX idx_${tableName}_$fromCol '
-                  'ON "$tableName"("$fromCol");',
-              'priority': 'high',
-            });
-          }
-        }
-
-        // Check column naming patterns
-        final colInfoRows = ServerContext.normalizeRows(
-          await query('PRAGMA table_info("$tableName")'),
-        );
-
-        for (final col in colInfoRows) {
-          final colName = col['name'] as String?;
-          final pk = col['pk'];
-          if (colName != null &&
-              !(pk is int && pk > 0) &&
-              !indexedColumns.contains(colName)) {
-            final alreadySuggested = suggestions.any(
-              (s) => s['table'] == tableName && s['column'] == colName,
-            );
-
-            if (!alreadySuggested &&
-                ServerConstants.reIdSuffix.hasMatch(colName)) {
-              suggestions.add(<String, dynamic>{
-                'table': tableName,
-                'column': colName,
-                'reason': 'Column ending in _id \u2014 likely used in '
-                    'JOINs/WHERE',
-                'sql': 'CREATE INDEX idx_${tableName}_$colName '
-                    'ON "$tableName"("$colName");',
-                'priority': 'medium',
-              });
-            }
-
-            if (!alreadySuggested &&
-                ServerConstants.reDateTimeSuffix.hasMatch(colName)) {
-              suggestions.add(<String, dynamic>{
-                'table': tableName,
-                'column': colName,
-                'reason': 'Date/time column \u2014 often used in '
-                    'ORDER BY or range queries',
-                'sql': 'CREATE INDEX idx_${tableName}_$colName '
-                    'ON "$tableName"("$colName");',
-                'priority': 'low',
-              });
-            }
-          }
-        }
-      }
-
-      const priorityOrder = <String, int>{
-        'high': 0,
-        'medium': 1,
-        'low': 2,
-      };
-
-      suggestions.sort(
-        (a, b) => (priorityOrder[a['priority']] ?? 3)
-            .compareTo(priorityOrder[b['priority']] ?? 3),
-      );
-
+      final result = await getIndexSuggestionsList(query);
       _ctx.setJsonHeaders(res);
-      res.write(jsonEncode(<String, dynamic>{
-        'suggestions': suggestions,
-        'tablesAnalyzed': tableNames.length,
-      }));
+      res.write(jsonEncode(result));
     } on Object catch (error, stack) {
       _ctx.logError(error, stack);
       res.statusCode = HttpStatus.internalServerError;

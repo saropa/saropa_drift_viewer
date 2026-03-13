@@ -413,3 +413,90 @@ After modularization:
 2. **Type Files**: Use `*-types.ts` suffix for pure type definitions
 3. **Barrel Exports**: Use `index.ts` for re-exports when creating subfolders
 4. **Test Fixtures**: Place in `test/fixtures/` with `*-fixtures.ts` suffix
+
+---
+
+## Implementation Progress
+
+**Batch 1 (Phase 1) — done**
+
+- **1.1 Extract CSS**
+  - ✅ `dashboard/dashboard-css.ts` — `getDashboardCss()`; `dashboard-html.ts` now ~110 lines
+  - ✅ `er-diagram/er-diagram-styles.ts` — `getErDiagramCss()`; `er-diagram-html.ts` now ~72 lines
+  - ✅ `import/clipboard-import-styles.ts` — `getClipboardImportCss()`
+  - ✅ `invariants/invariant-styles.ts` — `getInvariantStyles()`
+  - ✅ `narrator/narrator-styles.ts` — `getNarratorCss()`
+  - ✅ `query-cost/query-cost-styles.ts` — `getQueryCostCss()`
+- **1.2 Extract scripts**
+  - ✅ `dashboard/dashboard-scripts.ts` — `getDashboardJs(widgetTypesJson, layoutJson)`
+  - ✅ `er-diagram/er-diagram-script.ts` — `getErDiagramScript(nodesJson, edgesJson)`
+  - ✅ `import/clipboard-import-scripts.ts` — `getClipboardImportScript()`
+- **1.3 Extract types**
+  - ✅ `engines/query-intelligence-types.ts` — `IQueryPattern`, `IPatternIndexSuggestion`, `IJoinPattern`
+  - ✅ `engines/relationship-types.ts` — `IRelationshipNode`, `IRelationshipChain`, `IAffectedTable`, `IDeletePlan`
+  - ✅ `import/clipboard-import-messages.ts` — panel message interfaces and `PanelMessage`
+
+**Batch 2 (Phase 2 — Extract utility functions) — done**
+
+- **2.1 Shared utilities**
+  - ✅ `diagnostics/utils/sql-utils.ts` — `extractTableFromSql`, `truncateSql`, `areSimilarQueries`; used by PerformanceProvider and performance-items
+  - ✅ `diagnostics/utils/dart-file-utils.ts` — `findDartFileForTable`; used by PerformanceProvider, BestPracticeProvider, DataQualityProvider
+  - ✅ `narrator/narrator-utils.ts` — `singularize`, `capitalize`, `formatValue`, `sqlLiteral`; DataNarrator and narrator index use them
+  - ✅ `health/health-utils.ts` — `toGrade`, `sqlId`; HealthScorer uses them, toGrade re-exported from health-scorer
+- **2.2 Import utilities**
+  - ✅ `import/import-fk-validator.ts` — `validateForeignKeys`; import-validator re-exports it
+  - ⬜ `import/import-sql-helpers.ts` — deferred (would require refactoring import-executor inline SQL)
+
+**Batch 3 (Phase 3 — Split large classes) — partially done**
+
+- **3.1 Dashboard panel** — ✅
+  - `dashboard/panel/widget-layout.ts` — `findNextGridX`, `findNextGridY`, `generateId`
+  - `dashboard/panel/widget-crud.ts` — `addWidget`, `removeWidget`, `swapWidgets`, `resizeWidget`, `editWidget`
+  - `dashboard/panel/message-handler.ts` — `handleDashboardMessage`; panel uses it and slimmed to ~185 lines
+- **3.2 Widget registry** — ✅
+  - `dashboard/widgets/widget-renderers.ts` — `renderMiniTable`, `renderSvgChart`
+  - `dashboard/widgets/data-widgets.ts` — tableStats, tablePreview, rowCount
+  - `dashboard/widgets/query-widgets.ts` — queryResult, chart
+  - `dashboard/widgets/monitoring-widgets.ts` — healthScore, invariantStatus, dvrStatus, watchDiff
+  - `dashboard/widgets/utility-widgets.ts` — customText
+  - `dashboard/widget-registry.ts` — composes and exports; `IWidgetDefinition` moved to dashboard-types
+- **3.3 Diagnostic manager** — ✅
+  - `diagnostics/dart-file-parser.ts` — `parseDartFilesInWorkspace()`
+  - `diagnostics/diagnostic-config.ts` — `loadDiagnosticConfig()`
+  - `diagnostics/code-action-provider.ts` — `DiagnosticCodeActionProvider`; diagnostic-manager re-exports it
+- **3.4 Diagnostic codes** — ✅
+  - `diagnostics/codes/schema-codes.ts`, `performance-codes.ts`, `data-quality-codes.ts`, `best-practice-codes.ts`, `naming-codes.ts` (with `SQL_RESERVED_WORDS`, `isSqlReservedWord`, `isSnakeCase`), `runtime-codes.ts`
+  - `diagnostics/codes/index.ts` — composes `DIAGNOSTIC_CODES`, re-exports lookup helpers; `diagnostic-codes.ts` re-exports from `./codes`
+- **3.5 Invariant panel** — ✅
+  - `invariants/invariant-prompts.ts` — `promptAddRule`, `promptCustomRule`, `promptEditRule`, `promptRemoveRule`; panel uses `_getPromptContext()` and calls them
+- **3.6 Import executor** — ✅
+  - `import/import-undo.ts` — `undoImport(client, table, insertedIds, updatedRows, pkColumn)`; `ImportExecutor.undoImport` delegates to it
+  - `import-sql-helpers` — still deferred
+
+**Batch 4 (Phase 4 — Provider checkers) — done**
+
+- **4.1 Performance provider**
+  - `diagnostics/checkers/slow-query-checker.ts` — `checkSlowQueries(issues, perfData, dartFiles)`
+  - `diagnostics/checkers/n-plus-one-checker.ts` — `checkNPlusOnePatterns(issues, perfData, dartFiles)`
+  - `diagnostics/checkers/query-pattern-checker.ts` — `checkQueryPatterns(issues, suggestions, dartFiles)`; performance-provider orchestrates + code actions (~115 lines)
+- **4.2 Schema provider**
+  - `diagnostics/checkers/table-checker.ts` — `checkMissingTableInDb`, `checkExtraTablesInDb`
+  - `diagnostics/checkers/column-checker.ts` — `checkColumnDrift`
+  - `diagnostics/checkers/pk-checker.ts` — `checkMissingPrimaryKey`, `checkTextPrimaryKey`
+  - `diagnostics/checkers/fk-checker.ts` — `checkMissingFkIndexes`
+  - `diagnostics/checkers/anomaly-checker.ts` — `checkAnomalies`; schema-provider orchestrates + code actions (~135 lines)
+- **4.3 Runtime provider**
+  - `diagnostics/runtime/runtime-event-store.ts` — `IRuntimeEvent`, `RuntimeEventStore` (addEvent, prune, clear, hasRecentConnectionError)
+  - `diagnostics/runtime/event-converter.ts` — `eventToIssue(event, workspaceUri)`
+  - `diagnostics/runtime/connection-checker.ts` — `checkConnection(client, issues, workspaceUri, hasRecentConnectionError)`; runtime-provider uses store + converter + checker (~195 lines)
+
+**Batch 5 (Phase 5 — Extension entry point) — done**
+
+- **5.1 Main extension decomposition**
+  - `extension-diagnostics.ts` — `setupDiagnostics(context, client, schemaIntel, queryIntel)` → `{ diagnosticManager }`; registers 6 providers + disable/clear/copy commands + DiagnosticCodeActionProvider
+  - `extension-providers.ts` — `setupProviders(context, client, annotationStore)` → tree view, definition/codelens/hover, legacy linter, file decorations, timeline, watch manager, dbp, task/terminal, log bridge
+  - `extension-editing.ts` — `setupEditing(context, client)` → change tracker, editing bridge, FK navigator, filter store/bridge, pending changes view
+  - `extension-commands.ts` — `registerAllCommands(context, client, deps)`; `CommandRegistrationDeps` extends provider + editing results
+  - `extension.ts` — activate: client + discovery + annotationStore; calls setupProviders, setupDiagnostics, setupEditing; wires watcher + status bar + changeTracker.onDidChange; then registerAllCommands (~125 lines)
+
+**Batch 6** — not started. All tests pass after Batch 5.

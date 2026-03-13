@@ -57,6 +57,10 @@ final class VmServiceBridge {
       '${_kExtPrefix}explainSql',
       _handleExplainSql,
     );
+    developer.registerExtension(
+      '${_kExtPrefix}getIndexSuggestions',
+      _handleGetIndexSuggestions,
+    );
   }
 
   /// Clears the router reference so handlers no longer run after server stop.
@@ -277,6 +281,28 @@ final class VmServiceBridge {
     try {
       final result = await router.explainSqlResult(sql);
       return developer.ServiceExtensionResponse.result(jsonEncode(result));
+    } on Object catch (e) {
+      return developer.ServiceExtensionResponse.error(
+        developer.ServiceExtensionResponse.extensionErrorMin,
+        e.toString(),
+      );
+    }
+  }
+
+  Future<developer.ServiceExtensionResponse> _handleGetIndexSuggestions(
+    String method,
+    Map<String, String> params,
+  ) async {
+    final router = _router;
+    if (router == null) {
+      return developer.ServiceExtensionResponse.error(
+        developer.ServiceExtensionResponse.extensionErrorMin,
+        'Drift server not running',
+      );
+    }
+    try {
+      final list = await router.getIndexSuggestionsList();
+      return developer.ServiceExtensionResponse.result(jsonEncode(list));
     } on Object catch (e) {
       return developer.ServiceExtensionResponse.error(
         developer.ServiceExtensionResponse.extensionErrorMin,

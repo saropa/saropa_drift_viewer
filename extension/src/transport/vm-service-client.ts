@@ -8,6 +8,7 @@ import type {
   Anomaly,
   ForeignKey,
   HealthResponse,
+  IndexSuggestion,
   PerformanceData,
   TableMetadata,
 } from '../api-types';
@@ -177,6 +178,16 @@ export class VmServiceClient {
       throw new Error('Invalid explainSql response');
     }
     return { rows, sql: sqlOut };
+  }
+
+  /** Returns index suggestions (missing FK/column indexes). Plan 68 VM path. */
+  async getIndexSuggestions(): Promise<IndexSuggestion[]> {
+    const raw = await this._callExtension('getIndexSuggestions', {});
+    const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!Array.isArray(arr)) {
+      throw new Error('Invalid getIndexSuggestions response');
+    }
+    return arr as IndexSuggestion[];
   }
 
   private _callExtension(
