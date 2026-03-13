@@ -60,6 +60,51 @@ EXTENSION = TargetConfig(
 # ── Version read / write ─────────────────────────────────
 
 
+_SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
+
+
+def _parse_semver_tuple(version: str) -> tuple[int, int, int]:
+    """Parse a semver string into (major, minor, patch) for comparison."""
+    parts = version.split(".")
+    return (int(parts[0]), int(parts[1]), int(parts[2])) if len(parts) == 3 else (0, 0, 0)
+
+
+def _get_changelog_max_version() -> str | None:
+    """Return the highest version from ## [x.y.z] headings in CHANGELOG.md."""
+    versions: list[str] = []
+    try:
+        with open(CHANGELOG_PATH, encoding="utf-8") as f:
+            for line in f:
+                m = re.match(r"^## \[(\d+\.\d+\.\d+)\]", line)
+                if m:
+                    versions.append(m.group(1))
+    except OSError:
+        return None
+    if not versions:
+        return None
+    return max(versions, key=_parse_semver_tuple)
+
+
+def read_max_version() -> str:
+    """Return the largest version from pubspec.yaml, package.json, and CHANGELOG.
+
+    Used as the canonical version for the extension so a stale package.json
+    does not override pubspec or CHANGELOG. Returns \"unknown\" if no valid
+    version is found in any source.
+    """
+    candidates: list[str] = []
+    for config in (DART, EXTENSION):
+        v = read_version(config)
+        if v != "unknown" and _SEMVER_RE.match(v):
+            candidates.append(v)
+    cl_max = _get_changelog_max_version()
+    if cl_max:
+        candidates.append(cl_max)
+    if not candidates:
+        return "unknown"
+    return max(candidates, key=_parse_semver_tuple)
+
+
 def read_version(config: TargetConfig) -> str:
     """Read the current version from the target's version file.
 

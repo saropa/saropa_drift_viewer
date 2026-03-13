@@ -49,8 +49,8 @@ final class PerformanceHandler {
         'totalMs': total,
       };
     }).toList()
-      ..sort((a, b) => ((b['totalMs'] as int?) ?? 0)
-          .compareTo((a['totalMs'] as int?) ?? 0));
+      ..sort((a, b) =>
+          ((b['totalMs'] as int?) ?? 0).compareTo((a['totalMs'] as int?) ?? 0));
 
     return <String, dynamic>{
       'totalQueries': totalQueries,

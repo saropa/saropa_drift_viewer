@@ -42,7 +42,7 @@ Debug sessions can connect over the Dart VM Service instead of HTTP—no port fo
 
 ---
 
-## [1.1.0]
+## [1.3.0]
 
 Android emulator support: automatic port forwarding when debugging so the extension can reach the Drift server inside the emulator.
 

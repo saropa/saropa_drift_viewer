@@ -126,10 +126,9 @@ final class SchemaHandler {
                     r[ServerConstants.jsonKeyName] ?? '',
                 ServerConstants.jsonKeyType:
                     r[ServerConstants.jsonKeyType] ?? '',
-                ServerConstants.jsonKeyPk:
-                    (r[ServerConstants.jsonKeyPk] is int)
-                        ? r[ServerConstants.jsonKeyPk] != 0
-                        : false,
+                ServerConstants.jsonKeyPk: (r[ServerConstants.jsonKeyPk] is int)
+                    ? r[ServerConstants.jsonKeyPk] != 0
+                    : false,
               })
           .toList();
       final countRows = ServerContext.normalizeRows(

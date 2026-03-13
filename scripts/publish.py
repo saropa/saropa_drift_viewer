@@ -118,8 +118,8 @@ def parse_args() -> argparse.Namespace:
 def _read_banner_version(target: str) -> str:
     """Read the version to display in the banner (target-appropriate)."""
     if target in ("extension", "openvsx"):
-        from modules.target_config import EXTENSION, read_version
-        return read_version(EXTENSION)
+        from modules.target_config import read_max_version
+        return read_max_version()
     from modules.target_config import DART, read_version
     return read_version(DART)
 

@@ -486,13 +486,29 @@ def validate_version_changelog(
     config: TargetConfig | None = None,
 ) -> tuple[str, bool]:
     """Validate version, resolve tag conflicts, confirm, and stamp CHANGELOG."""
-    label = _version_file_label(config)
+    from modules.target_config import DART, EXTENSION, read_max_version, read_version, write_version
 
-    from modules.target_config import EXTENSION, read_version
-    pkg_version = read_version(config if config is not None else EXTENSION)
-    if pkg_version == "unknown":
-        fail(f"Could not read version from {label}")
-        return pkg_version, False
+    cfg = config if config is not None else EXTENSION
+    label = _version_file_label(cfg)
+
+    # Extension: use max of pubspec, package.json, and CHANGELOG so a stale
+    # package.json cannot override the canonical version; then sync both files.
+    if cfg.name == "extension":
+        pkg_version = read_max_version()
+        if pkg_version == "unknown":
+            fail("Could not read version from pubspec.yaml, package.json, or CHANGELOG.md")
+            return pkg_version, False
+        # Sync version files to the resolved max so they stay in sync.
+        for target in (DART, EXTENSION):
+            current = read_version(target)
+            if current != pkg_version:
+                if write_version(target, pkg_version):
+                    fix(f"{_version_file_label(target)}: {current} -> {C.WHITE}{pkg_version}{C.RESET} (synced)")
+    else:
+        pkg_version = read_version(cfg)
+        if pkg_version == "unknown":
+            fail(f"Could not read version from {label}")
+            return pkg_version, False
 
     max_cl = _get_changelog_max_version(config)
     if max_cl and _parse_semver(pkg_version) < _parse_semver(max_cl):
@@ -547,31 +563,19 @@ def validate_version_changelog(
 
 
 def sync_package_json_to_pubspec() -> bool:
-    """Sync package.json version to match the highest of pubspec / CHANGELOG.
-
-    The CHANGELOG is the source of truth for the intended next version.
-    If CHANGELOG is ahead, both files are synced up.
-    """
-    from modules.target_config import DART, EXTENSION, read_version, write_version
+    """Sync pubspec.yaml and package.json to the max of pubspec, package.json, and CHANGELOG."""
+    from modules.target_config import DART, EXTENSION, read_max_version, read_version, write_version
+    target_ver = read_max_version()
+    if target_ver == "unknown":
+        fail("Could not read version from pubspec.yaml, package.json, or CHANGELOG.md")
+        return False
     dart_ver = read_version(DART)
-    if dart_ver == "unknown":
-        fail("Could not read version from pubspec.yaml")
-        return False
-
-    # Use the highest version across pubspec + CHANGELOG
-    max_cl = _get_changelog_max_version(DART)
-    target_ver = dart_ver
-    if max_cl and _parse_semver(max_cl) > _parse_semver(dart_ver):
-        if not write_version(DART, max_cl):
-            return False
-        fix(f"pubspec.yaml: {dart_ver} -> {C.WHITE}{max_cl}{C.RESET} (synced to CHANGELOG)")
-        target_ver = max_cl
-
     ext_ver = read_version(EXTENSION)
-    if ext_ver == target_ver:
-        ok(f"package.json already at {target_ver}")
+    if dart_ver == target_ver and ext_ver == target_ver:
+        ok(f"pubspec.yaml and package.json already at {target_ver}")
         return True
-    if not write_version(EXTENSION, target_ver):
-        return False
-    fix(f"package.json: {ext_ver} -> {C.WHITE}{target_ver}{C.RESET}")
+    if dart_ver != target_ver and write_version(DART, target_ver):
+        fix(f"pubspec.yaml: {dart_ver} -> {C.WHITE}{target_ver}{C.RESET}")
+    if ext_ver != target_ver and write_version(EXTENSION, target_ver):
+        fix(f"package.json: {ext_ver} -> {C.WHITE}{target_ver}{C.RESET}")
     return True
