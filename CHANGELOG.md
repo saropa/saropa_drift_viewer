@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [1.3.0]
+
+Extension code is split into focused modules, and index-based features (Health Score, schema linter, timeline) now work when connected only via the VM Service—e.g. on emulator without HTTP.
 
 ### Added
 
@@ -25,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## [1.2.0]
+
+Debug sessions can connect over the Dart VM Service instead of HTTP—no port forwarding or discovery needed when you're already debugging.
 
 ### Added
 
@@ -40,6 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.0]
 
+Android emulator support: automatic port forwarding when debugging so the extension can reach the Drift server inside the emulator.
+
 ### Added
 
 - **Android emulator connection** — When no Drift server is found and a Flutter/Dart debug session is active, the extension automatically runs `adb forward tcp:8642 tcp:8642` (or the configured port) and retries discovery so the host can reach the server running inside the emulator. Throttled to one attempt per 60 seconds per workspace.
@@ -52,6 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## [1.0.4]
+
+Changelog version order corrected; no functional changes.
 
 ### Fixed
 
