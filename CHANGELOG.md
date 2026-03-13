@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.3]
+## [1.1.0]
 
 Improve the first-run experience with a helpful welcome screen when disconnected, and make the extension easier to discover on the VS Code Marketplace.
 
