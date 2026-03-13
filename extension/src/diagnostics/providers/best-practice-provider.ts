@@ -8,6 +8,7 @@ import type {
   IDiagnosticIssue,
   IDiagnosticProvider,
 } from '../diagnostic-types';
+import { findDartFileForTable } from '../utils/dart-file-utils';
 
 /**
  * Best practice diagnostic provider.
@@ -239,7 +240,7 @@ export class BestPracticeProvider implements IDiagnosticProvider {
           reportedCycles.add(cycleKey);
 
           const firstTable = cycle[0];
-          const dartFile = this._findDartFileForTable(dartFiles, firstTable);
+          const dartFile = findDartFileForTable(dartFiles, firstTable);
           if (dartFile) {
             const dartTable = dartFile.tables.find(
               (t) => t.sqlTableName === firstTable,
@@ -259,14 +260,5 @@ export class BestPracticeProvider implements IDiagnosticProvider {
         }
       }
     });
-  }
-
-  private _findDartFileForTable(
-    files: IDartFileInfo[],
-    tableName: string,
-  ): IDartFileInfo | undefined {
-    return files.find((f) =>
-      f.tables.some((t) => t.sqlTableName.toLowerCase() === tableName.toLowerCase()),
-    );
   }
 }

@@ -7,6 +7,7 @@ import type {
   IDiagnosticIssue,
   IDiagnosticProvider,
 } from '../diagnostic-types';
+import { findDartFileForTable } from '../utils/dart-file-utils';
 
 /** Threshold for high null rate warning (percentage). */
 const HIGH_NULL_RATE_THRESHOLD = 50;
@@ -123,7 +124,7 @@ export class DataQualityProvider implements IDiagnosticProvider {
   ): void {
     for (const table of tables) {
       if (table.rowCount === 0) {
-        const dartFile = this._findDartFileForTable(dartFiles, table.name);
+        const dartFile = findDartFileForTable(dartFiles, table.name);
         if (!dartFile) continue;
 
         const dartTable = dartFile.tables.find(
@@ -158,7 +159,7 @@ export class DataQualityProvider implements IDiagnosticProvider {
       const percentage = (table.rowCount / totalRows) * 100;
 
       if (percentage > DATA_SKEW_THRESHOLD) {
-        const dartFile = this._findDartFileForTable(dartFiles, table.table);
+        const dartFile = findDartFileForTable(dartFiles, table.table);
         if (!dartFile) continue;
 
         const dartTable = dartFile.tables.find(
@@ -186,7 +187,7 @@ export class DataQualityProvider implements IDiagnosticProvider {
     for (const table of tables) {
       if (table.rowCount < MIN_ROWS_FOR_ANALYSIS) continue;
 
-      const dartFile = this._findDartFileForTable(ctx.dartFiles, table.name);
+      const dartFile = findDartFileForTable(ctx.dartFiles, table.name);
       if (!dartFile) continue;
 
       const dartTable = dartFile.tables.find(
@@ -253,14 +254,5 @@ export class DataQualityProvider implements IDiagnosticProvider {
 
   private _escapeSql(name: string): string {
     return name.replace(/"/g, '""');
-  }
-
-  private _findDartFileForTable(
-    files: IDartFileInfo[],
-    tableName: string,
-  ): IDartFileInfo | undefined {
-    return files.find((f) =>
-      f.tables.some((t) => t.sqlTableName.toLowerCase() === tableName.toLowerCase()),
-    );
   }
 }

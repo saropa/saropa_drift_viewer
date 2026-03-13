@@ -47,6 +47,33 @@ final class TableHandler {
     await res.close();
   }
 
+  /// Returns FK metadata for a table (for VM service RPC).
+  /// Same shape as GET `/api/table/<name>/fk-meta` response body.
+  Future<List<Map<String, dynamic>>> getTableFkMetaList({
+    required DriftDebugQuery query,
+    required String tableName,
+  }) async {
+    final List<Map<String, dynamic>> fkRows = ServerContext.normalizeRows(
+      await query('PRAGMA foreign_key_list("$tableName")'),
+    );
+    return fkRows
+        .map((r) {
+          final fromCol = r[ServerConstants.pragmaFrom] as String?;
+          final toTable = r[ServerConstants.jsonKeyTable] as String?;
+          final toCol = r[ServerConstants.pragmaTo] as String?;
+          if (fromCol == null || toTable == null || toCol == null) {
+            return null;
+          }
+          return <String, dynamic>{
+            ServerConstants.fkFromColumn: fromCol,
+            ServerConstants.fkToTable: toTable,
+            ServerConstants.fkToColumn: toCol,
+          };
+        })
+        .whereType<Map<String, dynamic>>()
+        .toList();
+  }
+
   /// Returns FK metadata for GET `/api/table/<name>/fk-meta`.
   Future<void> sendTableFkMeta({
     required HttpResponse response,
@@ -57,25 +84,7 @@ final class TableHandler {
     if (!await _ctx.requireKnownTable(
         response: res, queryFn: query, tableName: tableName)) return;
     try {
-      final List<Map<String, dynamic>> fkRows = ServerContext.normalizeRows(
-        await query('PRAGMA foreign_key_list("$tableName")'),
-      );
-      final List<Map<String, dynamic>> fks = fkRows
-          .map((r) {
-            final fromCol = r[ServerConstants.pragmaFrom] as String?;
-            final toTable = r[ServerConstants.jsonKeyTable] as String?;
-            final toCol = r[ServerConstants.pragmaTo] as String?;
-            if (fromCol == null || toTable == null || toCol == null) {
-              return null;
-            }
-            return <String, dynamic>{
-              ServerConstants.fkFromColumn: fromCol,
-              ServerConstants.fkToTable: toTable,
-              ServerConstants.fkToColumn: toCol,
-            };
-          })
-          .whereType<Map<String, dynamic>>()
-          .toList();
+      final fks = await getTableFkMetaList(query: query, tableName: tableName);
       _ctx.setJsonHeaders(res);
       res.write(jsonEncode(fks));
       await res.close();

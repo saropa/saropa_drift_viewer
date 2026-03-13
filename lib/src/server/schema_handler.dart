@@ -108,6 +108,48 @@ final class SchemaHandler {
     }
   }
 
+  /// Returns schema metadata as a list of table maps (for VM service RPC).
+  /// Same shape as GET /api/schema/metadata response body.
+  Future<List<Map<String, dynamic>>> getSchemaMetadataList(
+    DriftDebugQuery query,
+  ) async {
+    final tableNames = await ServerContext.getTableNames(query);
+    final tables = <Map<String, dynamic>>[];
+
+    for (final tableName in tableNames) {
+      final infoRows = ServerContext.normalizeRows(
+        await query('PRAGMA table_info("$tableName")'),
+      );
+      final columns = infoRows
+          .map((r) => <String, dynamic>{
+                ServerConstants.jsonKeyName:
+                    r[ServerConstants.jsonKeyName] ?? '',
+                ServerConstants.jsonKeyType:
+                    r[ServerConstants.jsonKeyType] ?? '',
+                ServerConstants.jsonKeyPk:
+                    (r[ServerConstants.jsonKeyPk] is int)
+                        ? r[ServerConstants.jsonKeyPk] != 0
+                        : false,
+              })
+          .toList();
+      final countRows = ServerContext.normalizeRows(
+        await query(
+          'SELECT COUNT(*) AS '
+          '${ServerConstants.jsonKeyCountColumn} '
+          'FROM "$tableName"',
+        ),
+      );
+      final count = ServerContext.extractCountFromRows(countRows);
+
+      tables.add(<String, dynamic>{
+        ServerConstants.jsonKeyName: tableName,
+        ServerConstants.jsonKeyColumns: columns,
+        ServerConstants.jsonKeyRowCount: count,
+      });
+    }
+    return tables;
+  }
+
   /// Sends schema metadata for GET /api/schema/metadata.
   Future<void> sendSchemaMetadata(
     HttpResponse response,
@@ -116,41 +158,7 @@ final class SchemaHandler {
     final res = response;
 
     try {
-      final tableNames = await ServerContext.getTableNames(query);
-      final tables = <Map<String, dynamic>>[];
-
-      for (final tableName in tableNames) {
-        final infoRows = ServerContext.normalizeRows(
-          await query('PRAGMA table_info("$tableName")'),
-        );
-        final columns = infoRows
-            .map((r) => <String, dynamic>{
-                  ServerConstants.jsonKeyName:
-                      r[ServerConstants.jsonKeyName] ?? '',
-                  ServerConstants.jsonKeyType:
-                      r[ServerConstants.jsonKeyType] ?? '',
-                  ServerConstants.jsonKeyPk:
-                      (r[ServerConstants.jsonKeyPk] is int)
-                          ? r[ServerConstants.jsonKeyPk] != 0
-                          : false,
-                })
-            .toList();
-        final countRows = ServerContext.normalizeRows(
-          await query(
-            'SELECT COUNT(*) AS '
-            '${ServerConstants.jsonKeyCountColumn} '
-            'FROM "$tableName"',
-          ),
-        );
-        final count = ServerContext.extractCountFromRows(countRows);
-
-        tables.add(<String, dynamic>{
-          ServerConstants.jsonKeyName: tableName,
-          ServerConstants.jsonKeyColumns: columns,
-          ServerConstants.jsonKeyRowCount: count,
-        });
-      }
-
+      final tables = await getSchemaMetadataList(query);
       _ctx.setJsonHeaders(res);
       res.write(
           jsonEncode(<String, dynamic>{ServerConstants.jsonKeyTables: tables}));

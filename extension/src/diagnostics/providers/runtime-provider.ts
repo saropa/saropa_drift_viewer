@@ -1,3 +1,9 @@
+/**
+ * Runtime diagnostic provider.
+ * Reports runtime issues: data breakpoints, row alerts, connection errors.
+ * Event store, event→issue conversion, and connection check live in diagnostics/runtime/.
+ */
+
 import * as vscode from 'vscode';
 import type { DriftApiClient } from '../../api-client';
 import type {
@@ -6,40 +12,22 @@ import type {
   IDiagnosticIssue,
   IDiagnosticProvider,
 } from '../diagnostic-types';
+import { checkConnection } from '../runtime/connection-checker';
+import { eventToIssue } from '../runtime/event-converter';
+import type { IRuntimeEvent } from '../runtime/runtime-event-store';
+import { RuntimeEventStore } from '../runtime/runtime-event-store';
 
-/**
- * Runtime event for tracking data changes.
- */
-export interface IRuntimeEvent {
-  type: 'breakpoint-hit' | 'row-inserted' | 'row-deleted' | 'connection-error';
-  table?: string;
-  message: string;
-  timestamp: number;
-  count?: number;
-}
+export type { IRuntimeEvent } from '../runtime/runtime-event-store';
 
-/**
- * Runtime diagnostic provider.
- * Reports runtime issues including:
- * - Data breakpoint hits
- * - Row insert/delete alerts (when enabled)
- * - Connection errors
- */
 export class RuntimeProvider implements IDiagnosticProvider {
   readonly id = 'runtime';
   readonly category: DiagnosticCategory = 'runtime';
 
-  private readonly _events: IRuntimeEvent[] = [];
-  private readonly _maxEvents = 100;
-  private readonly _eventTtlMs = 5 * 60 * 1000; // 5 minutes
-
+  private readonly _store = new RuntimeEventStore();
   private _workspaceUri: vscode.Uri | undefined;
 
-  /**
-   * Record a data breakpoint hit for diagnostic reporting.
-   */
   recordBreakpointHit(table: string, message: string): void {
-    this._addEvent({
+    this._store.addEvent({
       type: 'breakpoint-hit',
       table,
       message,
@@ -47,11 +35,8 @@ export class RuntimeProvider implements IDiagnosticProvider {
     });
   }
 
-  /**
-   * Record row insertions for diagnostic reporting.
-   */
   recordRowsInserted(table: string, count: number): void {
-    this._addEvent({
+    this._store.addEvent({
       type: 'row-inserted',
       table,
       message: `${count} row(s) inserted into "${table}"`,
@@ -60,11 +45,8 @@ export class RuntimeProvider implements IDiagnosticProvider {
     });
   }
 
-  /**
-   * Record row deletions for diagnostic reporting.
-   */
   recordRowsDeleted(table: string, count: number): void {
-    this._addEvent({
+    this._store.addEvent({
       type: 'row-deleted',
       table,
       message: `${count} row(s) deleted from "${table}"`,
@@ -73,38 +55,27 @@ export class RuntimeProvider implements IDiagnosticProvider {
     });
   }
 
-  /**
-   * Record a connection error for diagnostic reporting.
-   */
   recordConnectionError(message: string): void {
-    this._addEvent({
+    this._store.addEvent({
       type: 'connection-error',
       message,
       timestamp: Date.now(),
     });
   }
 
-  /**
-   * Clear all recorded events.
-   */
   clearEvents(): void {
-    this._events.length = 0;
+    this._store.clearEvents();
   }
 
-  /**
-   * Get all current events (for testing).
-   */
   get events(): readonly IRuntimeEvent[] {
-    return this._events;
+    return this._store.events;
   }
 
   async collectDiagnostics(ctx: IDiagnosticContext): Promise<IDiagnosticIssue[]> {
     const issues: IDiagnosticIssue[] = [];
 
-    // Prune old events
-    this._pruneOldEvents();
+    this._store.pruneOldEvents();
 
-    // Find workspace root for diagnostic location
     if (!this._workspaceUri) {
       const folders = vscode.workspace.workspaceFolders;
       if (folders && folders.length > 0) {
@@ -116,16 +87,19 @@ export class RuntimeProvider implements IDiagnosticProvider {
       return issues;
     }
 
-    // Convert recent events to diagnostics
-    for (const event of this._events) {
-      const issue = this._eventToIssue(event);
+    for (const event of this._store.events) {
+      const issue = eventToIssue(event, this._workspaceUri);
       if (issue) {
         issues.push(issue);
       }
     }
 
-    // Check connection status
-    await this._checkConnection(ctx.client, issues);
+    await checkConnection(
+      ctx.client,
+      issues,
+      this._workspaceUri,
+      this._store.hasRecentConnectionError(),
+    );
 
     return issues;
   }
@@ -137,7 +111,6 @@ export class RuntimeProvider implements IDiagnosticProvider {
     const actions: vscode.CodeAction[] = [];
     const code = diag.code as string;
 
-    // Add "Disable this rule" action
     const disableAction = new vscode.CodeAction(
       `Disable "${code}" rule`,
       vscode.CodeActionKind.QuickFix,
@@ -162,7 +135,7 @@ export class RuntimeProvider implements IDiagnosticProvider {
     }
 
     if (code === 'row-inserted-alert' || code === 'row-deleted-alert') {
-      const data = (diag as any).data;
+      const data = (diag as vscode.Diagnostic & { data?: { table?: string } }).data;
       if (data?.table) {
         const viewAction = new vscode.CodeAction(
           `View "${data.table}" Table`,
@@ -216,106 +189,6 @@ export class RuntimeProvider implements IDiagnosticProvider {
   }
 
   dispose(): void {
-    this._events.length = 0;
-  }
-
-  // --- Private --------------------------------------------------------------
-
-  private _addEvent(event: IRuntimeEvent): void {
-    this._events.unshift(event);
-
-    // Trim to max size
-    if (this._events.length > this._maxEvents) {
-      this._events.length = this._maxEvents;
-    }
-  }
-
-  private _pruneOldEvents(): void {
-    const cutoff = Date.now() - this._eventTtlMs;
-    while (this._events.length > 0 && this._events[this._events.length - 1].timestamp < cutoff) {
-      this._events.pop();
-    }
-  }
-
-  private _eventToIssue(event: IRuntimeEvent): IDiagnosticIssue | undefined {
-    if (!this._workspaceUri) {
-      return undefined;
-    }
-
-    const baseRange = new vscode.Range(0, 0, 0, 0);
-
-    switch (event.type) {
-      case 'breakpoint-hit':
-        return {
-          code: 'data-breakpoint-hit',
-          message: `Data breakpoint fired: ${event.message}`,
-          fileUri: this._workspaceUri,
-          range: baseRange,
-          severity: vscode.DiagnosticSeverity.Warning,
-          data: { table: event.table },
-        };
-
-      case 'row-inserted':
-        return {
-          code: 'row-inserted-alert',
-          message: event.message,
-          fileUri: this._workspaceUri,
-          range: baseRange,
-          severity: vscode.DiagnosticSeverity.Information,
-          data: { table: event.table, count: event.count },
-        };
-
-      case 'row-deleted':
-        return {
-          code: 'row-deleted-alert',
-          message: event.message,
-          fileUri: this._workspaceUri,
-          range: baseRange,
-          severity: vscode.DiagnosticSeverity.Information,
-          data: { table: event.table, count: event.count },
-        };
-
-      case 'connection-error':
-        return {
-          code: 'connection-error',
-          message: event.message,
-          fileUri: this._workspaceUri,
-          range: baseRange,
-          severity: vscode.DiagnosticSeverity.Error,
-        };
-
-      default:
-        return undefined;
-    }
-  }
-
-  private async _checkConnection(
-    client: DriftApiClient,
-    issues: IDiagnosticIssue[],
-  ): Promise<void> {
-    if (!this._workspaceUri) {
-      return;
-    }
-
-    try {
-      // Quick check via generation endpoint
-      await client.generation(0);
-    } catch (err) {
-      // Only add if not already tracked via recordConnectionError
-      const hasConnectionError = this._events.some(
-        (e) => e.type === 'connection-error' && Date.now() - e.timestamp < 30000,
-      );
-
-      if (!hasConnectionError) {
-        const message = err instanceof Error ? err.message : 'Unknown connection error';
-        issues.push({
-          code: 'connection-error',
-          message: `Failed to connect to Drift server: ${message}`,
-          fileUri: this._workspaceUri,
-          range: new vscode.Range(0, 0, 0, 0),
-          severity: vscode.DiagnosticSeverity.Error,
-        });
-      }
-    }
+    this._store.clearEvents();
   }
 }

@@ -2,19 +2,17 @@ import * as vscode from 'vscode';
 import type { DriftApiClient } from '../api-client';
 import type { SchemaIntelligence } from '../engines/schema-intelligence';
 import type { QueryIntelligence } from '../engines/query-intelligence';
-import { parseDartTables } from '../schema-diff/dart-parser';
 import { DIAGNOSTIC_CODES } from './diagnostic-codes';
 import {
-  DEFAULT_DIAGNOSTIC_CONFIG,
   DIAGNOSTIC_COLLECTION_NAME,
   DIAGNOSTIC_PREFIX,
-  type DiagnosticCategory,
-  type IDartFileInfo,
   type IDiagnosticConfig,
   type IDiagnosticContext,
   type IDiagnosticIssue,
   type IDiagnosticProvider,
 } from './diagnostic-types';
+import { parseDartFilesInWorkspace } from './dart-file-parser';
+import { loadDiagnosticConfig } from './diagnostic-config';
 
 /** Minimum interval between refreshes (ms). */
 const MIN_REFRESH_INTERVAL_MS = 5000;
@@ -100,7 +98,7 @@ export class DiagnosticManager implements vscode.Disposable {
     this._lastRefresh = now;
 
     try {
-      const config = this._loadConfig();
+      const config = loadDiagnosticConfig();
       if (!config.enabled) {
         this._collection.clear();
         return;
@@ -209,7 +207,7 @@ export class DiagnosticManager implements vscode.Disposable {
   private async _buildContext(
     config: IDiagnosticConfig,
   ): Promise<IDiagnosticContext> {
-    const dartFiles = await this._parseDartFiles();
+    const dartFiles = await parseDartFilesInWorkspace();
 
     return {
       client: this._client,
@@ -220,81 +218,10 @@ export class DiagnosticManager implements vscode.Disposable {
     };
   }
 
-  private async _parseDartFiles(): Promise<IDartFileInfo[]> {
-    const dartUris = await vscode.workspace.findFiles(
-      '**/*.dart',
-      '**/build/**',
-    );
-    const files: IDartFileInfo[] = [];
-
-    for (const uri of dartUris) {
-      try {
-        const doc = await vscode.workspace.openTextDocument(uri);
-        const text = doc.getText();
-        const tables = parseDartTables(text, uri.toString());
-
-        if (tables.length > 0) {
-          files.push({ uri, text, tables });
-        }
-      } catch {
-        // Skip files that can't be read
-      }
-    }
-
-    return files;
-  }
-
-  private _loadConfig(): IDiagnosticConfig {
-    const cfg = vscode.workspace.getConfiguration('driftViewer.diagnostics');
-
-    const categories: Record<DiagnosticCategory, boolean> = {
-      schema: cfg.get('categories.schema', DEFAULT_DIAGNOSTIC_CONFIG.categories.schema),
-      performance: cfg.get('categories.performance', DEFAULT_DIAGNOSTIC_CONFIG.categories.performance),
-      dataQuality: cfg.get('categories.dataQuality', DEFAULT_DIAGNOSTIC_CONFIG.categories.dataQuality),
-      bestPractices: cfg.get('categories.bestPractices', DEFAULT_DIAGNOSTIC_CONFIG.categories.bestPractices),
-      naming: cfg.get('categories.naming', DEFAULT_DIAGNOSTIC_CONFIG.categories.naming),
-      runtime: cfg.get('categories.runtime', DEFAULT_DIAGNOSTIC_CONFIG.categories.runtime),
-    };
-
-    const severityOverrides: Record<string, vscode.DiagnosticSeverity> = {};
-    const overridesRaw = cfg.get<Record<string, string>>('severityOverrides', {});
-    for (const [code, sev] of Object.entries(overridesRaw)) {
-      severityOverrides[code] = this._parseSeverity(sev);
-    }
-
-    const disabledRulesArray = cfg.get<string[]>('disabledRules', []);
-    const disabledRules = new Set(disabledRulesArray);
-
-    return {
-      enabled: cfg.get('enabled', DEFAULT_DIAGNOSTIC_CONFIG.enabled),
-      refreshOnSave: cfg.get('refreshOnSave', DEFAULT_DIAGNOSTIC_CONFIG.refreshOnSave),
-      refreshIntervalMs: cfg.get('refreshIntervalMs', DEFAULT_DIAGNOSTIC_CONFIG.refreshIntervalMs),
-      categories,
-      severityOverrides,
-      disabledRules,
-    };
-  }
-
-  private _parseSeverity(sev: string): vscode.DiagnosticSeverity {
-    switch (sev.toLowerCase()) {
-      case 'error':
-        return vscode.DiagnosticSeverity.Error;
-      case 'warning':
-        return vscode.DiagnosticSeverity.Warning;
-      case 'information':
-      case 'info':
-        return vscode.DiagnosticSeverity.Information;
-      case 'hint':
-        return vscode.DiagnosticSeverity.Hint;
-      default:
-        return vscode.DiagnosticSeverity.Warning;
-    }
-  }
-
   private _setupListeners(): void {
     this._disposables.push(
       vscode.workspace.onDidSaveTextDocument((doc) => {
-        const config = this._loadConfig();
+        const config = loadDiagnosticConfig();
         if (config.refreshOnSave && doc.languageId === 'dart') {
           this._scheduleRefresh(MIN_REFRESH_INTERVAL_MS);
         }
@@ -338,30 +265,4 @@ export class DiagnosticManager implements vscode.Disposable {
   }
 }
 
-/**
- * Code action provider that delegates to registered diagnostic providers.
- */
-export class DiagnosticCodeActionProvider implements vscode.CodeActionProvider {
-  constructor(private readonly _manager: DiagnosticManager) {}
-
-  provideCodeActions(
-    document: vscode.TextDocument,
-    _range: vscode.Range | vscode.Selection,
-    context: vscode.CodeActionContext,
-  ): vscode.CodeAction[] {
-    const actions: vscode.CodeAction[] = [];
-
-    for (const diag of context.diagnostics) {
-      if (diag.source !== 'Drift Advisor') {
-        continue;
-      }
-      const providerActions = this._manager.provideCodeActions(diag, document);
-      for (const action of providerActions) {
-        action.diagnostics = [diag];
-        actions.push(action);
-      }
-    }
-
-    return actions;
-  }
-}
+export { DiagnosticCodeActionProvider } from './code-action-provider';

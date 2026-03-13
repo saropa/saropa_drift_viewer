@@ -27,6 +27,12 @@ final class GenerationHandler {
     await res.close();
   }
 
+  /// Returns current generation after checking for data changes (for VM service RPC).
+  Future<int> getCurrentGeneration() async {
+    await _ctx.checkDataChange();
+    return _ctx.generation;
+  }
+
   /// Handles GET /api/generation. Returns current generation. Query
   /// parameter `since` triggers long-poll until generation > since or
   /// timeout.
