@@ -4,7 +4,8 @@ import type { ServerDiscovery } from './server-discovery';
 import type { ServerManager } from './server-manager';
 
 /**
- * Update the status bar with connection state. When [client] is provided and
+ * Update the status bar with connection state. When the extension is disabled
+ * (driftViewer.enabled false), shows "Disabled". When [client] is provided and
  * connected via VM Service (Plan 68), shows "VM Service" instead of HTTP server.
  */
 export function updateStatusBar(
@@ -14,6 +15,18 @@ export function updateStatusBar(
   discoveryEnabled: boolean,
   client?: DriftApiClient,
 ): void {
+  const extensionEnabled = vscode.workspace
+    .getConfiguration('driftViewer')
+    .get<boolean>('enabled', true);
+  if (!extensionEnabled) {
+    item.text = '$(circle-slash) Drift: Disabled';
+    item.command = 'workbench.action.openSettings';
+    item.tooltip = 'Saropa Drift Advisor is disabled. Enable driftViewer.enabled in settings.';
+    item.backgroundColor = undefined;
+    item.show();
+    return;
+  }
+
   if (client?.usingVmService) {
     item.text = '$(database) Drift: VM Service';
     item.command = 'driftViewer.openInPanel';

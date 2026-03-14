@@ -134,4 +134,23 @@ describe('ServerManager', () => {
     await manager.selectServer();
     // No crash — warning shown via vscode mock
   });
+
+  it('clearActive clears active server and fires onDidChangeActive', () => {
+    (discovery as any)._onDidChangeServers.fire([makeServer(8642)]);
+    assert.strictEqual(manager.activeServer?.port, 8642);
+
+    const changed = sinon.stub();
+    manager.onDidChangeActive(changed);
+    manager.clearActive();
+
+    assert.ok(changed.calledOnce);
+    assert.strictEqual(manager.activeServer, undefined);
+  });
+
+  it('clearActive is no-op when no active server', () => {
+    const changed = sinon.stub();
+    manager.onDidChangeActive(changed);
+    manager.clearActive();
+    assert.ok(changed.notCalled);
+  });
 });

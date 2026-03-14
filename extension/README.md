@@ -68,6 +68,7 @@ Works in Dart files with Drift table definitions:
 
 | Setting | Default | Description |
 |---|---|---|
+| `driftViewer.enabled` | `true` | Master switch: when false, no server discovery or connection and all features are off |
 | `driftViewer.host` | `127.0.0.1` | Debug server host |
 | `driftViewer.port` | `8642` | Debug server port |
 | `driftViewer.authToken` | *(empty)* | Bearer token for authenticated servers |
@@ -81,6 +82,12 @@ Works in Dart files with Drift table definitions:
 | `driftViewer.timeline.autoCapture` | `true` | Auto-capture snapshots on data change |
 | `driftViewer.watch.notifications` | `false` | Desktop notifications for watch changes |
 | `driftViewer.performance.slowThresholdMs` | `500` | Slow query threshold (ms) |
+
+## Design: extension enablement
+
+**Drift Advisor** has a master switch: `driftViewer.enabled` (default true). When false, the extension does not discover or connect to servers and all Drift Advisor features are off; the Database view shows “Saropa Drift Advisor is disabled” and the status bar shows “Drift: Disabled”. When true, activation is as before (`onLanguage:dart`); individual features can still be turned off via other settings. There is no “turn on = setup project” flow—flipping the switch on is enough.
+
+By contrast, the **saropa_lints** extension is designed to have an explicit enabled/disabled switch and a “turn on = setup project” flow (e.g. add dev_dependency, run `dart run saropa_lints:init`, configure `analysis_options.yaml`). That distinction is intentional: Drift Advisor is a single master switch plus per-feature toggles; saropa_lints is opt-in at the project level with setup.
 
 ## Server Discovery
 

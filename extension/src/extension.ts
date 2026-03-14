@@ -2,6 +2,8 @@
  * Drift Advisor extension entry point.
  * Activates client, discovery, then delegates to setup modules for providers,
  * diagnostics, editing, and command registration.
+ * Master switch: when driftViewer.enabled is false, discovery and watcher do not
+ * start; re-enabling applies state via onDidChangeConfiguration.
  */
 
 import * as vscode from 'vscode';
@@ -22,6 +24,9 @@ import { registerAllCommands } from './extension-commands';
 
 export function activate(context: vscode.ExtensionContext): void {
   const cfg = vscode.workspace.getConfiguration('driftViewer');
+  const extensionEnabled = cfg.get<boolean>('enabled', true) !== false;
+  void vscode.commands.executeCommand('setContext', 'driftViewer.enabled', extensionEnabled);
+
   const host = cfg.get<string>('host', '127.0.0.1') ?? '127.0.0.1';
   const port = cfg.get<number>('port', 8642) ?? 8642;
 
@@ -49,7 +54,12 @@ export function activate(context: vscode.ExtensionContext): void {
   });
   const serverManager = new ServerManager(discovery, client, context.workspaceState);
   const discoveryEnabled = cfg.get<boolean>('discovery.enabled', true) !== false;
-  if (discoveryEnabled) discovery.start();
+
+  if (!extensionEnabled) {
+    serverManager.clearActive();
+  } else {
+    if (discoveryEnabled) discovery.start();
+  }
   context.subscriptions.push({ dispose: () => discovery.dispose() });
   context.subscriptions.push({ dispose: () => serverManager.dispose() });
 
@@ -82,9 +92,37 @@ export function activate(context: vscode.ExtensionContext): void {
   refreshStatusBar();
   context.subscriptions.push(statusItem);
 
+  /** Apply master switch: start/stop discovery and watcher, clear or refresh UI. */
+  const applyEnabledState = (enabled: boolean): void => {
+    void vscode.commands.executeCommand('setContext', 'driftViewer.enabled', enabled);
+    if (!enabled) {
+      discovery.stop();
+      watcher.stop();
+      serverManager.clearActive();
+    } else {
+      if (discoveryEnabled) discovery.start();
+      watcher.start();
+      providers.treeProvider.refresh();
+      providers.codeLensProvider.refreshRowCounts();
+      providers.linter.refresh();
+      diagnosticManager.refresh().catch(() => {});
+      providers.refreshBadges().catch(() => {});
+    }
+    refreshStatusBar();
+  };
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('driftViewer.enabled')) {
+        const enabled = vscode.workspace.getConfiguration('driftViewer').get<boolean>('enabled', true) !== false;
+        applyEnabledState(enabled);
+      }
+    }),
+  );
+
   serverManager.onDidChangeActive((server) => {
     refreshStatusBar();
-    vscode.commands.executeCommand('setContext', 'driftViewer.serverConnected', server !== undefined);
+    void vscode.commands.executeCommand('setContext', 'driftViewer.serverConnected', server !== undefined);
     if (server) {
       watcher.stop();
       watcher.reset();
@@ -118,12 +156,14 @@ export function activate(context: vscode.ExtensionContext): void {
       DashboardPanel.currentPanel.refreshAll().catch(() => {});
     }
   });
-  watcher.start();
-  providers.treeProvider.refresh();
-  providers.codeLensProvider.refreshRowCounts();
-  providers.linter.refresh();
-  diagnosticManager.refresh().catch(() => {});
-  providers.refreshBadges().catch(() => {});
+  if (extensionEnabled) {
+    watcher.start();
+    providers.treeProvider.refresh();
+    providers.codeLensProvider.refreshRowCounts();
+    providers.linter.refresh();
+    diagnosticManager.refresh().catch(() => {});
+    providers.refreshBadges().catch(() => {});
+  }
   context.subscriptions.push({ dispose: () => watcher.stop() });
 
   registerAllCommands(context, client, {

@@ -89,8 +89,13 @@
     "viewsWelcome": [
       {
         "view": "driftViewer.databaseExplorer",
+        "contents": "Saropa Drift Advisor is disabled.\n\nTurn on the extension to discover and connect to Drift debug servers.\n\n[Open Settings](command:workbench.action.openSettings?%5B%22driftViewer.enabled%22%5D)",
+        "when": "!driftViewer.enabled"
+      },
+      {
+        "view": "driftViewer.databaseExplorer",
         "contents": "No Drift debug server connected.\n\n**Troubleshooting**\n\n• Ensure your Flutter app is running with the Drift debug server enabled (`startDriftViewer()` or `DriftDebugServer.start()`)\n• **Flutter/Dart debugging**: We connect via VM Service when you start a debug session—no port forward needed. If still disconnected, open **Output** → **Saropa Drift Advisor** for connection errors and ensure your app calls `DriftDebugServer.start()`\n• **Android emulator (HTTP)**: The extension will try to forward the port automatically when you debug. If it still fails, use **Forward Port (Android Emulator)** below or run `adb forward tcp:8642 tcp:8642` then Retry\n• Verify the server port (default: 8642) matches your configuration\n• Make sure no firewall is blocking localhost connections\n\n[Retry Connection](command:driftViewer.retryDiscovery)\n[Forward Port (Android Emulator)](command:driftViewer.forwardPortAndroid)\n[Select Server](command:driftViewer.selectServer)\n\n**Resources**\n\n[Getting Started Guide](https://github.com/saropa/saropa_drift_advisor#getting-started) • [Report Issue](https://github.com/saropa/saropa_drift_advisor/issues)",
-        "when": "!driftViewer.serverConnected"
+        "when": "driftViewer.enabled && !driftViewer.serverConnected"
       }
     ],
     "commands": [
@@ -730,6 +735,11 @@
     "configuration": {
       "title": "Saropa Drift Advisor",
       "properties": {
+        "driftViewer.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Master switch: when false, the extension does not discover or connect to Drift debug servers and all Drift Advisor features are off."
+        },
         "driftViewer.authToken": {
           "type": "string",
           "default": "",

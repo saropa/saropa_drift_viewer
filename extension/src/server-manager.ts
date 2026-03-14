@@ -37,6 +37,13 @@ export class ServerManager {
     return this._discovery.servers;
   }
 
+  /** Clear the active server and notify (e.g. when extension is disabled). */
+  clearActive(): void {
+    if (this._activeServer !== undefined) {
+      this._setActive(undefined);
+    }
+  }
+
   /** Show QuickPick for manual server selection. */
   async selectServer(): Promise<void> {
     const servers = this.servers;
