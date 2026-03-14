@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.3.0]
+## [1.3.1]
 
 Extension code is split into focused modules, and index-based features (Health Score, schema linter, timeline) now work when connected only via the VM Service—e.g. on emulator without HTTP.
 
