@@ -1,23 +1,4 @@
-/**
- * Import history tracking for undo support.
- *
- * This module provides persistent storage of import operations to enable
- * undo functionality. Each import is recorded with:
- * - Inserted row IDs (for DELETE on undo)
- * - Updated rows with previous values (for UPDATE on undo)
- * - Metadata for display (timestamp, table, row count)
- *
- * History is stored in VS Code workspace state and persists across
- * editor sessions. Old entries are pruned when the limit is reached.
- *
- * Undo eligibility:
- * - Imports are undoable immediately after completion
- * - If imported rows are subsequently modified, the import becomes
- *   non-undoable (stale data would be restored)
- * - Successful undo removes the entry from history
- *
- * @module import-history
- */
+/** Import history tracking for undo support (persisted in VS Code workspace state). */
 
 import type * as vscode from 'vscode';
 import type {
@@ -25,27 +6,9 @@ import type {
   IClipboardImportResult,
   IImportHistoryEntry,
   ImportStrategy,
-  IUpdatedRow,
 } from './clipboard-import-types';
 
-/**
- * Manages import history for undo support.
- *
- * Stores import records in VS Code workspace state, enabling undo
- * operations to be available across editor sessions.
- *
- * @example
- * ```typescript
- * const history = new ImportHistory(context.workspaceState);
- * const id = history.recordImport(table, result, strategy, format);
- * // Later...
- * const entry = history.getEntry(id);
- * if (entry?.canUndo) {
- *   // Perform undo...
- *   history.removeEntry(id);
- * }
- * ```
- */
+/** Manages import history for undo support across editor sessions. */
 export class ImportHistory {
   /** In-memory cache of history entries, keyed by ID */
   private _entries: Map<string, IImportHistoryEntry> = new Map();
@@ -292,27 +255,4 @@ export class ImportHistory {
   }
 }
 
-/**
- * Format an import history entry for display in UI.
- *
- * Creates a human-readable summary including:
- * - Time (HH:MM format)
- * - Action (imported/upserted)
- * - Row count
- * - Table name
- * - Undo status
- *
- * @param entry - History entry to format
- * @returns Formatted string like "10:30: imported 5 rows into users (can undo)"
- */
-export function formatHistoryEntry(entry: IImportHistoryEntry): string {
-  const date = entry.timestamp instanceof Date
-    ? entry.timestamp
-    : new Date(entry.timestamp);
-
-  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const action = entry.strategy === 'upsert' ? 'upserted' : 'imported';
-  const undoStatus = entry.canUndo ? '(can undo)' : '(cannot undo)';
-
-  return `${time}: ${action} ${entry.rowCount} rows into ${entry.table} ${undoStatus}`;
-}
+export { formatHistoryEntry } from './import-history-format';

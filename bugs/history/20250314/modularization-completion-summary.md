@@ -22,6 +22,15 @@ Phases 6–7 and remaining >300-line source files were completed so that (with o
 - No circular dependencies.
 - Loading state in clipboard import panel (render(true)) during validation/import.
 
+## Final pass (2026-03-14)
+
+All 18 remaining files brought under 300 lines:
+- **Source (6)**: `api-client.ts` → `api-client-sessions.ts`; `health-metrics.ts` → `health-metrics-secondary.ts`; `data-narrator.ts` → `data-narrator-describe.ts`; `import-history.ts` → `import-history-format.ts`; `dashboard-css.ts` and `clipboard-import-panel.ts` trimmed.
+- **Mocks (2)**: `vscode-mock-classes.ts` → `vscode-mock-diagnostics.ts`; `vscode-mock.ts` → `vscode-mock-extras.ts`.
+- **Tests (10)**: Shared helpers extracted (`diagnostic-test-helpers.ts`, `narrator-test-fixtures.ts`, `health-check-test-mocks.ts`, `import-test-helpers.ts`, `invariant-test-helpers.ts`); 5 test files split for batch/utility tests.
+
+16 new files created. All 1570 tests pass. Zero 300-line violations.
+
 ## Status
 
-Success criteria in the plan are met; only `api-client.ts` is 301 lines.
+Fully complete — no source file exceeds 300 lines.

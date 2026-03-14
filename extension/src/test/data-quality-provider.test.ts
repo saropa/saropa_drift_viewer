@@ -4,12 +4,11 @@ import {
   Diagnostic,
   DiagnosticSeverity,
   Range,
-  Uri,
 } from './vscode-mock-classes';
 import { resetMocks } from './vscode-mock';
 import { DataQualityProvider } from '../diagnostics/providers/data-quality-provider';
 import type { IDartFileInfo, IDiagnosticContext } from '../diagnostics/diagnostic-types';
-import type { IDartTable } from '../schema-diff/dart-schema';
+import { createDartFile } from './diagnostic-test-helpers';
 
 describe('DataQualityProvider', () => {
   let provider: DataQualityProvider;
@@ -237,42 +236,20 @@ describe('DataQualityProvider', () => {
 
 function createContext(options: {
   dartFiles: IDartFileInfo[];
-  tables?: Array<{
-    name: string;
-    columns: Array<{ name: string; type: string; pk: boolean }>;
-    rowCount: number;
-  }>;
-  sizeAnalytics?: {
-    tables: Array<{
-      table: string;
-      rowCount: number;
-      columnCount: number;
-      indexCount: number;
-      indexes: string[];
-    }>;
-  };
+  tables?: Array<{ name: string; columns: Array<{ name: string; type: string; pk: boolean }>; rowCount: number }>;
+  sizeAnalytics?: { tables: Array<{ table: string; rowCount: number; columnCount: number; indexCount: number; indexes: string[] }> };
   nullCounts?: Record<string, number>;
 }): IDiagnosticContext {
   const tables = options.tables ?? [];
   const sizeAnalytics = options.sizeAnalytics ?? {
-    pageSize: 4096,
-    pageCount: 10,
-    totalSizeBytes: 40960,
-    freeSpaceBytes: 1000,
-    usedSizeBytes: 39960,
-    journalMode: 'wal',
+    pageSize: 4096, pageCount: 10, totalSizeBytes: 40960,
+    freeSpaceBytes: 1000, usedSizeBytes: 39960, journalMode: 'wal',
     tableCount: tables.length,
     tables: tables.map((t) => ({
-      table: t.name,
-      rowCount: t.rowCount,
-      columnCount: t.columns.length,
-      indexCount: 1,
-      indexes: [],
+      table: t.name, rowCount: t.rowCount, columnCount: t.columns.length, indexCount: 1, indexes: [],
     })),
   };
-
   const nullCounts = options.nullCounts ?? {};
-
   const client = {
     schemaMetadata: () => Promise.resolve(tables),
     sizeAnalytics: () => Promise.resolve(sizeAnalytics),
@@ -280,64 +257,20 @@ function createContext(options: {
       if (query.includes('IS NULL')) {
         const result: number[] = [];
         for (const table of tables) {
-          for (const col of table.columns) {
-            result.push(nullCounts[col.name] ?? 0);
-          }
+          for (const col of table.columns) { result.push(nullCounts[col.name] ?? 0); }
         }
         return Promise.resolve({ columns: [], rows: [result] });
       }
       return Promise.resolve({ columns: [], rows: [] });
     },
   } as any;
-
   return {
-    client,
-    schemaIntel: {} as any,
-    queryIntel: {} as any,
+    client, schemaIntel: {} as any, queryIntel: {} as any,
     dartFiles: options.dartFiles,
     config: {
-      enabled: true,
-      refreshOnSave: true,
-      refreshIntervalMs: 30000,
-      categories: {
-        schema: true,
-        performance: true,
-        dataQuality: true,
-        bestPractices: true,
-        naming: false,
-        runtime: true,
-      },
-      disabledRules: new Set(),
-      severityOverrides: {},
+      enabled: true, refreshOnSave: true, refreshIntervalMs: 30000,
+      categories: { schema: true, performance: true, dataQuality: true, bestPractices: true, naming: false, runtime: true },
+      disabledRules: new Set(), severityOverrides: {},
     },
-  };
-}
-
-function createDartFile(
-  tableName: string,
-  columns: string[],
-): IDartFileInfo {
-  const dartColumns = columns.map((name, idx) => ({
-    dartName: name,
-    sqlName: name,
-    dartType: name === 'id' || name.endsWith('_id') ? 'IntColumn' : 'TextColumn',
-    sqlType: name === 'id' || name.endsWith('_id') ? 'INTEGER' : 'TEXT',
-    nullable: false,
-    autoIncrement: name === 'id',
-    line: 10 + idx,
-  }));
-
-  const dartTable: IDartTable = {
-    dartClassName: tableName.charAt(0).toUpperCase() + tableName.slice(1),
-    sqlTableName: tableName,
-    columns: dartColumns,
-    fileUri: `file:///lib/database/${tableName}.dart`,
-    line: 5,
-  };
-
-  return {
-    uri: Uri.parse(`file:///lib/database/${tableName}.dart`) as any,
-    text: `class ${dartTable.dartClassName} extends Table {}`,
-    tables: [dartTable],
   };
 }

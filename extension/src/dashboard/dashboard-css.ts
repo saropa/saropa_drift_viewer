@@ -1,7 +1,4 @@
-/**
- * Dashboard webview styles.
- * Extracted from dashboard-html for modularization (plan: under 300 lines per file).
- */
+/** Dashboard webview styles (extracted from dashboard-html for modularization). */
 
 export function getDashboardCss(): string {
   return `

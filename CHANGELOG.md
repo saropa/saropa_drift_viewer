@@ -13,6 +13,14 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
+## [1.3.4]
+
+### Maintenance
+
+- **Modularization (final 18 files)** — All 18 TypeScript source files that exceeded the 300-line quality gate are now within limits. Source splits: `api-client-sessions.ts` (session/import HTTP methods), `health-metrics-secondary.ts` (table-balance, schema-quality, recommendations), `data-narrator-describe.ts` (narrative description helpers), `import-history-format.ts` (entry formatting). Mock splits: `vscode-mock-diagnostics.ts`, `vscode-mock-extras.ts` (debug/extensions/tasks). Test helpers consolidated: `diagnostic-test-helpers.ts` shared across 3 provider tests; 5 test files split to extract utility/batch tests. Zero violations; all 1570 tests pass.
+
+---
+
 ## [1.3.3]
 
 Implemented a master switch to turn the extension off, and an “Add package to project” flow.

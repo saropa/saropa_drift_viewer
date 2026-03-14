@@ -5,6 +5,10 @@ import type {
   ISessionShareResult, ISizeAnalytics, PerformanceData, TableMetadata,
 } from './api-types';
 import type { VmServiceClient } from './transport/vm-service-client';
+import {
+  importDataRequest, sessionAnnotateRequest,
+  sessionGetRequest, sessionShareRequest,
+} from './api-client-sessions';
 
 export class DriftApiClient {
   private _baseUrl: string;
@@ -267,56 +271,19 @@ export class DriftApiClient {
   async importData(
     format: string, table: string, data: string,
   ): Promise<IImportResult> {
-    const resp = await fetch(`${this._baseUrl}/api/import`, {
-      method: 'POST',
-      headers: this._headers({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ format, table, data }),
-    });
-    if (!resp.ok) {
-      throw new Error(`Import failed: ${resp.status}`);
-    }
-    return resp.json() as Promise<IImportResult>;
+    return importDataRequest(this._baseUrl, this._headers({ 'Content-Type': 'application/json' }), format, table, data);
   }
 
-  async sessionShare(
-    state: Record<string, unknown>,
-  ): Promise<ISessionShareResult> {
-    const resp = await fetch(`${this._baseUrl}/api/session/share`, {
-      method: 'POST',
-      headers: this._headers({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(state),
-    });
-    if (!resp.ok) {
-      throw new Error(`Session share failed: ${resp.status}`);
-    }
-    return resp.json() as Promise<ISessionShareResult>;
+  async sessionShare(state: Record<string, unknown>): Promise<ISessionShareResult> {
+    return sessionShareRequest(this._baseUrl, this._headers({ 'Content-Type': 'application/json' }), state);
   }
 
   async sessionGet(id: string): Promise<ISessionData> {
-    const resp = await fetch(
-      `${this._baseUrl}/api/session/${encodeURIComponent(id)}`,
-      { headers: this._headers() },
-    );
-    if (!resp.ok) {
-      throw new Error(`Session get failed: ${resp.status}`);
-    }
-    return resp.json() as Promise<ISessionData>;
+    return sessionGetRequest(this._baseUrl, this._headers(), id);
   }
 
-  async sessionAnnotate(
-    id: string, text: string, author: string,
-  ): Promise<void> {
-    const resp = await fetch(
-      `${this._baseUrl}/api/session/${encodeURIComponent(id)}/annotate`,
-      {
-        method: 'POST',
-        headers: this._headers({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ text, author }),
-      },
-    );
-    if (!resp.ok) {
-      throw new Error(`Session annotate failed: ${resp.status}`);
-    }
+  async sessionAnnotate(id: string, text: string, author: string): Promise<void> {
+    return sessionAnnotateRequest(this._baseUrl, this._headers({ 'Content-Type': 'application/json' }), id, text, author);
   }
 
   private _headers(

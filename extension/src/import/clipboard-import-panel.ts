@@ -23,22 +23,7 @@ import { ImportHistory } from './import-history';
 import { ImportValidator } from './import-validator';
 import { captureSchemaSnapshot } from './schema-freshness';
 
-/**
- * Manages the clipboard import webview panel.
- *
- * Implements a singleton pattern - only one import panel can be open at
- * a time. If createOrShow is called while a panel exists, it updates
- * the existing panel with new data.
- *
- * The panel lifecycle:
- * 1. User triggers import command
- * 2. Clipboard is read and parsed
- * 3. Panel is created with parsed data and auto-mapped columns
- * 4. User adjusts mappings and options
- * 5. User runs validation (optional) then import
- * 6. Import is recorded in history for undo support
- * 7. Panel can be closed or reused for next import
- */
+/** Singleton webview panel for clipboard import: parse → map → validate → import → history. */
 export class ClipboardImportPanel {
   /** Singleton instance of the current panel */
   private static _currentPanel: ClipboardImportPanel | undefined;

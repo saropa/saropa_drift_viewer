@@ -3,6 +3,12 @@ import * as sinon from 'sinon';
 import { resetMocks, workspace } from './vscode-mock';
 import { HealthCheckTerminal } from '../tasks/health-check-runner';
 import { runTerminal } from './health-check-helpers';
+import {
+  mockHealthOk, mockHealthFail,
+  mockIndexSuggestions, mockAnomalies,
+  mockIndexSuggestionsFail, mockAnomaliesFail,
+  mockAllHealthCheckApis,
+} from './health-check-test-mocks';
 
 describe('HealthCheckTerminal', () => {
   let fetchStub: sinon.SinonStub;
@@ -16,104 +22,9 @@ describe('HealthCheckTerminal', () => {
     fetchStub.restore();
   });
 
-  function mockHealthOk(): void {
-    fetchStub.withArgs(sinon.match(/\/api\/health$/)).resolves({
-      ok: true,
-      json: async () => ({ ok: true }),
-    });
-  }
-
-  function mockHealthFail(): void {
-    fetchStub.withArgs(sinon.match(/\/api\/health$/)).rejects(
-      new Error('connection refused'),
-    );
-  }
-
-  function mockIndexSuggestions(data: any[]): void {
-    fetchStub.withArgs(sinon.match(/\/api\/index-suggestions$/)).resolves({
-      ok: true,
-      json: async () => data,
-    });
-  }
-
-  function mockAnomalies(data: any[]): void {
-    fetchStub.withArgs(sinon.match(/\/api\/analytics\/anomalies$/)).resolves({
-      ok: true,
-      json: async () => ({ anomalies: data }),
-    });
-  }
-
-  function mockIndexSuggestionsFail(): void {
-    fetchStub.withArgs(sinon.match(/\/api\/index-suggestions$/)).resolves({
-      ok: false,
-      status: 500,
-    });
-  }
-
-  function mockAnomaliesFail(): void {
-    fetchStub.withArgs(sinon.match(/\/api\/analytics\/anomalies$/)).resolves({
-      ok: false,
-      status: 500,
-    });
-  }
-
-  function mockSchemaMetadata(tables: any[] = []): void {
-    fetchStub.withArgs(sinon.match(/\/api\/schema-metadata$/)).resolves({
-      ok: true,
-      json: async () => tables,
-    });
-  }
-
-  function mockPerformance(): void {
-    fetchStub.withArgs(sinon.match(/\/api\/performance$/)).resolves({
-      ok: true,
-      json: async () => ({ queries: [], totalQueries: 0, avgDuration: 0 }),
-    });
-  }
-
-  function mockSizeAnalytics(): void {
-    fetchStub.withArgs(sinon.match(/\/api\/size-analytics$/)).resolves({
-      ok: true,
-      json: async () => ({ tables: [], totalSize: 0 }),
-    });
-  }
-
-  function mockTableFkMeta(): void {
-    fetchStub.withArgs(sinon.match(/\/api\/tables\/.*\/fk-meta$/)).resolves({
-      ok: true,
-      json: async () => [],
-    });
-  }
-
-  function mockNullCounts(): void {
-    fetchStub.withArgs(sinon.match(/\/api\/tables\/.*\/null-counts$/)).resolves({
-      ok: true,
-      json: async () => ({}),
-    });
-  }
-
-  function mockSql(): void {
-    fetchStub.withArgs(sinon.match(/\/api\/sql$/)).resolves({
-      ok: true,
-      json: async () => ({ columns: ['result'], rows: [[0]] }),
-    });
-  }
-
-  function mockAllHealthCheckApis(indexSuggestions: any[] = [], anomalies: any[] = []): void {
-    mockHealthOk();
-    mockSchemaMetadata([]);
-    mockIndexSuggestions(indexSuggestions);
-    mockAnomalies(anomalies);
-    mockPerformance();
-    mockSizeAnalytics();
-    mockTableFkMeta();
-    mockNullCounts();
-    mockSql();
-  }
-
   describe('server unreachable', () => {
     it('should exit with code 1 when server is down', async () => {
-      mockHealthFail();
+      mockHealthFail(fetchStub);
       const { terminal, lines, closeCode } = runTerminal('healthCheck');
       terminal.open();
       const code = await closeCode;
@@ -125,7 +36,7 @@ describe('HealthCheckTerminal', () => {
 
   describe('healthCheck — all clean', () => {
     it('should exit with code 0 when no issues', async () => {
-      mockAllHealthCheckApis([], []);
+      mockAllHealthCheckApis(fetchStub,[], []);
       const { terminal, lines, closeCode } = runTerminal('healthCheck');
       terminal.open();
       const code = await closeCode;
@@ -137,7 +48,7 @@ describe('HealthCheckTerminal', () => {
 
   describe('healthCheck — errors found', () => {
     it('should exit with code 1 when high-priority index suggestions exist', async () => {
-      mockAllHealthCheckApis(
+      mockAllHealthCheckApis(fetchStub,
         [{ table: 'posts', column: 'user_id', reason: 'missing FK index', sql: 'CREATE INDEX ...', priority: 'high' }],
         [],
       );
@@ -149,7 +60,7 @@ describe('HealthCheckTerminal', () => {
     });
 
     it('should exit with code 1 when error-severity anomalies exist', async () => {
-      mockAllHealthCheckApis(
+      mockAllHealthCheckApis(fetchStub,
         [],
         [{ message: '3 orphaned FKs', severity: 'error' }],
       );
@@ -163,7 +74,7 @@ describe('HealthCheckTerminal', () => {
 
   describe('healthCheck — warnings only', () => {
     it('should exit with code 0 when only warnings (blockOnWarnings=false)', async () => {
-      mockAllHealthCheckApis(
+      mockAllHealthCheckApis(fetchStub,
         [{ table: 'users', column: 'deleted_at', reason: 'potential index', sql: 'CREATE INDEX ...', priority: 'low' }],
         [{ message: '45 NULL values', severity: 'warning' }],
       );
@@ -185,7 +96,7 @@ describe('HealthCheckTerminal', () => {
         },
       });
 
-      mockAllHealthCheckApis([], [{ message: 'some warning', severity: 'warning' }]);
+      mockAllHealthCheckApis(fetchStub,[], [{ message: 'some warning', severity: 'warning' }]);
       const { terminal, lines, closeCode } = runTerminal('healthCheck');
       terminal.open();
       const code = await closeCode;
@@ -198,8 +109,8 @@ describe('HealthCheckTerminal', () => {
 
   describe('indexCoverage only', () => {
     it('should only run index checks, not anomaly scan', async () => {
-      mockHealthOk();
-      mockIndexSuggestions([]);
+      mockHealthOk(fetchStub);
+      mockIndexSuggestions(fetchStub, []);
       // Do not mock anomalies - it should not be called
       const { terminal, lines, closeCode } = runTerminal('indexCoverage');
       terminal.open();
@@ -213,8 +124,8 @@ describe('HealthCheckTerminal', () => {
 
   describe('anomalyScan only', () => {
     it('should only run anomaly scan, not index checks', async () => {
-      mockHealthOk();
-      mockAnomalies([]);
+      mockHealthOk(fetchStub);
+      mockAnomalies(fetchStub, []);
       // Do not mock index suggestions - it should not be called
       const { terminal, lines, closeCode } = runTerminal('anomalyScan');
       terminal.open();
@@ -228,8 +139,8 @@ describe('HealthCheckTerminal', () => {
 
   describe('API failure during checks', () => {
     it('should count index suggestion failure as error', async () => {
-      mockHealthOk();
-      mockIndexSuggestionsFail();
+      mockHealthOk(fetchStub);
+      mockIndexSuggestionsFail(fetchStub);
       const { terminal, lines, closeCode } = runTerminal('indexCoverage');
       terminal.open();
       const code = await closeCode;
@@ -239,8 +150,8 @@ describe('HealthCheckTerminal', () => {
     });
 
     it('should count anomaly scan failure as error', async () => {
-      mockHealthOk();
-      mockAnomaliesFail();
+      mockHealthOk(fetchStub);
+      mockAnomaliesFail(fetchStub);
       const { terminal, lines, closeCode } = runTerminal('anomalyScan');
       terminal.open();
       const code = await closeCode;
@@ -252,7 +163,7 @@ describe('HealthCheckTerminal', () => {
 
   describe('output formatting', () => {
     it('should write header with title and separator', async () => {
-      mockAllHealthCheckApis([], []);
+      mockAllHealthCheckApis(fetchStub,[], []);
       const { terminal, lines, closeCode } = runTerminal('healthCheck');
       terminal.open();
       await closeCode;
@@ -261,7 +172,7 @@ describe('HealthCheckTerminal', () => {
     });
 
     it('should include connection info', async () => {
-      mockAllHealthCheckApis([], []);
+      mockAllHealthCheckApis(fetchStub,[], []);
       const { terminal, lines, closeCode } = runTerminal('healthCheck');
       terminal.open();
       await closeCode;
@@ -270,8 +181,8 @@ describe('HealthCheckTerminal', () => {
     });
 
     it('should use \u2717 for errors and \u26A0 for warnings in index suggestions', async () => {
-      mockHealthOk();
-      mockIndexSuggestions([
+      mockHealthOk(fetchStub);
+      mockIndexSuggestions(fetchStub, [
         { table: 'a', column: 'b', reason: 'err', sql: 'SQL', priority: 'high' },
         { table: 'c', column: 'd', reason: 'warn', sql: 'SQL', priority: 'low' },
       ]);
@@ -284,8 +195,8 @@ describe('HealthCheckTerminal', () => {
     });
 
     it('should use severity icons for anomalies', async () => {
-      mockHealthOk();
-      mockAnomalies([
+      mockHealthOk(fetchStub);
+      mockAnomalies(fetchStub, [
         { message: 'bad thing', severity: 'error' },
         { message: 'meh thing', severity: 'warning' },
         { message: 'fyi thing', severity: 'info' },
@@ -300,9 +211,9 @@ describe('HealthCheckTerminal', () => {
     });
 
     it('should end lines with \\r\\n', async () => {
-      mockHealthOk();
-      mockIndexSuggestions([]);
-      mockAnomalies([]);
+      mockHealthOk(fetchStub);
+      mockIndexSuggestions(fetchStub, []);
+      mockAnomalies(fetchStub, []);
       const { terminal, lines, closeCode } = runTerminal('healthCheck');
       terminal.open();
       await closeCode;

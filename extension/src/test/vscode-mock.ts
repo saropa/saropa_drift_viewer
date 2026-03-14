@@ -5,6 +5,7 @@
 
 export * from './vscode-mock-classes';
 export * from './vscode-mock-types';
+export * from './vscode-mock-extras';
 
 import { MockDiagnosticCollection, MockOutputChannel, MockTreeView } from './vscode-mock-classes';
 import { MockWebviewPanel } from './vscode-mock-types';
@@ -215,76 +216,7 @@ export const languages = {
   },
 };
 
-// --- Debug session support ---
-
-type DebugSessionListener = (session: any) => void;
-const debugStartListeners: DebugSessionListener[] = [];
-const debugTerminateListeners: DebugSessionListener[] = [];
-
-export const debug = {
-  activeDebugSession: undefined as any,
-  onDidStartDebugSession: (listener: DebugSessionListener) => {
-    debugStartListeners.push(listener);
-    return {
-      dispose: () => {
-        const idx = debugStartListeners.indexOf(listener);
-        if (idx >= 0) debugStartListeners.splice(idx, 1);
-      },
-    };
-  },
-  onDidTerminateDebugSession: (listener: DebugSessionListener) => {
-    debugTerminateListeners.push(listener);
-    return {
-      dispose: () => {
-        const idx = debugTerminateListeners.indexOf(listener);
-        if (idx >= 0) debugTerminateListeners.splice(idx, 1);
-      },
-    };
-  },
-  /** Simulate a debug session starting. */
-  simulateStart: (session: any) => {
-    for (const l of [...debugStartListeners]) l(session);
-  },
-  /** Simulate a debug session ending. */
-  simulateTerminate: (session: any) => {
-    for (const l of [...debugTerminateListeners]) l(session);
-  },
-  registerDebugAdapterTrackerFactory: (_adapterId: string, _factory: any) => ({
-    dispose: () => {},
-  }),
-};
-
-// --- Extensions mock ---
-
-const extensionMap: Record<string, any> = {};
-
-export const extensions = {
-  getExtension: (id: string) => extensionMap[id],
-  /** Helper to register a fake extension for testing. */
-  setExtension: (id: string, ext: any) => { extensionMap[id] = ext; },
-  clearExtensions: () => {
-    for (const key of Object.keys(extensionMap)) {
-      delete extensionMap[key];
-    }
-  },
-};
-
-// --- Task support ---
-
-const registeredTaskProviders: Array<{ type: string; provider: any }> = [];
-
-export const tasks = {
-  registerTaskProvider: (type: string, provider: any) => {
-    registeredTaskProviders.push({ type, provider });
-    return {
-      dispose: () => {
-        const idx = registeredTaskProviders.findIndex((r) => r.provider === provider);
-        if (idx >= 0) { registeredTaskProviders.splice(idx, 1); }
-      },
-    };
-  },
-  getRegisteredProviders: () => [...registeredTaskProviders],
-};
+import { resetExtras } from './vscode-mock-extras';
 
 /** Reset all shared mock state between tests. */
 export function resetMocks(): void {
@@ -299,16 +231,12 @@ export function resetMocks(): void {
   registeredDefinitionProviders.length = 0;
   registeredHoverProviders.length = 0;
   registeredCodeActionProviders.length = 0;
-  debug.activeDebugSession = undefined;
   registeredFileDecorationProviders.length = 0;
   registeredTerminalLinkProviders.length = 0;
   registeredTimelineProviders.length = 0;
   createdDiagnosticCollections.length = 0;
   createdTextDocuments.length = 0;
-  registeredTaskProviders.length = 0;
-  debugStartListeners.length = 0;
-  debugTerminateListeners.length = 0;
-  extensions.clearExtensions();
+  resetExtras();
   for (const key of Object.keys(registeredCommands)) {
     delete registeredCommands[key];
   }

@@ -15,7 +15,7 @@ import { SchemaIntelligence } from '../engines/schema-intelligence';
 import { QueryIntelligence } from '../engines/query-intelligence';
 import { SchemaProvider } from '../diagnostics/providers/schema-provider';
 import type { IDartFileInfo, IDiagnosticContext } from '../diagnostics/diagnostic-types';
-import type { IDartTable } from '../schema-diff/dart-schema';
+import { createDartFile } from './diagnostic-test-helpers';
 
 describe('SchemaProvider', () => {
   let client: DriftApiClient;
@@ -298,31 +298,3 @@ function createContext(options: {
   };
 }
 
-function createDartFile(
-  tableName: string,
-  columns: string[],
-): IDartFileInfo {
-  const dartColumns = columns.map((name, idx) => ({
-    dartName: name,
-    sqlName: name,
-    dartType: name === 'id' || name.endsWith('_id') ? 'IntColumn' : 'TextColumn',
-    sqlType: name === 'id' || name.endsWith('_id') ? 'INTEGER' : 'TEXT',
-    nullable: false,
-    autoIncrement: name === 'id',
-    line: 10 + idx,
-  }));
-
-  const dartTable: IDartTable = {
-    dartClassName: tableName.charAt(0).toUpperCase() + tableName.slice(1),
-    sqlTableName: tableName,
-    columns: dartColumns,
-    fileUri: `file:///lib/database/${tableName}.dart`,
-    line: 5,
-  };
-
-  return {
-    uri: Uri.parse(`file:///lib/database/${tableName}.dart`) as any,
-    text: `class ${dartTable.dartClassName} extends Table {}`,
-    tables: [dartTable],
-  };
-}
