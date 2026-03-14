@@ -19,6 +19,7 @@ Extension code is split into focused modules, and index-based features (Health S
 
 - **Extension entry point modularization (Batch 5)** — `extension.ts` split into focused setup modules: `extension-providers.ts` (tree, language, file decoration providers), `extension-diagnostics.ts` (diagnostic manager and disable/clear/copy commands), `extension-editing.ts` (change tracker, editing bridge, pending changes), `extension-commands.ts` (all command registration). Main `extension.ts` stays ~125 lines; activate/deactivate orchestrate setup in sequence. Aligns with modularization plan Phase 5.
 - **Index suggestions over VM Service (Plan 68)** — When connected via VM only (e.g. emulator debug), Health Score, health commands, schema linter, and timeline no longer fail: `indexSuggestions()` now uses VM RPC `getIndexSuggestions`. Dart: `AnalyticsHandler.getIndexSuggestionsList()` + `Router.getIndexSuggestionsList()` + `VmServiceBridge` handler; extension: `VmServiceClient.getIndexSuggestions()`, `DriftApiClient` VM branch; HTTP response parsing fixed for `{ suggestions, tablesAnalyzed }` shape.
+- **Stale override checker script** — `scripts/check_stale_overrides.py` classifies `dependency_overrides` as required vs stale by running a version solve with each override removed. Addresses false positives from tools that report overrides as "safe to remove" without re-solving (see `bugs/history/20260313/stale_override_false_positive.md`). Unit tests in `scripts/tests/test_check_stale_overrides.py`.
 
 ### Changed
 

@@ -300,6 +300,8 @@ From repo root:
 python scripts/publish_pub_dev.py
 ```
 
+- **Stale override check:** `python scripts/check_stale_overrides.py [--pubspec PATH] [--flutter]` — classifies `dependency_overrides` as required vs safe-to-remove by running a version solve with each override removed.
+
 **Manual:** Bump version in `pubspec.yaml`, then `git tag v0.1.0` and `git push origin v0.1.0`. GitHub Actions publishes to pub.dev.
 
 - [Package on pub.dev](https://pub.dev/packages/saropa_drift_advisor)
