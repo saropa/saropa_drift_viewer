@@ -103,6 +103,8 @@ The Dart package starts a lightweight HTTP server that exposes your database ove
 
 Install **Saropa Drift Advisor** (`saropa.drift-viewer`) from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=saropa.drift-viewer). See [extension/README.md](extension/README.md) for full configuration and command reference.
 
+> **Why `drift-viewer`?** The extension was originally a read-only table viewer. It has since grown into a full advisor — with a query builder, schema linter, performance profiler, and more — but the marketplace ID stays `drift-viewer` to preserve update continuity for existing users.
+
 #### Database Explorer
 
 - **Tree view** — tables with row counts, columns with type icons, FK relationships

@@ -13,17 +13,7 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
-## [Unreleased]
-
-Custom activity bar icon matches the extension’s visual identity.
-
-### Changed
-
-- **Activity bar icon** — Replaced built-in database codicon with a custom line-art SVG: database cylinder with a curved stripe and upward-pointing triangle, matching the extension’s package icon style.
-
----
-
-## [1.3.2]
+## [1.3.3]
 
 Implemented a master switch to turn the extension off, and an “Add package to project” flow.
 
