@@ -13,23 +13,14 @@ Each version (and [Unreleased]) has a short commentary line in plain language—
 
 ---
 
-## [1.3.5]
-
-Detects when queries slow down across debug sessions and alerts you before regressions become production issues.
-
-### Added
-
-- **Query Performance Regression Detector** — Tracks per-query performance baselines across debug sessions using exponential moving average. When a debug session ends, compares current query durations against historical baselines and shows a VS Code warning if any query exceeds the configurable threshold (default 2x slower). Baselines adapt over time (capped at 20 samples) and persist in workspace state. Configurable via `driftViewer.perfRegression.enabled` and `driftViewer.perfRegression.threshold`. Reset baselines via Command Palette: *Reset Query Performance Baseline* (individual) or *Reset All Performance Baselines*.
-
----
-
 ## [1.3.4]
 
-Export your database as a shareable, self-contained HTML report — open it in any browser with zero dependencies.
+Export your database as a shareable, self-contained HTML report — open it in any browser with zero dependencies. Detects when queries slow down across debug sessions and alerts you before regressions become production issues.
 
 ### Added
 
-- **Portable Snapshot Report** — Command palette → *Export Portable Report*: select tables, collect data with progress, save as a single HTML file. The report includes a table sidebar with row counts, paginated data view (50 rows/page), client-side search/filter, light/dark theme toggle, optional schema SQL and anomaly summary, and a generation timestamp footer. Configurable via `driftViewer.report.defaultMaxRows`, `.includeSchema`, `.includeAnomalies`. Tables with 10,000+ rows are auto-deselected. XSS-safe HTML escaping throughout. Also available as a toolbar icon in the Database Explorer view.
+- **Query Performance Regression Detector** — Tracks per-query performance baselines across debug sessions using exponential moving average. When a debug session ends, compares current query durations against historical baselines and shows a VS Code warning if any query exceeds the configurable threshold (default 2x slower). Baselines adapt over time (capped at 20 samples) and persist in workspace state. Configurable via `driftViewer.perfRegression.enabled` and `driftViewer.perfRegression.threshold`. Reset baselines via Command Palette: _Reset Query Performance Baseline_ (individual) or _Reset All Performance Baselines_.
+- **Portable Snapshot Report** — Command palette → _Export Portable Report_: select tables, collect data with progress, save as a single HTML file. The report includes a table sidebar with row counts, paginated data view (50 rows/page), client-side search/filter, light/dark theme toggle, optional schema SQL and anomaly summary, and a generation timestamp footer. Configurable via `driftViewer.report.defaultMaxRows`, `.includeSchema`, `.includeAnomalies`. Tables with 10,000+ rows are auto-deselected. XSS-safe HTML escaping throughout. Also available as a toolbar icon in the Database Explorer view.
 - **Schema Compliance Rules** — Define team-wide schema conventions in a `.drift-rules.json` config file. The extension validates the live database against naming conventions (snake_case, camelCase, PascalCase, UPPER_SNAKE for tables and columns), FK column naming patterns (`{table}_id`), required columns (with optional type enforcement and per-table exclusions), and four built-in structural rules: `no-text-primary-key`, `require-pk`, `max-columns`, `no-nullable-fk`. Violations appear as VS Code diagnostics on Dart table class files with severity overrides. Quick-fix actions to disable individual rules or open the config file. JSON Schema provides autocomplete and validation for `.drift-rules.json`. File watcher auto-refreshes diagnostics on config changes. Toggle via `driftViewer.diagnostics.categories.compliance`.
 
 ### Maintenance
@@ -38,7 +29,7 @@ Export your database as a shareable, self-contained HTML report — open it in a
 
 ---
 
-## [1.3.3]
+## [1.3.4]
 
 Implemented a master switch to turn the extension off, and an “Add package to project” flow.
 
